@@ -191,9 +191,9 @@ router.post('/:id/test', async (req, res) => {
 
       res.json({
         success: true,
-        message: 'API test successful',
+        provider: result.provider,
+        model: result.model,
         imageUrl: result.imageUrl,
-        responseTime: Date.now() - config.lastTested.getTime(),
       });
     } catch (testError) {
       // Update test status
