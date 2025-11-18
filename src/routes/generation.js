@@ -1,25 +1,37 @@
 import express from 'express';
 import { generateImage } from '../services/aiService.js';
+import Template from '../models/Template.js';
 
 const router = express.Router();
 
 router.post('/generate', async (req, res) => {
   try {
-    const { prompt, templateId, uploadedImages, quality, aspectRatio, creativity, detailLevel, negativePrompt } = req.body;
+    const { prompt, userPrompt, faceImageUrl, provider, templateId, uploadedImages, quality, aspectRatio, creativity, detailLevel, negativePrompt } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
     const generationId = `gen_${Date.now()}`;
+    let mergedPrompt = prompt;
+    if (templateId) {
+      try {
+        const t = await Template.findById(templateId).maxTimeMS(3000);
+        if (t) {
+          mergedPrompt = [t.hiddenPrompt || '', t.visiblePrompt || '', userPrompt || prompt || ''].filter(Boolean).join(', ').trim();
+        }
+      } catch (e) { /* ignore merge errors */ }
+    }
     
     try {
-      const result = await generateImage(prompt, {
+      const result = await generateImage(mergedPrompt, {
         negativePrompt,
         quality: quality || 'HD',
         aspectRatio: aspectRatio || '1:1',
         uploadedImages: uploadedImages || [],
         templateId: templateId || null,
+        faceImageUrl: faceImageUrl || '',
+        provider: provider || (faceImageUrl ? 'minimax_i2i' : undefined),
       });
 
       const pointsSpent = quality === 'UHD' || quality === '4K' || quality === '8K' ? 30 : 
@@ -30,7 +42,7 @@ router.post('/generate', async (req, res) => {
         id: generationId,
         userId: req.user?.id || 'current_user',
         templateId: templateId || null,
-        prompt,
+        prompt: mergedPrompt,
         uploadedImages: uploadedImages || [],
         generatedImage: result.imageUrl,
         quality: quality || 'HD',
@@ -42,7 +54,7 @@ router.post('/generate', async (req, res) => {
         downloadCount: 0,
         shareCount: 0,
         provider: result.provider,
-        model: result.model,
+        model: result.model || (provider === 'minimax_i2i' ? 'image-01' : undefined),
       });
     } catch (aiError) {
       console.error('AI generation error:', aiError);

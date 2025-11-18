@@ -178,10 +178,12 @@ router.post('/:id/test', async (req, res) => {
     
     try {
       const { generateImage } = await import('../../services/aiService.js');
-      const result = await generateImage(testPrompt, {
-        quality: 'HD',
-        aspectRatio: '1:1',
-      });
+      const options = { quality: 'HD', aspectRatio: '1:1' };
+      if (config.provider === 'minimax_i2i') {
+        options.provider = 'minimax_i2i';
+        options.faceImageUrl = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
+      }
+      const result = await generateImage(testPrompt, options);
 
       // Update test status
       config.lastTested = new Date();

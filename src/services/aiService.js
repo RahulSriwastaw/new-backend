@@ -1,5 +1,5 @@
 import AIConfig from '../models/AIConfig.js';
-import { uploadGeneratedImage } from '../config/cloudinary.js';
+import { uploadGeneratedImage, uploadUserImage } from '../config/cloudinary.js';
 
 export async function getActiveAIConfig() {
   try {
@@ -20,6 +20,9 @@ export async function generateImage(prompt, options = {}) {
     aspectRatio = '1:1',
     uploadedImages = [],
     templateId = null,
+    faceImageUrl = '',
+    provider: forcedProvider,
+    strength,
   } = options;
 
   try {
@@ -27,7 +30,8 @@ export async function generateImage(prompt, options = {}) {
 
     let generatedImageUrl;
 
-    switch (config.provider) {
+    const providerToUse = forcedProvider || config.provider;
+    switch (providerToUse) {
       case 'openai':
       case 'dalle':
         generatedImageUrl = await generateWithOpenAI(config, prompt, negativePrompt, quality, aspectRatio);
@@ -44,6 +48,9 @@ export async function generateImage(prompt, options = {}) {
       case 'minimax':
         generatedImageUrl = await generateWithMiniMax(config, prompt, negativePrompt, quality, aspectRatio);
         break;
+      case 'minimax_i2i':
+        generatedImageUrl = await generateWithMiniMaxI2I(config, prompt, negativePrompt, faceImageUrl, strength);
+        break;
       
       case 'custom':
         generatedImageUrl = await generateWithCustomAPI(config, prompt, negativePrompt, quality, aspectRatio);
@@ -58,7 +65,7 @@ export async function generateImage(prompt, options = {}) {
     return {
       imageUrl: cloudinaryResult.secure_url,
       publicId: cloudinaryResult.public_id,
-      provider: config.provider,
+      provider: providerToUse,
       model: config.name,
     };
   } catch (error) {
@@ -258,6 +265,62 @@ async function generateWithMiniMax(config, prompt, negativePrompt, quality, aspe
     return text;
   }
   throw new Error(text || 'MiniMax response format not recognized');
+}
+
+async function generateWithMiniMaxI2I(config, prompt, negativePrompt, faceImageUrl, strengthOverride) {
+  const { apiKey, endpoint = 'https://api.minimax.chat/v1/image/i2i' } = config;
+  const strength = typeof strengthOverride === 'number' ? strengthOverride : (config.strength ?? 0.6);
+
+  let referenceUrl = faceImageUrl || '';
+  if (!referenceUrl) {
+    throw new Error('faceImageUrl is required for MiniMax I2I');
+  }
+  if (!referenceUrl.startsWith('http')) {
+    const uploaded = await uploadUserImage(referenceUrl, 'i2i/reference');
+    referenceUrl = uploaded.secure_url;
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+      image_url: referenceUrl,
+      size: '1024x1024',
+      strength,
+      model: 'image-01',
+      negative_prompt: negativePrompt || '',
+    }),
+  });
+
+  if (!response.ok) {
+    let errorText = '';
+    try { const errJson = await response.json(); errorText = errJson.error?.message || errJson.message || ''; }
+    catch { try { errorText = await response.text(); } catch { /* ignore */ } }
+    throw new Error(errorText || 'MiniMax I2I API error');
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    const url = data.image_url || data.url || data.data?.image_url || data.data?.url;
+    if (!url) throw new Error('MiniMax I2I JSON response missing image url');
+    const uploaded = await uploadGeneratedImage(url, 'generated-images/i2i');
+    return uploaded.secure_url;
+  }
+  if (contentType.startsWith('image/') || contentType.includes('octet-stream')) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mime = contentType.startsWith('image/') ? contentType : 'image/png';
+    const dataUrl = `data:${mime};base64,${buffer.toString('base64')}`;
+    const uploaded = await uploadGeneratedImage(dataUrl, 'generated-images/i2i');
+    return uploaded.secure_url;
+  }
+  const text = await response.text().catch(() => '');
+  throw new Error(text || 'MiniMax I2I response format not recognized');
 }
 
 async function generateWithCustomAPI(config, prompt, negativePrompt, quality, aspectRatio) {
