@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const aiConfigSchema = new mongoose.Schema({
   provider: {
     type: String,
-    enum: ['openai', 'stability', 'google_gemini', 'minimax', 'dalle', 'custom'],
+    enum: ['openai', 'stability', 'google_gemini', 'minimax', 'minimax_i2i', 'dalle', 'custom', 'quick_tools'],
     required: true,
   },
   name: {
@@ -32,6 +32,10 @@ const aiConfigSchema = new mongoose.Schema({
   },
   modelVersion: {
     type: String,
+  },
+  strength: {
+    type: Number,
+    default: 0.6,
   },
   settings: {
     type: mongoose.Schema.Types.Mixed,

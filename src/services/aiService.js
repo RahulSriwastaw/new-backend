@@ -60,7 +60,10 @@ export async function generateImage(prompt, options = {}) {
         throw new Error(`Unsupported AI provider: ${config.provider}`);
     }
 
-    const cloudinaryResult = await uploadGeneratedImage(generatedImageUrl, 'generated-images');
+    const alreadyHostedOnCloudinary = typeof generatedImageUrl === 'string' && /https?:\/\/res\.cloudinary\.com\//i.test(generatedImageUrl);
+    const cloudinaryResult = alreadyHostedOnCloudinary
+      ? { secure_url: generatedImageUrl, public_id: null }
+      : await uploadGeneratedImage(generatedImageUrl, 'generated-images');
     
     return {
       imageUrl: cloudinaryResult.secure_url,
@@ -298,7 +301,13 @@ async function generateWithMiniMaxI2I(config, prompt, negativePrompt, faceImageU
     }
 
     const form = new FormData();
-    form.append('file', new Blob([buffer], { type: mime }), 'reference.png');
+    if (typeof File !== 'undefined') {
+      const fileObj = new File([buffer], 'reference.png', { type: mime });
+      form.append('file', fileObj);
+    } else {
+      const blob = new Blob([buffer], { type: mime });
+      form.append('file', blob, 'reference.png');
+    }
     form.append('prompt', prompt);
     form.append('size', '1024x1024');
     form.append('strength', String(strength));
@@ -342,7 +351,23 @@ async function generateWithMiniMaxI2I(config, prompt, negativePrompt, faceImageU
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   if (contentType.includes('application/json')) {
     const data = await response.json();
-    const url = data.image_url || data.url || data.data?.image_url || data.data?.url;
+    let url = data.image_url || data.url || data.data?.image_url || data.data?.url;
+    if (!url) {
+      const candidates = [];
+      const scan = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        for (const k of Object.keys(obj)) {
+          const v = obj[k];
+          if (typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('data:image'))) {
+            candidates.push(v);
+          } else if (typeof v === 'object') {
+            scan(v);
+          }
+        }
+      };
+      scan(data);
+      url = candidates[0];
+    }
     if (!url) throw new Error('MiniMax I2I JSON response missing image url');
     const uploaded = await uploadGeneratedImage(url, 'generated-images/i2i');
     return uploaded.secure_url;
