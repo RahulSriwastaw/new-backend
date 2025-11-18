@@ -17,6 +17,7 @@ import authRoutes from './routes/auth.js';
 import walletRoutes from './routes/wallet.js';
 import creatorRoutes from './routes/creator.js';
 import adminRoutes from './routes/admin.js';
+import toolsRoutes from './routes/tools.js';
 
 dotenv.config();
 
@@ -121,6 +122,7 @@ try {
   app.use('/api/wallet', walletRoutes);
   app.use('/api/creator', creatorRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/tools', toolsRoutes);
   console.log('✅ All API routes mounted successfully');
 } catch (error) {
   console.error('❌ Error mounting routes:', error.message);
