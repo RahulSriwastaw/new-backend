@@ -233,12 +233,31 @@ async function generateWithMiniMax(config, prompt, negativePrompt, quality, aspe
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'MiniMax API error');
+    let errorText = '';
+    try {
+      const errJson = await response.json();
+      errorText = errJson.error?.message || errJson.message || '';
+    } catch {
+      try { errorText = await response.text(); } catch { /* ignore */ }
+    }
+    throw new Error(errorText || 'MiniMax API error');
   }
 
-  const data = await response.json();
-  return data.image_url || data.data?.image_url;
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    return data.image_url || data.data?.image_url || data.url;
+  }
+  if (contentType.startsWith('image/') || contentType.includes('octet-stream')) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const mime = contentType.startsWith('image/') ? contentType : 'image/png';
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  }
+  const text = await response.text().catch(() => '');
+  if (text.startsWith('http://') || text.startsWith('https://') || text.startsWith('data:image')) {
+    return text;
+  }
+  throw new Error(text || 'MiniMax response format not recognized');
 }
 
 async function generateWithCustomAPI(config, prompt, negativePrompt, quality, aspectRatio) {
