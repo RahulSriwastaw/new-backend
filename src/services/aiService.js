@@ -280,22 +280,57 @@ async function generateWithMiniMaxI2I(config, prompt, negativePrompt, faceImageU
     referenceUrl = uploaded.secure_url;
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      image_url: referenceUrl,
-      size: '1024x1024',
-      strength,
-      model: 'image-01',
-      negative_prompt: negativePrompt || '',
-    }),
-  });
+  const useMultipart = /minimax\.io/i.test(endpoint) || /image_generation/i.test(endpoint);
+
+  let response;
+  if (useMultipart) {
+    const isDataUrl = referenceUrl.startsWith('data:');
+    let buffer;
+    let mime = 'image/png';
+    if (isDataUrl) {
+      const [, meta, b64] = referenceUrl.match(/^data:(.*?);base64,(.+)$/) || [];
+      if (meta) mime = meta;
+      buffer = Buffer.from(b64, 'base64');
+    } else {
+      const imgRes = await fetch(referenceUrl);
+      mime = (imgRes.headers.get('content-type') || 'image/png').toLowerCase();
+      buffer = Buffer.from(await imgRes.arrayBuffer());
+    }
+
+    const form = new FormData();
+    form.append('file', new Blob([buffer], { type: mime }), 'reference.png');
+    form.append('prompt', prompt);
+    form.append('size', '1024x1024');
+    form.append('strength', String(strength));
+    form.append('model', 'image-01');
+    if (negativePrompt) form.append('negative_prompt', negativePrompt);
+
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+      },
+      body: form,
+    });
+  } else {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        image_url: referenceUrl,
+        size: '1024x1024',
+        strength,
+        model: 'image-01',
+        negative_prompt: negativePrompt || '',
+      }),
+    });
+  }
 
   if (!response.ok) {
     let errorText = '';
