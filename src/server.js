@@ -5,32 +5,75 @@
  * Go to: https://cloud.mongodb.com → Network Access → Add IP Address → Allow Access from Anywhere
  */
 
+// Add immediate console output to verify script is running
+console.log('🚀 Starting Rupantar AI Backend...');
+console.log('📍 Node version:', process.version);
+console.log('📍 Environment:', process.env.NODE_ENV || 'development');
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import connectDB from './config/database.js';
-import paymentRoutes from './routes/payment.js';
-import templateRoutes from './routes/templates.js';
-import generationRoutes from './routes/generation.js';
-import authRoutes from './routes/auth.js';
-import walletRoutes from './routes/wallet.js';
-import creatorRoutes from './routes/creator.js';
-import adminRoutes from './routes/admin.js';
-import toolsRoutes from './routes/tools.js';
 
-// Security & Config imports
-import { limiter, corsOptions, helmetConfig } from './config/security.js';
-import logger from './config/logger.js';
-import { validateEnv } from './middleware/validateEnv.js';
+console.log('✅ Core modules imported');
 
 dotenv.config();
+console.log('✅ dotenv configured');
 
-// Validate Environment Variables
-validateEnv();
+// Import with error handling
+let connectDB, paymentRoutes, templateRoutes, generationRoutes, authRoutes, walletRoutes, creatorRoutes, adminRoutes, toolsRoutes;
+let limiter, corsOptions, helmetConfig, logger, validateEnv;
+
+try {
+  console.log('📦 Importing database config...');
+  const dbModule = await import('./config/database.js');
+  connectDB = dbModule.default;
+  console.log('✅ Database config imported');
+
+  console.log('📦 Importing routes...');
+  paymentRoutes = (await import('./routes/payment.js')).default;
+  templateRoutes = (await import('./routes/templates.js')).default;
+  generationRoutes = (await import('./routes/generation.js')).default;
+  authRoutes = (await import('./routes/auth.js')).default;
+  walletRoutes = (await import('./routes/wallet.js')).default;
+  creatorRoutes = (await import('./routes/creator.js')).default;
+  adminRoutes = (await import('./routes/admin.js')).default;
+  toolsRoutes = (await import('./routes/tools.js')).default;
+  console.log('✅ All routes imported');
+
+  console.log('📦 Importing security config...');
+  const securityModule = await import('./config/security.js');
+  limiter = securityModule.limiter;
+  corsOptions = securityModule.corsOptions;
+  helmetConfig = securityModule.helmetConfig;
+  console.log('✅ Security config imported');
+
+  console.log('📦 Importing logger...');
+  logger = (await import('./config/logger.js')).default;
+  console.log('✅ Logger imported');
+
+  console.log('📦 Importing validation middleware...');
+  const validateModule = await import('./middleware/validateEnv.js');
+  validateEnv = validateModule.validateEnv;
+  console.log('✅ Validation middleware imported');
+
+} catch (importError) {
+  console.error('❌ FATAL: Failed to import modules:', importError);
+  console.error('Stack:', importError.stack);
+  process.exit(1);
+}
+
+console.log('🔍 Validating environment variables...');
+try {
+  validateEnv();
+  console.log('✅ Environment validation complete');
+} catch (envError) {
+  console.error('⚠️  Environment validation had warnings:', envError.message);
+}
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || process.env.PORT || 8080;
+console.log(`📍 Server will listen on port: ${PORT}`);
 
 // ============================================
 // MIDDLEWARE (Order matters!)
