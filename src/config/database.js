@@ -18,14 +18,12 @@ if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI environment variable is not set!');
   console.error('💡 Please set MONGODB_URI in Railway Dashboard → Variables');
   console.error('💡 Format: mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority');
-  // Use fallback for development (DO NOT use in production - set MONGODB_URI in Railway)
-  MONGODB_URI = 'mongodb+srv://rupantranai_db_user:auC2C5rXl4nNleWd@cluster0.skr2l3f.mongodb.net/rupantar_ai?retryWrites=true&w=majority';
-  console.warn('⚠️  Using fallback connection string (may not work in production)');
-  console.warn('⚠️  Set MONGODB_URI in Railway Dashboard → Variables');
+  console.warn('⚠️  Server will start but database features will be disabled until MONGODB_URI is configured');
+  console.warn('⚠️  Health checks will still pass - configure MONGODB_URI for full functionality');
 } else {
   // Trim whitespace
   MONGODB_URI = MONGODB_URI.trim();
-  
+
   // Validate format
   if (!MONGODB_URI.startsWith('mongodb://') && !MONGODB_URI.startsWith('mongodb+srv://')) {
     console.error('❌ Invalid MONGODB_URI format!');
@@ -48,6 +46,13 @@ mongoose.set('bufferCommands', false);
 mongoose.set('strictQuery', false);
 
 export const connectDB = async (retries = 3, delay = 5000) => {
+  // If no MONGODB_URI is set, don't attempt connection
+  if (!MONGODB_URI) {
+    console.warn('⚠️  Skipping MongoDB connection - MONGODB_URI not configured');
+    console.warn('⚠️  Server will run in limited mode without database access');
+    return null;
+  }
+
   if (isConnected && mongoose.connection.readyState === 1) {
     console.log('✅ MongoDB already connected');
     return mongoose.connection;
@@ -56,18 +61,18 @@ export const connectDB = async (retries = 3, delay = 5000) => {
   for (let i = 0; i < retries; i++) {
     try {
       console.log(`Attempting to connect to MongoDB (attempt ${i + 1}/${retries})...`);
-      
+
       const conn = await mongoose.connect(MONGODB_URI, {
         retryWrites: true,
         w: 'majority',
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
       });
-      
+
       isConnected = true;
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       console.log(`✅ Database: ${conn.connection.name}`);
-      
+
       // Handle connection events
       mongoose.connection.on('error', (err) => {
         console.error('MongoDB connection error:', err);
@@ -95,7 +100,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
     } catch (error) {
       const errorMsg = error.message || 'Unknown error';
       console.error(`❌ MongoDB connection attempt ${i + 1} failed:`, errorMsg);
-      
+
       // Provide specific error messages
       if (errorMsg.includes('Invalid scheme') || errorMsg.includes('expected connection string')) {
         console.error('🔗 Connection String Format Error:');
@@ -112,7 +117,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
         console.error('🌐 IP Whitelist Error:');
         console.error('   - Add 0.0.0.0/0 in MongoDB Atlas → Network Access');
       }
-      
+
       if (i < retries - 1) {
         console.log(`⏳ Retrying in ${delay / 1000} seconds...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -123,6 +128,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
         console.error('   2. MongoDB connection string in Railway variables (MONGODB_URI)');
         console.error('   3. Database user credentials (username/password)');
         console.error('   4. Internet connection');
+        console.warn('⚠️  Server will continue running in limited mode');
         isConnected = false;
         return null;
       }
@@ -132,7 +138,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
 
 export const disconnectDB = async () => {
   if (!isConnected) return;
-  
+
   try {
     await mongoose.disconnect();
     isConnected = false;
@@ -143,4 +149,3 @@ export const disconnectDB = async () => {
 };
 
 export default connectDB;
-
