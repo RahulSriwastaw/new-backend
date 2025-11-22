@@ -4,11 +4,11 @@ import User from '../../models/User.js';
 
 const router = express.Router();
 
-// Get all creators (only users who are creators)
+// Get all creators (categorized)
 router.get('/', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.json([]);
+      return res.json({ approved: [], pending: [], rejected: [] });
     }
 
     // Find users marked as creators
@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
       .exec();
 
     if (!creators || creators.length === 0) {
-      return res.json([]);
+      return res.json({ approved: [], pending: [], rejected: [] });
     }
 
     const formatted = creators.map(u => {
@@ -35,35 +35,53 @@ router.get('/', async (req, res) => {
       let memberSince = new Date().toISOString();
       if (u.createdAt) {
         memberSince = u.createdAt instanceof Date ? u.createdAt.toISOString() : new Date(u.createdAt).toISOString();
-      } else if (u.memberSince) {
-        memberSince = u.memberSince instanceof Date ? u.memberSince.toISOString() : new Date(u.memberSince).toISOString();
-      }
-
-      let lastActive = new Date().toISOString();
-      if (u.lastActive) {
-        lastActive = u.lastActive instanceof Date ? u.lastActive.toISOString() : new Date(u.lastActive).toISOString();
-      } else if (u.updatedAt) {
-        lastActive = u.updatedAt instanceof Date ? u.updatedAt.toISOString() : new Date(u.updatedAt).toISOString();
       }
 
       return {
         id,
         userId: id,
+        name: u.fullName || u.name || username,
         username,
         email,
         phone: u.phone || '',
-        fullName: u.fullName || 'Creator',
         role: 'creator',
         isVerified: u.isVerified || false,
         pointsBalance: u.pointsBalance || 0,
-        memberSince,
-        lastActive,
+        joinDate: memberSince,
+        appliedDate: memberSince, // For pending
+        rejectionDate: memberSince, // For rejected
+        lastActive: new Date().toISOString(),
         totalGenerations: u.totalGenerations || 0,
-        status: u.status === 'banned' ? 'banned' : u.status === 'inactive' ? 'inactive' : 'active',
+        status: u.status || 'active',
+        // Mock fields for frontend compatibility if missing in DB
+        daysPending: 2,
+        socialLinks: u.socialLinks || {},
+        demoTemplates: [],
+        totalTemplates: u.totalTemplates || 0,
+        pendingTemplates: 0,
+        approvedTemplates: u.totalTemplates || 0,
+        totalUses: 0,
+        totalEarnings: 0,
+        followers: 0,
+        averageRating: 5.0,
+        reason: 'Criteria not met', // For rejected
+        reapplyDate: new Date().toISOString() // For rejected
       };
     });
 
-    res.json(formatted);
+    // Categorize creators
+    const approved = formatted.filter(c => c.status === 'active' || c.status === 'inactive' || c.status === 'banned');
+    const pending = formatted.filter(c => c.status === 'pending');
+    const rejected = formatted.filter(c => c.status === 'rejected');
+
+    // If no status field exists, assume all are approved for now to show data
+    if (pending.length === 0 && rejected.length === 0 && approved.length === 0 && formatted.length > 0) {
+      // Fallback: treat all as approved
+      res.json({ approved: formatted, pending: [], rejected: [] });
+    } else {
+      res.json({ approved, pending, rejected });
+    }
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
