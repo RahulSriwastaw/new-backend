@@ -23,9 +23,9 @@ const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
 
 // Pricing packages (TODO: Move to database or config)
 const PACKAGES = {
-  'basic': { amount: 499, points: 500, currency: 'INR' },
-  'pro': { amount: 999, points: 1200, currency: 'INR' },
-  'ultra': { amount: 1999, points: 2500, currency: 'INR' }
+  'mini': { price: 800, points: 500, name: 'Mini Plan' }, // ~$9.99
+  'pro': { price: 2000, points: 1500, name: 'Pro Plan' }, // ~$24.99
+  'ultimate': { price: 4000, points: 5000, name: 'Ultimate Plan' } // ~$49.99
 };
 
 router.use(verifyToken);
@@ -43,8 +43,8 @@ router.post('/create-order', async (req, res) => {
       if (!razorpay) return res.status(503).json({ error: 'Razorpay not configured' });
 
       const order = await razorpay.orders.create({
-        amount: pkg.amount * 100, // Amount in paise
-        currency: pkg.currency,
+        amount: pkg.price * 100, // Amount in paise
+        currency: 'INR',
         receipt: `rcpt_${Date.now()}_${req.user.id.substr(-4)}`,
         notes: {
           userId: req.user.id,
@@ -55,8 +55,8 @@ router.post('/create-order', async (req, res) => {
 
       res.json({
         orderId: order.id,
-        amount: pkg.amount,
-        currency: pkg.currency,
+        amount: pkg.price,
+        currency: 'INR',
         key: process.env.RAZORPAY_KEY_ID
       });
 
@@ -64,8 +64,8 @@ router.post('/create-order', async (req, res) => {
       if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
 
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: pkg.amount * 100, // Amount in cents
-        currency: 'inr', // Stripe supports INR
+        amount: pkg.price * 100, // Amount in cents
+        currency: 'inr',
         metadata: {
           userId: req.user.id,
           packageId: packageId,
@@ -127,14 +127,14 @@ router.post('/verify-razorpay', async (req, res) => {
     const transaction = new Transaction({
       userId,
       type: 'purchase',
-      amount: pkg.amount,
+      amount: pkg.price,
       points: pkg.points,
       paymentMethod: 'razorpay',
       gateway: 'razorpay',
       gatewayTransactionId: razorpay_payment_id,
       status: 'success',
       packageId: packageId,
-      description: `Purchased ${packageId} package`,
+      description: `Purchased ${pkg.name}`,
     });
 
     await transaction.save({ session });
@@ -161,4 +161,3 @@ router.post('/verify-razorpay', async (req, res) => {
 });
 
 export default router;
-
