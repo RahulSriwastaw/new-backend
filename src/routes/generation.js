@@ -200,7 +200,8 @@ router.get('/:id', async (req, res) => {
     res.json(generation);
   } catch (error) {
     res.status(500).json({ error: error.message });
-  });
+  }
+});
 
 // Toggle favorite status
 router.patch('/:id/favorite', async (req, res) => {
