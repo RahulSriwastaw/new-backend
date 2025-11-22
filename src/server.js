@@ -88,6 +88,9 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' })); // Reduced from 10mb for security
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
+// Handle OPTIONS requests for CORS preflight
+app.options('*', cors(corsOptions));
+
 // Request logging middleware
 app.use((req, res, next) => {
   logger.info(`📥 ${req.method} ${req.path}`);
