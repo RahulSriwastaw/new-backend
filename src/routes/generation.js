@@ -200,8 +200,58 @@ router.get('/:id', async (req, res) => {
     res.json(generation);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  });
+
+// Toggle favorite status
+router.patch('/:id/favorite', async (req, res) => {
+  try {
+    const generation = await Generation.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!generation) {
+      return res.status(404).json({ error: 'Generation not found' });
+    }
+
+    generation.isFavorite = !generation.isFavorite;
+    await generation.save();
+
+    res.json({
+      success: true,
+      isFavorite: generation.isFavorite,
+      generation
+    });
+  } catch (error) {
+    logger.error('Toggle favorite error:', { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete generation
+router.delete('/:id', async (req, res) => {
+  try {
+    const generation = await Generation.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!generation) {
+      return res.status(404).json({ error: 'Generation not found' });
+    }
+
+    logger.info(`Generation ${req.params.id} deleted by user ${req.user.id}`);
+
+    res.json({
+      success: true,
+      message: 'Generation deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Delete generation error:', { error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
 export default router;
+
 
