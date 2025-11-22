@@ -54,10 +54,10 @@ const transactionSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-transactionSchema.index({ userId: 1 });
-transactionSchema.index({ type: 1 });
-transactionSchema.index({ status: 1 });
-transactionSchema.index({ createdAt: -1 });
+transactionSchema.index({ userId: 1, createdAt: -1 }); // User history
+transactionSchema.index({ userId: 1, type: 1 }); // User filter by type
+transactionSchema.index({ status: 1, createdAt: -1 }); // Admin dashboard
+transactionSchema.index({ type: 1, createdAt: -1 }); // Analytics
 
 export default mongoose.model('Transaction', transactionSchema);
 

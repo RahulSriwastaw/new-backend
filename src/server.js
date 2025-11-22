@@ -19,29 +19,35 @@ import creatorRoutes from './routes/creator.js';
 import adminRoutes from './routes/admin.js';
 import toolsRoutes from './routes/tools.js';
 
+// Security & Config imports
+import { limiter, corsOptions, helmetConfig } from './config/security.js';
+import logger from './config/logger.js';
+import { validateEnv } from './middleware/validateEnv.js';
+
 dotenv.config();
 
+// Validate Environment Variables
+validateEnv();
+
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.BACKEND_PORT || process.env.PORT || 8080;
 
 // ============================================
 // MIDDLEWARE (Order matters!)
 // ============================================
 
-// CORS - Allow all origins for development and Vercel deployments
-app.use(cors({ 
-  origin: true, 
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
+// Security Middleware
+app.use(helmetConfig);
+app.use(limiter);
+app.use(cors(corsOptions));
 
 // Body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.json({ limit: '1mb' })); // Reduced from 10mb for security
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  logger.info(`📥 ${req.method} ${req.path}`);
   next();
 });
 
@@ -57,9 +63,9 @@ app.get('/', (req, res) => {
 // Health check endpoint (fast response for Railway)
 app.get('/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-  res.status(200).json({ 
-    status: 'ok', 
-    message: 'Backend is running', 
+  res.status(200).json({
+    status: 'ok',
+    message: 'Backend is running',
     database: dbStatus,
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
@@ -69,8 +75,8 @@ app.get('/health', (req, res) => {
 
 // Simple API test route (responds immediately)
 app.get('/api', (req, res) => {
-  res.status(200).json({ 
-    message: 'API is working', 
+  res.status(200).json({
+    message: 'API is working',
     status: 'ok',
     timestamp: new Date().toISOString()
   });
@@ -93,19 +99,20 @@ app.get('/api/test-connections', async (req, res) => {
       cloudinary: {
         status: 'configured',
         accounts: {
-          user: process.env.CLOUDINARY_USER_CLOUD_NAME || 'dno47zdrh',
-          creator: process.env.CLOUDINARY_CREATOR_CLOUD_NAME || 'dmbrs338o',
-          generated: process.env.CLOUDINARY_GENERATED_CLOUD_NAME || 'dkeigiajt',
+          user: process.env.CLOUDINARY_USER_CLOUD_NAME ? 'configured' : 'missing',
+          creator: process.env.CLOUDINARY_CREATOR_CLOUD_NAME ? 'configured' : 'missing',
+          generated: process.env.CLOUDINARY_GENERATED_CLOUD_NAME ? 'configured' : 'missing',
         }
       },
       firebase: {
         status: 'configured',
-        projectId: process.env.FIREBASE_PROJECT_ID || 'rupantra-ai',
+        projectId: process.env.FIREBASE_PROJECT_ID ? 'configured' : 'missing',
       }
     };
-    
+
     res.json(results);
   } catch (error) {
+    logger.error('Failed to check connections', { error: error.message });
     res.status(500).json({ error: 'Failed to check connections', message: error.message });
   }
 });
@@ -115,18 +122,26 @@ app.get('/api/test-connections', async (req, res) => {
 // ============================================
 
 try {
-  app.use('/api/auth', authRoutes);
-  app.use('/api/payment', paymentRoutes);
-  app.use('/api/templates', templateRoutes);
-  app.use('/api/generation', generationRoutes);
-  app.use('/api/wallet', walletRoutes);
-  app.use('/api/creator', creatorRoutes);
-  app.use('/api/admin', adminRoutes);
-  app.use('/api/tools', toolsRoutes);
-  console.log('✅ All API routes mounted successfully');
+  const apiV1 = express.Router();
+
+  apiV1.use('/auth', authRoutes);
+  apiV1.use('/payment', paymentRoutes);
+  apiV1.use('/templates', templateRoutes);
+  apiV1.use('/generation', generationRoutes);
+  apiV1.use('/wallet', walletRoutes);
+  apiV1.use('/creator', creatorRoutes);
+  apiV1.use('/admin', adminRoutes);
+  apiV1.use('/tools', toolsRoutes);
+
+  // Mount v1 router
+  app.use('/api/v1', apiV1);
+
+  // Backward compatibility (optional, can be removed later)
+  app.use('/api', apiV1);
+
+  logger.info('✅ All API routes mounted successfully at /api/v1');
 } catch (error) {
-  console.error('❌ Error mounting routes:', error.message);
-  console.error('Stack:', error.stack);
+  logger.error('❌ Error mounting routes:', { error: error.message, stack: error.stack });
 }
 
 // Debug: List all registered routes (development only)
@@ -154,39 +169,27 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// ============================================
-// ERROR HANDLING
-// ============================================
-
 // 404 handler (must be after all routes)
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', path: req.path });
 });
 
 // Error handling middleware (must be last)
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({ 
-    error: err.message || 'Something went wrong!',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+import { errorHandler } from './middleware/errorHandler.js';
+app.use(errorHandler);
 
 // ============================================
 // PROCESS ERROR HANDLERS
 // ============================================
 
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  console.error('Stack:', error.stack);
-  console.warn('⚠️  Server will continue running despite uncaught exception');
+  logger.error('❌ Uncaught Exception:', { error: error.message, stack: error.stack });
+  logger.warn('⚠️  Server will continue running despite uncaught exception');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise);
-  console.error('Reason:', reason);
-  console.warn('⚠️  Server will continue running despite unhandled rejection');
+  logger.error('❌ Unhandled Rejection at:', { promise, reason });
+  logger.warn('⚠️  Server will continue running despite unhandled rejection');
 });
 
 // ============================================
@@ -195,38 +198,31 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Connect to MongoDB (non-blocking - server will start even if MongoDB fails)
 connectDB().catch((err) => {
-  console.error('⚠️  Failed to connect to MongoDB:', err.message);
-  console.error('⚠️  Server will continue but database operations may fail.');
-  console.error('⚠️  Please check:');
-  console.error('   1. MongoDB Atlas IP whitelist (add 0.0.0.0/0 for all IPs)');
-  console.error('   2. MongoDB connection string in Railway variables (MONGODB_URI)');
-  console.error('   3. Internet connection');
+  logger.error('⚠️  Failed to connect to MongoDB:', { error: err.message });
+  logger.warn('⚠️  Server will continue but database operations may fail.');
+  logger.warn('⚠️  Please check:');
+  logger.warn('   1. MongoDB Atlas IP whitelist (add 0.0.0.0/0 for all IPs)');
+  logger.warn('   2. MongoDB connection string in Railway variables (MONGODB_URI)');
+  logger.warn('   3. Internet connection');
 });
 
 // ============================================
 // START SERVER
 // ============================================
 
-console.log(`🚀 Starting server on port ${PORT}...`);
-console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`🌐 PORT from env: ${process.env.PORT || 'not set (using default 8080)'}`);
+logger.info(`🚀 Starting server on port ${PORT}...`);
+logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   const address = server.address();
-  console.log(`✅ Server Running successfully!`);
-  console.log(`✅ Port: ${PORT}`);
-  console.log(`✅ Address: ${address ? `${address.address}:${address.port}` : 'unknown'}`);
-  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
-  console.log(`✅ Root endpoint: http://0.0.0.0:${PORT}/`);
-  console.log(`✅ API endpoint: http://0.0.0.0:${PORT}/api`);
-  console.log(`✅ Server is ready to accept connections`);
-  
-  if (server.listening) {
-    console.log(`✅ Server is listening and ready`);
-  } else {
-    console.error(`❌ Server is NOT listening!`);
-  }
+  logger.info(`✅ Server Running successfully!`);
+  logger.info(`✅ Port: ${PORT}`);
+  logger.info(`✅ Address: ${address ? `${address.address}:${address.port}` : 'unknown'}`);
+  logger.info(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`✅ Health check: http://0.0.0.0:${PORT}/health`);
+  logger.info(`✅ Root endpoint: http://0.0.0.0:${PORT}/`);
+  logger.info(`✅ API endpoint: http://0.0.0.0:${PORT}/api`);
+  logger.info(`✅ Server is ready to accept connections`);
 });
 
 // Ensure server stays alive
@@ -235,17 +231,17 @@ server.headersTimeout = 66000;
 
 // Server error handler
 server.on('error', (error) => {
-  console.error('❌ Server error:', error);
+  logger.error('❌ Server error:', { error: error.message });
   if (error.code === 'EADDRINUSE') {
-    console.error(`⚠️  Port ${PORT} is already in use`);
+    logger.error(`⚠️  Port ${PORT} is already in use`);
   }
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  logger.info('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console.log('Server closed');
+    logger.info('Server closed');
     process.exit(0);
   });
 });

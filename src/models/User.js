@@ -88,10 +88,10 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-userSchema.index({ role: 1 });
-userSchema.index({ status: 1 });
-userSchema.index({ createdAt: -1 });
-userSchema.index({ lastActive: -1 });
+userSchema.index({ email: 1, status: 1 }); // Login check
+userSchema.index({ isCreator: 1, status: 1 }); // Creator directory
+userSchema.index({ role: 1, status: 1 }); // Admin filters
+userSchema.index({ createdAt: -1 }); // Newest users
 
 export default mongoose.model('User', userSchema);
 

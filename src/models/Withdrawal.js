@@ -51,9 +51,8 @@ const withdrawalSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-withdrawalSchema.index({ creatorId: 1 });
-withdrawalSchema.index({ status: 1 });
-withdrawalSchema.index({ createdAt: -1 });
+withdrawalSchema.index({ creatorId: 1, createdAt: -1 }); // Creator history
+withdrawalSchema.index({ status: 1, createdAt: -1 }); // Admin processing queue
 
 export default mongoose.model('Withdrawal', withdrawalSchema);
 

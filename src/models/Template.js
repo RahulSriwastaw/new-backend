@@ -105,12 +105,11 @@ const templateSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-templateSchema.index({ category: 1 });
-templateSchema.index({ creatorId: 1 });
-templateSchema.index({ status: 1 });
-templateSchema.index({ isPremium: 1 });
-templateSchema.index({ usageCount: -1 });
-templateSchema.index({ createdAt: -1 });
+templateSchema.index({ category: 1, status: 1, usageCount: -1 }); // Popular templates in category
+templateSchema.index({ creatorId: 1, status: 1 }); // Creator's public templates
+templateSchema.index({ tags: 1, status: 1 }); // Tag search
+templateSchema.index({ isPremium: 1, status: 1 }); // Premium filter
+templateSchema.index({ status: 1, createdAt: -1 }); // Newest approved templates
 
 export default mongoose.model('Template', templateSchema);
 

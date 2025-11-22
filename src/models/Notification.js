@@ -32,9 +32,8 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-notificationSchema.index({ userId: 1 });
-notificationSchema.index({ isRead: 1 });
-notificationSchema.index({ createdAt: -1 });
+notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 }); // Unread notifications
+notificationSchema.index({ userId: 1, createdAt: -1 }); // All notifications for user
 
 export default mongoose.model('Notification', notificationSchema);
 

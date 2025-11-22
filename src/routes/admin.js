@@ -11,9 +11,16 @@ import adminUploadRoutes from './admin/upload.js';
 import adminAIConfigRoutes from './admin/aiConfig.js';
 import adminDiagnosticsRoutes from './admin/diagnostics.js';
 
+import { verifyAdmin } from '../middleware/adminAuth.js';
+
 const router = express.Router();
 
+// Public admin routes (login)
 router.use('/auth', adminAuthRoutes);
+
+// Protected admin routes
+router.use(verifyAdmin);
+
 router.use('/users', adminUsersRoutes);
 router.use('/templates', adminTemplatesRoutes);
 router.use('/creators', adminCreatorsRoutes);

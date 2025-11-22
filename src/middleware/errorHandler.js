@@ -1,35 +1,74 @@
-export const errorHandler = (err, req, res, next) => {
-  console.error('========== GLOBAL ERROR HANDLER ==========');
-  console.error('Error Type:', err.constructor.name);
-  console.error('Error Name:', err.name);
-  console.error('Error Message:', err.message);
-  console.error('Request Path:', req.path);
-  console.error('Request Method:', req.method);
-  
-  if (err.code) {
-    console.error('Error Code:', err.code);
-  }
-  if (err.stack) {
-    console.error('Error Stack:', err.stack);
-  }
-  console.error('===========================================');
-  
-  if (res.headersSent) {
-    return next(err);
-  }
-  
-  const statusCode = err.statusCode || 500;
-  const errorMessage = err.message || 'Internal Server Error';
-  
-  res.status(statusCode).json({
-    error: errorMessage,
-    ...(process.env.NODE_ENV === 'development' && {
-      details: {
-        name: err.name,
-        stack: err.stack,
-        code: err.code
-      }
-    })
+import logger from '../config/logger.js';
+import AppError from '../utils/AppError.js';
+
+const handleCastErrorDB = err => {
+  const message = `Invalid ${err.path}: ${err.value}.`;
+  return new AppError(message, 400);
+};
+
+const handleDuplicateFieldsDB = err => {
+  const value = err.errmsg.match(/(["'])(\\?.)*?\1/)[0];
+  const message = `Duplicate field value: ${value}. Please use another value!`;
+  return new AppError(message, 400);
+};
+
+const handleValidationErrorDB = err => {
+  const errors = Object.values(err.errors).map(el => el.message);
+  const message = `Invalid input data. ${errors.join('. ')}`;
+  return new AppError(message, 400);
+};
+
+const handleJWTError = () => new AppError('Invalid token. Please log in again!', 401);
+
+const handleJWTExpiredError = () => new AppError('Your token has expired! Please log in again.', 401);
+
+const sendErrorDev = (err, res) => {
+  logger.error('ERROR 💥', { error: err, stack: err.stack });
+  res.status(err.statusCode).json({
+    status: err.status,
+    error: err,
+    message: err.message,
+    stack: err.stack
   });
 };
 
+const sendErrorProd = (err, res) => {
+  // Operational, trusted error: send message to client
+  if (err.isOperational) {
+    res.status(err.statusCode).json({
+      status: err.status,
+      message: err.message
+    });
+  }
+  // Programming or other unknown error: don't leak error details
+  else {
+    // 1) Log error
+    logger.error('ERROR 💥', { error: err });
+
+    // 2) Send generic message
+    res.status(500).json({
+      status: 'error',
+      message: 'Something went very wrong!'
+    });
+  }
+};
+
+export const errorHandler = (err, req, res, next) => {
+  err.statusCode = err.statusCode || 500;
+  err.status = err.status || 'error';
+
+  if (process.env.NODE_ENV === 'development') {
+    sendErrorDev(err, res);
+  } else {
+    let error = { ...err };
+    error.message = err.message;
+
+    if (err.name === 'CastError') error = handleCastErrorDB(error);
+    if (err.code === 11000) error = handleDuplicateFieldsDB(error);
+    if (err.name === 'ValidationError') error = handleValidationErrorDB(error);
+    if (err.name === 'JsonWebTokenError') error = handleJWTError();
+    if (err.name === 'TokenExpiredError') error = handleJWTExpiredError();
+
+    sendErrorProd(error, res);
+  }
+};
