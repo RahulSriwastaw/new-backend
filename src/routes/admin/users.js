@@ -19,27 +19,27 @@ router.get('/', async (req, res) => {
     console.log('Starting user query...');
     console.log('MongoDB connection state:', mongoose.connection.readyState);
     console.log('Database name:', mongoose.connection.name);
-    
+
     // First, check what collections exist and try different collection names
     try {
       const collections = await mongoose.connection.db.listCollections().toArray();
       console.log('📋 Available collections:', collections.map(c => c.name));
-      
+
       // Try different possible collection names
       const possibleCollectionNames = ['users', 'Users', 'user', 'User'];
       let foundCollection = null;
-      
+
       for (const collName of possibleCollectionNames) {
         const collection = collections.find(c => c.name.toLowerCase() === collName.toLowerCase());
         if (collection) {
           foundCollection = collection.name;
           console.log(`✅ Found collection: "${foundCollection}"`);
-          
+
           // Get count directly from collection
           try {
             const directCount = await mongoose.connection.db.collection(foundCollection).countDocuments({});
             console.log(`📊 Direct collection count from "${foundCollection}": ${directCount}`);
-            
+
             // If count > 0, get sample users
             if (directCount > 0) {
               const sampleUsers = await mongoose.connection.db.collection(foundCollection).find({}).limit(3).toArray();
@@ -55,12 +55,12 @@ router.get('/', async (req, res) => {
           break;
         }
       }
-      
+
       if (!foundCollection) {
         console.warn('⚠️  No users collection found!');
         console.warn('Available collections:', collections.map(c => c.name));
         console.warn('Trying to use "users" collection anyway...');
-        
+
         // If no users collection exists, it means no users have been created yet
         // This is normal if Firebase users haven't been synced
         console.log('💡 Tip: Use POST /api/auth/syncAllFirebaseUsers to sync Firebase users to MongoDB');
@@ -68,18 +68,18 @@ router.get('/', async (req, res) => {
     } catch (colError) {
       console.error('Error listing collections:', colError);
     }
-    
+
     // Check count using Mongoose model
     let userCount = 0;
     try {
       userCount = await User.countDocuments({}).maxTimeMS(5000);
       console.log(`📊 Mongoose model count: ${userCount}`);
-      
+
       // If count > 0 but we're not finding users, try different approaches
       if (userCount > 0) {
         console.log('⚠️  Count shows users exist, but query might be failing');
         console.log('🔍 Trying to find users with different queries...');
-        
+
         // Try 1: Simple find without any options
         try {
           const simpleFind = await User.find({}).limit(1).lean();
@@ -93,7 +93,7 @@ router.get('/', async (req, res) => {
         } catch (simpleError) {
           console.error('❌ Simple find() error:', simpleError.message);
         }
-        
+
         // Try 2: Direct MongoDB collection query without any filters
         try {
           const db = mongoose.connection.db;
@@ -109,7 +109,7 @@ router.get('/', async (req, res) => {
         } catch (directError) {
           console.error('❌ Direct MongoDB query error:', directError.message);
         }
-        
+
         // Try 3: Check if there's a filter issue by trying to get all documents
         try {
           const allDocs = await mongoose.connection.db.collection('users').countDocuments({});
@@ -122,24 +122,24 @@ router.get('/', async (req, res) => {
       console.error('Error counting users:', countError);
       // Continue anyway to try fetching
     }
-    
+
     // Now fetch users - try multiple methods
     let users = [];
-    
+
     // Method 1: Try Mongoose model query
     try {
       console.log('🔍 Attempting Mongoose User.find() query...');
       console.log('Database name:', mongoose.connection.name);
       console.log('Collection name (expected): users');
-      
+
       // First, try the simplest possible query
       users = await User.find({})
         .lean()
         .maxTimeMS(15000)
         .exec();
-      
+
       console.log(`✅ Mongoose query returned ${users ? users.length : 0} users`);
-      
+
       // If no users found, try without lean() to see if that's the issue
       if (!users || users.length === 0) {
         console.log('🔍 Trying Mongoose query without lean()...');
@@ -152,7 +152,7 @@ router.get('/', async (req, res) => {
           console.log('✅ Found users without lean(), converting to objects');
         }
       }
-      
+
       // If still no users, try with sort
       if (!users || users.length === 0) {
         console.log('🔍 Trying Mongoose query with sort...');
@@ -168,7 +168,7 @@ router.get('/', async (req, res) => {
       console.error('Error name:', queryError.name);
       console.error('Error message:', queryError.message);
       console.error('Error stack:', queryError.stack);
-      
+
       // If query fails, try a simpler query
       try {
         console.log('🔍 Trying simplest Mongoose query (no options)...');
@@ -178,11 +178,11 @@ router.get('/', async (req, res) => {
         console.error('❌ Simplest Mongoose query also failed:', simpleError);
       }
     }
-    
+
     // Method 2: If Mongoose fails, try direct MongoDB collection query with different collection names
     if (!users || users.length === 0) {
       const possibleCollectionNames = ['users', 'Users', 'user', 'User'];
-      
+
       for (const collName of possibleCollectionNames) {
         try {
           console.log(`🔍 Trying direct MongoDB collection query on "${collName}"...`);
@@ -191,7 +191,7 @@ router.get('/', async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(1000)
             .toArray();
-          
+
           if (directUsers && directUsers.length > 0) {
             console.log(`✅ Direct MongoDB query on "${collName}" returned ${directUsers.length} users`);
             // Convert to Mongoose format
@@ -206,13 +206,13 @@ router.get('/', async (req, res) => {
         }
       }
     }
-    
+
     // If count shows users but query returns empty, log warning (only if count > 0)
     if (userCount > 0 && (!users || users.length === 0)) {
       console.warn('⚠️  Count shows users exist but query returned empty array!');
       console.warn('This might indicate a query issue or collection name mismatch');
       console.warn('Trying to list collections...');
-      
+
       // Try to check collection name
       try {
         const collections = await mongoose.connection.db.listCollections().toArray();
@@ -221,36 +221,36 @@ router.get('/', async (req, res) => {
         console.error('Error listing collections:', colError);
       }
     }
-    
+
     console.log(`Found ${users ? users.length : 0} total users in database`);
-    
+
     // Log sample of user emails for debugging (only if users found)
     if (users && users.length > 0) {
-      console.log('Sample users:', users.slice(0, 3).map(u => ({ 
-        email: u.email, 
-        firebaseUid: u.firebaseUid, 
+      console.log('Sample users:', users.slice(0, 3).map(u => ({
+        email: u.email,
+        firebaseUid: u.firebaseUid,
         createdAt: u.createdAt,
-        _id: u._id 
+        _id: u._id
       })));
     } else if (userCount === 0) {
       // Only log this if count is actually 0 (collection doesn't exist or is empty)
       console.log('ℹ️  No users found in database. Collection may not exist yet.');
       console.log('💡 Tip: Users will be created automatically when they register or sync from Firebase.');
     }
-    
+
     // If no users found, return empty array
     if (!users || users.length === 0) {
       console.log('No users found in database (query returned empty)');
       return res.json([]);
     }
-    
+
     // Format users for admin panel (including Google OAuth users)
     const formattedUsers = users.map(user => {
       try {
         const email = user.email || '';
         const username = user.username || (email ? email.split('@')[0] : 'user') || 'user';
         const userId = user._id ? user._id.toString() : (user.userId || '');
-        
+
         // Handle dates properly
         let memberSince = new Date().toISOString();
         if (user.createdAt) {
@@ -258,14 +258,14 @@ router.get('/', async (req, res) => {
         } else if (user.memberSince) {
           memberSince = user.memberSince instanceof Date ? user.memberSince.toISOString() : new Date(user.memberSince).toISOString();
         }
-        
+
         let lastActive = new Date().toISOString();
         if (user.lastActive) {
           lastActive = user.lastActive instanceof Date ? user.lastActive.toISOString() : new Date(user.lastActive).toISOString();
         } else if (user.updatedAt) {
           lastActive = user.updatedAt instanceof Date ? user.updatedAt.toISOString() : new Date(user.updatedAt).toISOString();
         }
-        
+
         return {
           id: userId,
           userId: userId,
@@ -302,7 +302,7 @@ router.get('/', async (req, res) => {
         };
       }
     });
-    
+
     console.log(`Successfully fetched ${formattedUsers.length} users`);
     res.json(formattedUsers);
   } catch (error) {
@@ -312,7 +312,7 @@ router.get('/', async (req, res) => {
     if (error.stack) {
       console.error('Error stack:', error.stack);
     }
-    
+
     // More specific error messages
     let errorMessage = 'Failed to fetch users';
     if (error.name === 'MongoServerError') {
@@ -322,7 +322,7 @@ router.get('/', async (req, res) => {
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     // Return empty array instead of 500 error for better UX
     console.warn('Returning empty array due to error:', errorMessage);
     res.json([]);
@@ -333,8 +333,30 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    // Mock data
-    res.json({ id, email: 'user@example.com', fullName: 'User Name' });
+    const user = await User.findById(id).lean();
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Format user data
+    const formattedUser = {
+      id: user._id.toString(),
+      userId: user.userId || user._id.toString(),
+      username: user.username || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      fullName: user.fullName || 'User',
+      role: (user.isCreator || user.role === 'creator') ? 'creator' : 'user',
+      isVerified: user.isVerified || false,
+      pointsBalance: user.pointsBalance || 0,
+      memberSince: user.createdAt || new Date(),
+      lastActive: user.lastActive || new Date(),
+      status: user.status || 'active',
+      // Add other fields as needed
+    };
+
+    res.json(formattedUser);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -413,12 +435,12 @@ router.delete('/:id', async (req, res) => {
 router.get('/test', async (req, res) => {
   try {
     console.log('=== User Query Test ===');
-    
+
     // Check MongoDB connection
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).json({ error: 'Database not connected' });
     }
-    
+
     const results = {
       connection: {
         state: mongoose.connection.readyState,
@@ -430,7 +452,7 @@ router.get('/test', async (req, res) => {
       directCount: 0,
       sampleUsers: []
     };
-    
+
     // List all collections
     try {
       const collections = await mongoose.connection.db.listCollections().toArray();
@@ -441,21 +463,21 @@ router.get('/test', async (req, res) => {
     } catch (colError) {
       console.error('Error listing collections:', colError);
     }
-    
+
     // Mongoose count
     try {
       results.mongooseCount = await User.countDocuments({});
     } catch (countError) {
       console.error('Mongoose count error:', countError);
     }
-    
+
     // Direct MongoDB count
     try {
       results.directCount = await mongoose.connection.db.collection('users').countDocuments({});
     } catch (directCountError) {
       console.error('Direct count error:', directCountError);
     }
-    
+
     // Get sample users
     try {
       const sample = await mongoose.connection.db.collection('users').find({}).limit(3).toArray();
@@ -468,7 +490,7 @@ router.get('/test', async (req, res) => {
     } catch (sampleError) {
       console.error('Sample users error:', sampleError);
     }
-    
+
     res.json(results);
   } catch (error) {
     console.error('Test endpoint error:', error);
@@ -540,7 +562,7 @@ router.put('/:id', async (req, res) => {
     const updates = req.body || {};
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const allowed = ['fullName','email','phone','username','role','status','pointsBalance','isCreator','isVerified'];
+    const allowed = ['fullName', 'email', 'phone', 'username', 'role', 'status', 'pointsBalance', 'isCreator', 'isVerified'];
     for (const k of allowed) {
       if (updates[k] !== undefined) user[k] = updates[k];
     }

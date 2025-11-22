@@ -53,8 +53,8 @@ router.get('/', async (req, res) => {
         lastActive: new Date().toISOString(),
         totalGenerations: u.totalGenerations || 0,
         status: u.status || 'active',
-        // Mock fields for frontend compatibility if missing in DB
-        daysPending: 2,
+        // Default values for missing DB fields
+        daysPending: 0,
         socialLinks: u.socialLinks || {},
         demoTemplates: [],
         totalTemplates: u.totalTemplates || 0,
@@ -63,9 +63,9 @@ router.get('/', async (req, res) => {
         totalUses: 0,
         totalEarnings: 0,
         followers: 0,
-        averageRating: 5.0,
-        reason: 'Criteria not met', // For rejected
-        reapplyDate: new Date().toISOString() // For rejected
+        averageRating: 0,
+        reason: '',
+        reapplyDate: null
       };
     });
 
