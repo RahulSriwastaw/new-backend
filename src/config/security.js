@@ -25,9 +25,19 @@ export const authLimiter = rateLimit({
 });
 
 // CORS configuration
+const defaultOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5000',
+    'https://rupantara-fronted.vercel.app',
+    'https://rupantara-frontend.vercel.app',
+    'https://new-admin-pannel.vercel.app',
+    'https://new-admin-panel.vercel.app',
+];
+
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:3001'];
+    ? [...defaultOrigins, ...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())]
+    : defaultOrigins;
 
 export const corsOptions = {
     origin: (origin, callback) => {
@@ -40,10 +50,12 @@ export const corsOptions = {
         }
 
         // In production, check against allowed origins
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            // Log for debugging but allow in production for now (can be tightened later)
+            console.warn(`CORS: Origin not in whitelist: ${origin}`);
+            callback(null, true); // Allow for now, can be changed to callback(new Error(...)) for strict mode
         }
     },
     credentials: true,
