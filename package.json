@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "cross-env BACKEND_PORT=4000 node --watch src/server.js",
     "start": "node src/server.js",
-    "test:live": "node scripts/live-test.js"
+    "test:live": "node scripts/live-test.js",
+    "test:smoke": "sh scripts/smoke.sh"
   },
   "engines": {
     "node": ">=18"

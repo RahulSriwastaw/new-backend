@@ -126,3 +126,5 @@ router.get('/withdrawals', async (req, res) => {
   }
 });
 
+export default router;
+
