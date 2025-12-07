@@ -24,18 +24,20 @@ const app = express();
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined'));
+app.use(morgan('tiny'));
 app.use(helmetConfig);
 app.use(limiter);
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('*', cors(corsOptions), (req, res) => {
+  res.sendStatus(204);
+});
 
 app.get('/health', (req, res) => {
-  const db = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  const db = global.DB_CONNECTED ? 'connected' : 'disconnected';
   res.json({ status: 'ok', time: new Date().toISOString(), pid: process.pid, db });
 });
 
-app.get('/', (req, res) => res.json({ message: 'Rupantara AI Backend - OK' }));
+app.get('/', (req, res) => res.status(200).send('ok'));
 
 const apiV1 = express.Router();
 apiV1.use('/auth', authRoutes);
@@ -55,8 +57,8 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-const PORT = Number(process.env.PORT || process.env.BACKEND_PORT || 8080);
-const HOST = process.env.HOST || '0.0.0.0';
+const PORT = Number(process.env.PORT || 8080);
+const HOST = '0.0.0.0';
 const server = app.listen(PORT, HOST, () => {
   logger.info(`Server listening on http://${HOST}:${PORT}`);
 });

@@ -32,14 +32,14 @@ const defaultOrigins = [
 ];
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? [...defaultOrigins, ...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())]
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
     : defaultOrigins;
 
 export const corsOptions = {
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
+        if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
 
@@ -48,9 +48,9 @@ export const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
     exposedHeaders: ['Content-Length', 'X-Request-Id'],
-    optionsSuccessStatus: 200,
+    optionsSuccessStatus: 204,
     preflightContinue: false
 };
 

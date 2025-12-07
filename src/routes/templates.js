@@ -14,44 +14,21 @@ router.get('/', async (req, res) => {
     }
 
     try {
-      const templates = await Template.find({ 
+      const debugAll = String(req.query.debugAll || '').toLowerCase() === 'true';
+      if (debugAll) {
+        const allDocs = await Template.find({}).sort({ createdAt: -1 }).limit(200).lean().maxTimeMS(5000);
+        return res.json(allDocs);
+      }
+      const templates = await Template.find({
         status: 'approved',
         $or: [
           { isActive: true },
           { isActive: { $exists: false } }
         ]
-      }).sort({ createdAt: -1 }).maxTimeMS(5000);
+      }).sort({ createdAt: -1 }).limit(200).lean().maxTimeMS(5000);
       
       console.log(`Found ${templates.length} approved templates`);
-      const formattedTemplates = templates.map(t => ({
-        id: t._id.toString(),
-        title: t.title,
-        description: t.description,
-        demoImage: t.demoImage,
-        category: t.category,
-        subCategory: t.subCategory,
-        tags: t.tags,
-        creatorId: t.creatorId?.toString() || 'admin',
-        creatorName: t.creatorName,
-        creatorVerified: t.creatorVerified,
-        hiddenPrompt: t.hiddenPrompt,
-        isFree: !t.isPremium,
-        pointsCost: t.pointsCost,
-        usageCount: t.usageCount,
-        likeCount: t.likeCount,
-        saveCount: t.saveCount,
-        rating: t.rating,
-        ratingCount: t.ratingCount,
-        ageGroup: t.ageGroup,
-        state: t.state,
-        createdAt: t.createdAt,
-        status: t.status,
-        isActive: t.isActive,
-        exampleImages: t.exampleImages || [],
-        visiblePrompt: t.visiblePrompt,
-        creatorBio: t.creatorBio,
-      }));
-      return res.json(formattedTemplates);
+      return res.json(templates);
     } catch (mongoError) {
       console.warn('MongoDB query failed:', mongoError.message);
       return res.status(503).json({ error: 'Service temporarily unavailable (query failed)' });
