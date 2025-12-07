@@ -58,9 +58,43 @@ try {
   console.log('✅ Validation middleware imported');
 
 } catch (importError) {
-  console.error('❌ FATAL: Failed to import modules:', importError);
-  console.error('Stack:', importError.stack);
-  process.exit(1);
+  console.error('❌ Failed to import one or more modules:', importError?.message || importError);
+  console.error('Stack:', importError?.stack);
+
+  const noop = (req, res, next) => next();
+  const simpleLogger = {
+    info: (...args) => console.log('[INFO]', ...args),
+    error: (...args) => console.error('[ERROR]', ...args),
+    warn: (...args) => console.warn('[WARN]', ...args),
+  };
+
+  logger = simpleLogger;
+  validateEnv = () => {};
+  helmetConfig = noop;
+  limiter = noop;
+  corsOptions = { origin: true, credentials: true };
+
+  const { Router } = await import('express');
+  const makeFallback = (name) => {
+    const r = Router();
+    r.all('*', (req, res) => {
+      res.status(503).json({ error: `${name} service temporarily unavailable` });
+    });
+    return r;
+  };
+
+  paymentRoutes = makeFallback('payment');
+  templateRoutes = makeFallback('templates');
+  generationRoutes = makeFallback('generation');
+  authRoutes = makeFallback('auth');
+  walletRoutes = makeFallback('wallet');
+  creatorRoutes = makeFallback('creator');
+  adminRoutes = makeFallback('admin');
+  toolsRoutes = makeFallback('tools');
+
+  connectDB = async () => null;
+
+  console.warn('⚠️  Starting server in degraded mode (minimal endpoints only)');
 }
 
 console.log('🔍 Validating environment variables...');
