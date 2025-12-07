@@ -92,6 +92,18 @@ const server = app.listen(PORT, HOST, () => {
   }
 })();
 
+process.on('unhandledRejection', (reason) => {
+  try {
+    logger.error('Unhandled Rejection', { error: String(reason) });
+  } catch {}
+});
+
+process.on('uncaughtException', (err) => {
+  try {
+    logger.error('Uncaught Exception', { error: String(err?.message || err) });
+  } catch {}
+});
+
 const gracefulShutdown = async (signal) => {
   try {
     logger.warn(`Received ${signal}. Shutting down gracefully...`);
