@@ -1,33 +1,31 @@
 import winston from 'winston';
+import fs from 'fs';
+
+const baseFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.json()
+);
+
+const transports = [];
+
+if (process.env.NODE_ENV === 'production') {
+  transports.push(new winston.transports.Console({
+    format: winston.format.simple()
+  }));
+} else {
+  try { fs.mkdirSync('logs', { recursive: true }); } catch {}
+  transports.push(new winston.transports.File({ filename: 'logs/error.log', level: 'error' }));
+  transports.push(new winston.transports.File({ filename: 'logs/combined.log' }));
+  transports.push(new winston.transports.Console({
+    format: winston.format.combine(winston.format.colorize(), winston.format.simple())
+  }));
+}
 
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
+  format: baseFormat,
   defaultMeta: { service: 'rupantar-backend' },
-  transports: [
-    //
-    // - Write all logs with importance level of `error` or less to `error.log`
-    // - Write all logs with importance level of `info` or less to `combined.log`
-    //
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
+  transports
 });
-
-//
-// If we're not in production then log to the `console` with the format:
-// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-//
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    ),
-  }));
-}
 
 export default logger;
