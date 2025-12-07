@@ -26,13 +26,8 @@ export const authLimiter = rateLimit({
 
 // CORS configuration
 const defaultOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5000',
     'https://rupantara-fronted.vercel.app',
-    'https://rupantara-frontend.vercel.app',
     'https://new-admin-pannel.vercel.app',
-    'https://new-admin-panel.vercel.app',
     'https://new-admin-pannel-nine.vercel.app',
 ];
 
@@ -42,22 +37,14 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 export const corsOptions = {
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, Postman, or curl requests)
         if (!origin) return callback(null, true);
 
-        // In development, allow all origins
-        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+        if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
             return callback(null, true);
         }
 
-        // In production, check against allowed origins
-        if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
-            callback(null, true);
-        } else {
-            // Log for debugging but allow in production for now (can be tightened later)
-            console.warn(`CORS: Origin not in whitelist: ${origin}`);
-            callback(null, true); // Allow for now, can be changed to callback(new Error(...)) for strict mode
-        }
+        console.warn(`CORS: Origin not allowed: ${origin}`);
+        return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

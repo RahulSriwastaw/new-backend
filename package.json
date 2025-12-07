@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "cross-env BACKEND_PORT=4000 node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test:live": "node scripts/live-test.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
