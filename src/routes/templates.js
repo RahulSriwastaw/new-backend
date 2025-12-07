@@ -5,10 +5,12 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
+    if (!global.DB_CONNECTED) {
+      return res.status(503).json({ error: 'Service temporarily unavailable (DB down)' });
+    }
     const mongoose = (await import('mongoose')).default;
     if (mongoose.connection.readyState !== 1) {
-      console.warn('MongoDB not connected, returning empty array');
-      return res.json([]);
+      return res.status(503).json({ error: 'Service temporarily unavailable (DB down)' });
     }
 
     try {
@@ -52,7 +54,7 @@ router.get('/', async (req, res) => {
       return res.json(formattedTemplates);
     } catch (mongoError) {
       console.warn('MongoDB query failed:', mongoError.message);
-      return res.json([]);
+      return res.status(503).json({ error: 'Service temporarily unavailable (query failed)' });
     }
   } catch (error) {
     console.error('Error loading templates:', error);
@@ -62,9 +64,12 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    if (!global.DB_CONNECTED) {
+      return res.status(503).json({ error: 'Service temporarily unavailable (DB down)' });
+    }
     const mongoose = (await import('mongoose')).default;
     if (mongoose.connection.readyState !== 1) {
-      return res.status(404).json({ error: 'Template not found' });
+      return res.status(503).json({ error: 'Service temporarily unavailable (DB down)' });
     }
 
     try {

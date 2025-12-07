@@ -40,12 +40,13 @@ if (!MONGODB_URI) {
 }
 
 let isConnected = false;
+global.DB_CONNECTED = false;
 
 // Configure Mongoose
 mongoose.set('bufferCommands', false);
 mongoose.set('strictQuery', false);
 
-export const connectDB = async (retries = 3, delay = 5000) => {
+export const connectDB = async (retries = 5, delay = 2000) => {
   // If no MONGODB_URI is set, don't attempt connection
   if (!MONGODB_URI) {
     console.warn('⚠️  Skipping MongoDB connection - MONGODB_URI not configured');
@@ -70,6 +71,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
       });
 
       isConnected = true;
+      global.DB_CONNECTED = true;
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       console.log(`✅ Database: ${conn.connection.name}`);
 
@@ -77,11 +79,13 @@ export const connectDB = async (retries = 3, delay = 5000) => {
       mongoose.connection.on('error', (err) => {
         console.error('MongoDB connection error:', err);
         isConnected = false;
+        global.DB_CONNECTED = false;
       });
 
       mongoose.connection.on('disconnected', () => {
         console.log('⚠️  MongoDB disconnected - attempting to reconnect...');
         isConnected = false;
+        global.DB_CONNECTED = false;
         setTimeout(() => {
           if (!isConnected) {
             connectDB(1, 5000).catch(() => {
@@ -94,6 +98,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
       mongoose.connection.on('reconnected', () => {
         console.log('✅ MongoDB reconnected');
         isConnected = true;
+        global.DB_CONNECTED = true;
       });
 
       return conn;
@@ -130,6 +135,7 @@ export const connectDB = async (retries = 3, delay = 5000) => {
         console.error('   4. Internet connection');
         console.warn('⚠️  Server will continue running in limited mode');
         isConnected = false;
+        global.DB_CONNECTED = false;
         return null;
       }
     }

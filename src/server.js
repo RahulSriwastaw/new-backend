@@ -277,14 +277,25 @@ process.on('unhandledRejection', (reason, promise) => {
 // ============================================
 
 // Connect to MongoDB (non-blocking - server will start even if MongoDB fails)
-connectDB().catch((err) => {
-  logger.error('⚠️  Failed to connect to MongoDB:', { error: err.message });
-  logger.warn('⚠️  Server will continue but database operations may fail.');
-  logger.warn('⚠️  Please check:');
-  logger.warn('   1. MongoDB Atlas IP whitelist (add 0.0.0.0/0 for all IPs)');
-  logger.warn('   2. MongoDB connection string in Railway variables (MONGODB_URI)');
-  logger.warn('   3. Internet connection');
-});
+connectDB()
+  .then((conn) => {
+    if (conn && conn.connection && conn.connection.readyState === 1) {
+      global.DB_CONNECTED = true;
+      logger.info('✅ Database connected for production');
+    } else {
+      global.DB_CONNECTED = false;
+      logger.warn('⚠️  Database not connected; running in degraded mode');
+    }
+  })
+  .catch((err) => {
+    global.DB_CONNECTED = false;
+    logger.error('⚠️  Failed to connect to MongoDB:', { error: err.message });
+    logger.warn('⚠️  Server will continue but database operations may fail.');
+    logger.warn('⚠️  Please check:');
+    logger.warn('   1. MongoDB Atlas IP whitelist (add 0.0.0.0/0 for all IPs)');
+    logger.warn('   2. MongoDB connection string in Railway variables (MONGODB_URI)');
+    logger.warn('   3. Internet connection');
+  });
 
 // ============================================
 // START SERVER
