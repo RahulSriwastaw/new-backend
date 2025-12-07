@@ -33,6 +33,7 @@ const defaultOrigins = [
     'https://rupantara-frontend.vercel.app',
     'https://new-admin-pannel.vercel.app',
     'https://new-admin-panel.vercel.app',
+    'https://new-admin-pannel-nine.vercel.app',
 ];
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
