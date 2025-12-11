@@ -4,10 +4,14 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  password: { type: String, select: false },
   role: { type: String, enum: ['user', 'creator', 'admin'], default: 'user' },
   points: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'banned', 'pending'], default: 'active' },
-  joinedDate: { type: Date, default: Date.now }
+  joinedDate: { type: Date, default: Date.now },
+  followersCount: { type: Number, default: 0 },
+  likesCount: { type: Number, default: 0 },
+  usesCount: { type: Number, default: 0 }
 });
 
 // 2. Creator Application Schema
@@ -48,7 +52,9 @@ const templateSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'draft'], default: 'active' },
   useCount: { type: Number, default: 0 },
   isPremium: { type: Boolean, default: false },
-  source: { type: String, default: 'manual' }
+  source: { type: String, default: 'manual' },
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  likeCount: { type: Number, default: 0 }
 });
 
 // 6. Points Package Schema
@@ -104,6 +110,40 @@ const notificationSchema = new mongoose.Schema({
   ctaLink: String
 });
 
+// 11. Generation Schema
+const generationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Template' },
+  templateName: { type: String },
+  prompt: { type: String, required: true },
+  negativePrompt: { type: String },
+  uploadedImages: [{ type: String }],
+  generatedImage: { type: String, required: true },
+  quality: { type: String, enum: ['SD','HD','UHD','2K','4K','8K'], default: 'HD' },
+  aspectRatio: { type: String, default: '1:1' },
+  pointsSpent: { type: Number, default: 0 },
+  status: { type: String, enum: ['pending','processing','completed','failed'], default: 'completed' },
+  createdAt: { type: Date, default: Date.now },
+  isFavorite: { type: Boolean, default: false },
+  downloadCount: { type: Number, default: 0 },
+  shareCount: { type: Number, default: 0 }
+});
+
+// 12. Quick Tools Config Schema
+const toolConfigSchema = new mongoose.Schema({
+  tools: [
+    {
+      key: { type: String, required: true }, // remove-bg, upscale, face-enhance, compress, colorize, style
+      name: { type: String, required: true },
+      cost: { type: Number, default: 1 },
+      isActive: { type: Boolean, default: true },
+      provider: { type: String, default: 'System' },
+      apiKey: { type: String }
+    }
+  ],
+  updatedAt: { type: Date, default: Date.now }
+});
+
 module.exports = {
   User: mongoose.model('User', userSchema),
   CreatorApplication: mongoose.model('CreatorApplication', creatorAppSchema),
@@ -114,5 +154,7 @@ module.exports = {
   PaymentGateway: mongoose.model('PaymentGateway', gatewaySchema),
   FinanceConfig: mongoose.model('FinanceConfig', financeConfigSchema),
   Admin: mongoose.model('Admin', adminSchema),
-  Notification: mongoose.model('Notification', notificationSchema)
+  Notification: mongoose.model('Notification', notificationSchema),
+  Generation: mongoose.model('Generation', generationSchema),
+  ToolConfig: mongoose.model('ToolConfig', toolConfigSchema)
 };

@@ -8,24 +8,69 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { 
   User, CreatorApplication, Transaction, AIModel, Template, 
-  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification 
+  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig 
 } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+// Simple in-memory recent logs buffer (last 100 entries)
+const recentLogs = [];
 
 // --- Middleware ---
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5000',
+  'http://localhost:5001',
+  'http://localhost:5002',
+  ...envOrigins.map(o => o.replace(/`/g, '').trim()),
+];
 app.use(cors({
-  origin: '*', // Allow all origins for connectivity
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    else callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    req.url = req.url.replace('/api/v1/', '/api/');
+  }
+  next();
+});
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    recentLogs.push({
+      ts: new Date().toISOString(),
+      method: req.method,
+      path: req.originalUrl || req.url,
+      status: res.statusCode,
+      ms: Date.now() - start
+    });
+    if (recentLogs.length > 100) recentLogs.shift();
+  });
+  next();
+});
 
 // --- Database Connection ---
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB Connected Successfully'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+  .then(() => {
+    console.log('✅ MongoDB Connected Successfully');
+    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_CONNECTED', status: 200, ms: 0 });
+  })
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err);
+    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_ERROR', status: 500, ms: 0 });
+  });
 
 // --- Auth Middleware ---
 const authUser = (req, res, next) => {
@@ -56,6 +101,56 @@ const seedDatabase = async () => {
         permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports']
       });
     }
+    const templateCount = await Template.countDocuments();
+    if (templateCount === 0) {
+      console.log('🌱 Seeding Templates...');
+      await Template.insertMany([
+        {
+          title: 'Vintage Portrait',
+          imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=60',
+          category: 'Portrait',
+          prompt: 'vintage portrait soft lighting',
+          status: 'active',
+          useCount: 890,
+          isPremium: false,
+          source: 'manual'
+        },
+        {
+          title: 'Cyberpunk Warrior',
+          imageUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=500&auto=format&fit=crop&q=60',
+          category: 'Sci-Fi',
+          prompt: 'cyberpunk street samurai neon lights',
+          status: 'active',
+          useCount: 1250,
+          isPremium: true,
+          source: 'manual'
+        },
+        {
+          title: 'Fantasy Landscape',
+          imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60',
+          category: 'Landscape',
+          prompt: 'floating islands waterfalls magical clouds',
+          status: 'active',
+          useCount: 350,
+          isPremium: true,
+          source: 'manual'
+        }
+      ]);
+    }
+    const toolCfgCount = await ToolConfig.countDocuments();
+    if (toolCfgCount === 0) {
+      console.log('🌱 Seeding Quick Tools Config...');
+      await ToolConfig.create({
+        tools: [
+          { key: 'remove-bg', name: 'BG Remove', cost: 0, isActive: true },
+          { key: 'enhance', name: 'Enhance', cost: 5, isActive: true },
+          { key: 'face-enhance', name: 'Face Fix', cost: 8, isActive: true },
+          { key: 'upscale', name: 'Upscale', cost: 10, isActive: true },
+          { key: 'colorize', name: 'Colorize', cost: 10, isActive: true },
+          { key: 'style', name: 'Style', cost: 8, isActive: true }
+        ]
+      });
+    }
   } catch (err) {
     console.log('Seeding Error:', err);
   }
@@ -68,12 +163,13 @@ seedDatabase();
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, fullName, email, password } = req.body;
+    const finalName = (name || fullName || (email ? String(email).split('@')[0] : 'User')).trim();
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    user = new User({ name, email, password: hashedPassword, role: 'user', points: 50 });
+    user = new User({ name: finalName, email, password: hashedPassword, role: 'user', points: 50 });
     await user.save();
 
     const payload = { user: { id: user.id, role: user.role } };
@@ -90,16 +186,30 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (email === process.env.SUPER_ADMIN_ID) return res.status(400).json({ msg: 'Please use Admin Login' });
 
-    let user = await User.findOne({ email }); // Note: Add +password to select if explicitly excluded in schema
-    // In production, compare hashed password:
-    // if (!user || !(await bcrypt.compare(password, user.password))) return res.status(400).json({ msg: 'Invalid Credentials' });
-    
-    // For now, assuming basic auth or simple check for demo if password hashing isn't fully enforced in mock data
-    if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
+    const user = await User.findOne({ email }).select('+password');
+    if (!user || !(await bcrypt.compare(String(password), String(user.password)))) {
+      return res.status(400).json({ msg: 'Invalid Credentials' });
+    }
 
     const payload = { user: { id: user.id, role: user.role } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
 
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/auth/social-login', async (req, res) => {
+  try {
+    const { provider = 'google', email, name } = req.body;
+    const finalEmail = email && String(email).trim() ? email : `${provider}_user_${Date.now()}@example.com`;
+    let user = await User.findOne({ email: finalEmail });
+    if (!user) {
+      user = await User.create({ name: name || provider.charAt(0).toUpperCase() + provider.slice(1) + ' User', email: finalEmail, role: 'user', points: 100, status: 'active' });
+    }
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
   } catch (err) {
     res.status(500).send('Server Error');
@@ -115,34 +225,164 @@ app.get('/api/user/me', authUser, async (req, res) => {
   }
 });
 
-app.post('/api/generate', authUser, async (req, res) => {
+// Unified Generation API compatible with frontend services
+app.post('/api/generation/generate', authUser, async (req, res) => {
   try {
-    const { prompt, modelId } = req.body;
+    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
     const user = await User.findById(req.user.id);
-    const cost = 5; 
 
-    if (user.points < cost) return res.status(400).json({ msg: 'Insufficient points' });
+    // Use active AI model cost
+    const activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey');
+    const cost = activeModel?.costPerImage ?? 1;
 
+    if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
+
+    const finalPrompt = prompt || userPrompt || '';
+
+    // Provider-based generation: OpenAI (if configured), otherwise fallback to Pollinations
+    let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
+    if (activeModel && activeModel.provider === 'OpenAI' && activeModel.apiKey) {
+      try {
+        const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${activeModel.apiKey}`
+          },
+          body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024' })
+        });
+        if (openaiRes.ok) {
+          const data = await openaiRes.json();
+          const b64 = data?.data?.[0]?.b64_json;
+          if (b64) {
+            imageUrl = `data:image/png;base64,${b64}`;
+          }
+        }
+      } catch {}
+    }
+
+    // Persist generation
+    const template = templateId ? await Template.findById(templateId) : null;
+    const gen = await Generation.create({
+      userId: user._id,
+      templateId: template?._id,
+      templateName: template?.title,
+      prompt: finalPrompt,
+      negativePrompt: negativePrompt || '',
+      uploadedImages,
+      generatedImage: imageUrl,
+      quality,
+      aspectRatio,
+      pointsSpent: cost,
+      status: 'completed'
+    });
+
+    // Deduct points and log transaction
     user.points -= cost;
+    user.usesCount = (user.usesCount || 0) + 1;
     await user.save();
-
     await Transaction.create({
-      userId: user.id,
+      userId: user._id,
       amount: cost,
       type: 'debit',
-      description: `Generated image with ${modelId}`,
-      status: 'success'
+      description: `Image generation (${quality})`,
+      gateway: 'System',
+      status: 'success',
+      date: new Date()
     });
+    if (template) {
+      template.useCount = (template.useCount || 0) + 1;
+      await template.save();
+    }
 
-    // Simulate API Response
-    res.json({
-      success: true,
-      imageUrl: `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&nologo=true`,
-      remainingPoints: user.points
-    });
+    const response = {
+      id: String(gen._id),
+      userId: String(user._id),
+      templateId: template ? String(template._id) : undefined,
+      templateName: gen.templateName,
+      prompt: gen.prompt,
+      negativePrompt: gen.negativePrompt,
+      uploadedImages: gen.uploadedImages,
+      generatedImage: gen.generatedImage,
+      quality: gen.quality,
+      aspectRatio: gen.aspectRatio,
+      pointsSpent: gen.pointsSpent,
+      status: gen.status,
+      createdAt: gen.createdAt.toISOString(),
+      isFavorite: gen.isFavorite,
+      downloadCount: gen.downloadCount,
+      shareCount: gen.shareCount
+    };
+
+    res.json(response);
   } catch (err) {
-    res.status(500).send('Server Error');
+    res.status(500).json({ error: 'Server Error' });
   }
+});
+
+// Compatibility route for older path
+app.post('/api/generate', authUser, async (req, res) => {
+  req.url = '/api/generation/generate';
+  app._router.handle(req, res);
+});
+
+app.get('/api/generation/history', authUser, async (req, res) => {
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '20', 10);
+  const skip = (page - 1) * limit;
+  const list = await Generation.find({ userId: req.user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
+  res.json({ generations: list.map(g => ({
+    id: String(g._id),
+    userId: String(g.userId),
+    templateId: g.templateId ? String(g.templateId) : undefined,
+    templateName: g.templateName,
+    prompt: g.prompt,
+    negativePrompt: g.negativePrompt,
+    uploadedImages: g.uploadedImages,
+    generatedImage: g.generatedImage,
+    quality: g.quality,
+    aspectRatio: g.aspectRatio,
+    pointsSpent: g.pointsSpent,
+    status: g.status,
+    createdAt: g.createdAt.toISOString(),
+    isFavorite: g.isFavorite,
+    downloadCount: g.downloadCount,
+    shareCount: g.shareCount
+  })) });
+});
+
+app.get('/api/generation/:id', authUser, async (req, res) => {
+  const g = await Generation.findOne({ _id: req.params.id, userId: req.user.id });
+  if (!g) return res.status(404).json({ error: 'Not found' });
+  res.json({
+    id: String(g._id),
+    userId: String(g.userId),
+    templateId: g.templateId ? String(g.templateId) : undefined,
+    templateName: g.templateName,
+    prompt: g.prompt,
+    negativePrompt: g.negativePrompt,
+    uploadedImages: g.uploadedImages,
+    generatedImage: g.generatedImage,
+    quality: g.quality,
+    aspectRatio: g.aspectRatio,
+    pointsSpent: g.pointsSpent,
+    status: g.status,
+    createdAt: g.createdAt.toISOString(),
+    isFavorite: g.isFavorite,
+    downloadCount: g.downloadCount,
+    shareCount: g.shareCount
+  });
+});
+
+app.patch('/api/generation/:id/favorite', authUser, async (req, res) => {
+  const g = await Generation.findOneAndUpdate({ _id: req.params.id, userId: req.user.id }, { $bit: { isFavorite: { xor: 1 } } }, { new: true });
+  if (!g) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true, isFavorite: g.isFavorite });
+});
+
+app.delete('/api/generation/:id', authUser, async (req, res) => {
+  await Generation.deleteOne({ _id: req.params.id, userId: req.user.id });
+  res.json({ success: true });
 });
 
 app.get('/api/packages', async (req, res) => {
@@ -195,6 +435,20 @@ app.get('/api/admin/users', async (req, res) => {
 app.put('/api/admin/users/:id/status', async (req, res) => {
   await User.findByIdAndUpdate(req.params.id, { status: req.body.status });
   res.json({ success: true });
+});
+
+app.post('/api/admin/users/:id/temp-password', async (req, res) => {
+  try {
+    const { tempPassword } = req.body;
+    if (!tempPassword || String(tempPassword).length < 6) {
+      return res.status(400).json({ error: 'Invalid password' });
+    }
+    const hashed = await bcrypt.hash(String(tempPassword), 10);
+    await User.findByIdAndUpdate(req.params.id, { password: hashed });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server Error' });
+  }
 });
 
 // --- Creator Management ---
@@ -261,10 +515,43 @@ app.put('/api/admin/finance/config', async (req, res) => {
   res.json(config);
 });
 
+// --- Payments (Simulated) ---
+app.post('/api/payment/create-order', authUser, async (req, res) => {
+  const { packageId, gateway = 'razorpay' } = req.body;
+  const pkg = await PointsPackage.findOne({ $or: [{ _id: packageId }, { name: packageId }] });
+  if (!pkg) return res.status(404).json({ error: 'Package not found' });
+  const orderId = `order_${Date.now()}`;
+  let key = process.env.RAZORPAY_KEY || 'rzp_test_key';
+  try {
+    const gwCfg = await PaymentGateway.findOne({ $or: [ { name: new RegExp(`^${gateway}$`, 'i') }, { provider: new RegExp(`^${gateway}$`, 'i') } ] });
+    if (gwCfg && gwCfg.isActive && gwCfg.publicKey) {
+      key = gwCfg.publicKey;
+    }
+  } catch {}
+  res.json({ key, amount: pkg.price, currency: 'INR', orderId, gateway });
+});
+
+app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
+  const { packageId } = req.body;
+  const pkg = await PointsPackage.findOne({ $or: [{ _id: packageId }, { name: packageId }] });
+  if (!pkg) return res.status(404).json({ error: 'Package not found' });
+  const user = await User.findById(req.user.id);
+  const add = (pkg.points || 0) + (pkg.bonusPoints || 0);
+  user.points += add;
+  await user.save();
+  await Transaction.create({ userId: user._id, amount: pkg.price, type: 'credit', description: `Purchased ${pkg.name}`, gateway: 'Razorpay', status: 'success', date: new Date() });
+  res.json({ success: true, newBalance: user.points });
+});
+
 // --- Templates ---
 app.get('/api/admin/templates', async (req, res) => {
   const templates = await Template.find().sort({ _id: -1 });
-  res.json(templates.map(t => ({...t._doc, id: t._id})));
+  const mapped = templates.map(t => ({
+    ...t._doc,
+    id: t._id,
+    imageUrl: (t.imageUrl && t.imageUrl.trim()) ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`
+  }));
+  res.json(mapped);
 });
 
 app.post('/api/admin/templates', async (req, res) => {
@@ -275,6 +562,94 @@ app.post('/api/admin/templates', async (req, res) => {
 app.delete('/api/admin/templates/:id', async (req, res) => {
   await Template.findByIdAndDelete(req.params.id);
   res.json({ success: true });
+});
+
+app.get('/api/templates', async (req, res) => {
+  const templates = await Template.find().sort({ _id: -1 });
+  const mapped = templates.map(t => ({
+    id: t._id,
+    title: t.title || '',
+    description: t.prompt || '',
+    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    additionalImages: [],
+    category: 'unisex',
+    subCategory: 'portrait',
+    tags: (t.prompt || '').split(/\s+/).filter(Boolean).slice(0,5),
+    creatorId: 'system',
+    creatorName: 'Rupantar',
+    creatorAvatar: '',
+    creatorBio: '',
+    creatorVerified: true,
+    hiddenPrompt: t.prompt || '',
+    visiblePrompt: t.prompt || '',
+    negativePrompt: '',
+    isFree: !t.isPremium,
+    pointsCost: t.isPremium ? 30 : 0,
+    usageCount: t.useCount || 0,
+    views: 0,
+    earnings: 0,
+    likeCount: 0,
+    saveCount: 0,
+    rating: 4.5,
+    ratingCount: 10,
+    ageGroup: 'All Ages',
+    state: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: (t.status === 'active' ? 'approved' : 'pending')
+  }));
+  res.json(mapped);
+});
+
+app.get('/api/templates/:id', async (req, res) => {
+  const t = await Template.findById(req.params.id);
+  if (!t) return res.status(404).json({ error: 'Not found' });
+  const mapped = {
+    id: t._id,
+    title: t.title || '',
+    description: t.prompt || '',
+    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    additionalImages: [],
+    category: 'unisex',
+    subCategory: 'portrait',
+    tags: (t.prompt || '').split(/\s+/).filter(Boolean).slice(0,5),
+    creatorId: 'system',
+    creatorName: 'Rupantar',
+    creatorAvatar: '',
+    creatorBio: '',
+    creatorVerified: true,
+    hiddenPrompt: t.prompt || '',
+    visiblePrompt: t.prompt || '',
+    negativePrompt: '',
+    isFree: !t.isPremium,
+    pointsCost: t.isPremium ? 30 : 0,
+    usageCount: t.useCount || 0,
+    views: 0,
+    earnings: 0,
+    likeCount: 0,
+    saveCount: 0,
+    rating: 4.5,
+    ratingCount: 10,
+    ageGroup: 'All Ages',
+    state: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: (t.status === 'active' ? 'approved' : 'pending')
+  };
+  res.json(mapped);
+});
+
+app.get('/api/admin/creators/stats', async (req, res) => {
+  const creators = await User.find({ role: 'creator' }).select('_id followersCount likesCount usesCount');
+  const stats = creators.map(c => ({
+    userId: c._id,
+    followers: c.followersCount || 0,
+    likes: c.likesCount || 0,
+    uses: c.usesCount || 0,
+  }));
+  res.json(stats);
 });
 
 // --- AI Configuration ---
@@ -291,6 +666,117 @@ app.post('/api/admin/config/ai', async (req, res) => {
 app.post('/api/admin/config/ai/:id/toggle', async (req, res) => {
   await AIModel.findByIdAndUpdate(req.params.id, { isActive: req.body.isActive });
   res.json({ success: true });
+});
+
+// --- Quick Tools Configuration (Admin) ---
+app.get('/api/admin/tools/config', async (req, res) => {
+  let cfg = await ToolConfig.findOne();
+  if (!cfg) cfg = await ToolConfig.create({ tools: [] });
+  res.json({ id: cfg._id, tools: cfg.tools });
+});
+
+app.put('/api/admin/tools/config', async (req, res) => {
+  const cfg = await ToolConfig.findOneAndUpdate({}, { tools: req.body.tools, updatedAt: new Date() }, { new: true, upsert: true });
+  res.json({ id: cfg._id, tools: cfg.tools });
+});
+
+// --- Wallet Endpoints ---
+app.get('/api/wallet/balance', authUser, async (req, res) => {
+  const user = await User.findById(req.user.id);
+  res.json({ balance: user.points });
+});
+
+app.get('/api/wallet/transactions', authUser, async (req, res) => {
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '20', 10);
+  const skip = (page - 1) * limit;
+  const list = await Transaction.find({ userId: req.user.id }).sort({ date: -1 }).skip(skip).limit(limit);
+  res.json({ transactions: list.map(t => ({
+    id: String(t._id),
+    userId: String(t.userId),
+    type: t.type === 'credit' ? 'credit' : 'debit',
+    amount: t.amount,
+    balanceAfter: undefined,
+    description: t.description,
+    referenceId: undefined,
+    relatedTemplateId: undefined,
+    relatedGenerationId: undefined,
+    paymentMethod: t.gateway,
+    createdAt: t.date.toISOString()
+  })) });
+});
+
+app.post('/api/wallet/add-points', authUser, async (req, res) => {
+  const { amount, description } = req.body;
+  const user = await User.findById(req.user.id);
+  user.points += Number(amount || 0);
+  await user.save();
+  await Transaction.create({ userId: user._id, amount: Number(amount || 0), type: 'credit', description: description || 'Admin credit', gateway: 'System', status: 'success', date: new Date() });
+  res.json({ success: true, balance: user.points });
+});
+
+// --- Quick Tools Endpoints (User) ---
+const performToolAndCharge = async (userId, toolKey, imageUrl) => {
+  const cfg = await ToolConfig.findOne();
+  const def = cfg?.tools?.find(t => t.key === toolKey);
+  const cost = def ? def.cost : 1;
+  const user = await User.findById(userId);
+  if (user.points < cost) throw new Error('Insufficient points');
+  user.points -= cost;
+  user.usesCount = (user.usesCount || 0) + 1;
+  await user.save();
+  await Transaction.create({ userId, amount: cost, type: 'debit', description: `Quick Tool: ${toolKey}`, gateway: 'System', status: 'success', date: new Date() });
+  // Simulated processed image URL marker
+  const processedImage = `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}tool=${encodeURIComponent(toolKey)}`;
+  return { processedImage, cost, remainingPoints: user.points };
+};
+
+app.post('/api/tools/remove-bg', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'remove-bg', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/tools/upscale', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'upscale', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/tools/face-enhance', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'face-enhance', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/tools/compress', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'compress', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/tools/colorize', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'colorize', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/tools/style', authUser, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    const out = await performToolAndCharge(req.user.id, 'style', imageUrl);
+    res.json(out);
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.put('/api/admin/config/ai/:id/cost', async (req, res) => {
@@ -310,6 +796,11 @@ app.put('/api/admin/config/ai/:id/details', async (req, res) => {
 
 app.post('/api/admin/config/ai/:id/test', async (req, res) => {
   // Simulate test
+  res.json({ success: true });
+});
+
+// --- System Maintenance ---
+app.delete('/api/admin/config/ai/cache', async (req, res) => {
   res.json({ success: true });
 });
 
@@ -344,4 +835,10 @@ app.post('/api/admin/notifications/send', async (req, res) => {
 // --- Server Start ---
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'SERVER_START', status: 200, ms: 0 });
+});
+// --- Admin recent logs ---
+app.get('/api/admin/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
+  res.json(recentLogs.slice(-limit));
 });
