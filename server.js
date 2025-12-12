@@ -43,8 +43,8 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '25mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
@@ -99,6 +99,17 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'super_admin',
         permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports']
+      });
+    }
+    const modelCount = await AIModel.countDocuments();
+    if (modelCount === 0) {
+      console.log('🌱 Seeding Default AI Model (Pollinations)...');
+      await AIModel.create({
+        name: 'Pollinations Images',
+        provider: 'Pollinations',
+        costPerImage: 1,
+        isActive: true,
+        apiKey: ''
       });
     }
     const templateCount = await Template.countDocuments();
@@ -261,6 +272,16 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       } catch {}
     }
 
+    // Sanitize uploaded image data URIs to avoid oversized MongoDB documents
+    const safeUploadedImages = (Array.isArray(uploadedImages) ? uploadedImages : [])
+      .slice(0, 5)
+      .map((img) => {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          return img.slice(0, 200);
+        }
+        return img;
+      });
+
     // Persist generation
     const template = templateId ? await Template.findById(templateId) : null;
     const gen = await Generation.create({
@@ -269,7 +290,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       templateName: template?.title,
       prompt: finalPrompt,
       negativePrompt: negativePrompt || '',
-      uploadedImages,
+      uploadedImages: safeUploadedImages,
       generatedImage: imageUrl,
       quality,
       aspectRatio,
@@ -316,6 +337,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     res.json(response);
   } catch (err) {
+    recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: String(err && err.message || err) });
     res.status(500).json({ error: 'Server Error' });
   }
 });
