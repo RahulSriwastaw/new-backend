@@ -48,6 +48,7 @@ const templateSchema = new mongoose.Schema({
   title: { type: String, required: true },
   imageUrl: { type: String, required: true },
   category: { type: String, default: 'General' },
+  subCategory: { type: String, default: '' },
   prompt: { type: String },
   status: { type: String, enum: ['active', 'draft'], default: 'active' },
   useCount: { type: Number, default: 0 },
@@ -55,6 +56,12 @@ const templateSchema = new mongoose.Schema({
   source: { type: String, default: 'manual' },
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   likeCount: { type: Number, default: 0 }
+});
+
+// 5b. Category Schema (Admin-managed)
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  subCategories: [{ type: String }]
 });
 
 // 6. Points Package Schema
@@ -144,17 +151,26 @@ const toolConfigSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// 13. Filter Config (Admin-managed for Template Filters)
+const filterConfigSchema = new mongoose.Schema({
+  genders: [{ type: String }], // e.g., ['male','female','unisex']
+  ageGroups: [{ type: String }], // e.g., ['18-25','25-35','35-45','45+','All Ages']
+  updatedAt: { type: Date, default: Date.now }
+});
+
 module.exports = {
   User: mongoose.model('User', userSchema),
   CreatorApplication: mongoose.model('CreatorApplication', creatorAppSchema),
   Transaction: mongoose.model('Transaction', transactionSchema),
   AIModel: mongoose.model('AIModel', aiModelSchema),
   Template: mongoose.model('Template', templateSchema),
+  Category: mongoose.model('Category', categorySchema),
   PointsPackage: mongoose.model('PointsPackage', pointsPackageSchema),
   PaymentGateway: mongoose.model('PaymentGateway', gatewaySchema),
   FinanceConfig: mongoose.model('FinanceConfig', financeConfigSchema),
   Admin: mongoose.model('Admin', adminSchema),
   Notification: mongoose.model('Notification', notificationSchema),
   Generation: mongoose.model('Generation', generationSchema),
-  ToolConfig: mongoose.model('ToolConfig', toolConfigSchema)
+  ToolConfig: mongoose.model('ToolConfig', toolConfigSchema),
+  FilterConfig: mongoose.model('FilterConfig', filterConfigSchema)
 };

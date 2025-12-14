@@ -7,14 +7,28 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const { 
-  User, CreatorApplication, Transaction, AIModel, Template, 
-  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig 
+  User, CreatorApplication, Transaction, AIModel, Template, Category,
+  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
 } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 // Simple in-memory recent logs buffer (last 100 entries)
 const recentLogs = [];
+const memoryCreatorApps = [];
+const memoryCategories = [
+  { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
+  { id: 'CAT_fashion', name: 'Fashion', subCategories: ['fashion'] },
+  { id: 'CAT_business', name: 'Business', subCategories: ['business'] },
+  { id: 'CAT_cinematic', name: 'Cinematic', subCategories: ['cinematic'] },
+  { id: 'CAT_festival', name: 'Festival', subCategories: ['festival'] },
+  { id: 'CAT_portrait', name: 'Portrait', subCategories: ['portrait'] },
+  { id: 'CAT_couple', name: 'Couple', subCategories: ['couple'] },
+  { id: 'CAT_traditional', name: 'Traditional', subCategories: ['traditional'] },
+  { id: 'CAT_modern', name: 'Modern', subCategories: ['modern'] },
+  { id: 'CAT_cartoon', name: 'Cartoon', subCategories: ['cartoon'] },
+];
+const useMemory = () => !(mongoose.connection && mongoose.connection.readyState === 1);
 
 // --- Middleware ---
 const envOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -25,6 +39,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  'http://localhost:3005',
   'http://localhost:5000',
   'http://localhost:5001',
   'http://localhost:5002',
@@ -233,6 +248,71 @@ app.get('/api/user/me', authUser, async (req, res) => {
     res.json(user);
   } catch (err) {
     res.status(500).send('Server Error');
+  }
+});
+
+// Submit Creator Application (User)
+app.post('/api/creator/apply', authUser, async (req, res) => {
+  try {
+    const { name, socialLinks = [] } = req.body;
+    const finalName = (name || '').toString().replace(/^@/, '').trim();
+    if (!finalName) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    const links = Array.isArray(socialLinks)
+      ? socialLinks.filter(Boolean).map(l => String(l).trim()).filter(l => l.length > 0)
+      : [];
+    if (useMemory()) {
+      const doc = { id: String(Date.now()), userId: String(req.user.id), name: finalName, socialLinks: links, status: 'pending', appliedDate: new Date() };
+      memoryCreatorApps.push(doc);
+      return res.json({ id: doc.id, userId: doc.userId, name: doc.name, socialLinks: doc.socialLinks, status: doc.status, appliedDate: doc.appliedDate.toISOString() });
+    } else {
+      const appDoc = await CreatorApplication.create({ userId: req.user.id, name: finalName, socialLinks: links });
+      return res.json({
+        id: String(appDoc._id),
+        userId: String(appDoc.userId),
+        name: appDoc.name,
+        socialLinks: appDoc.socialLinks || [],
+        status: appDoc.status,
+        appliedDate: appDoc.appliedDate ? appDoc.appliedDate.toISOString() : new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// Get current user's creator application status
+app.get('/api/creator/application', authUser, async (req, res) => {
+  try {
+    if (useMemory()) {
+      const app = memoryCreatorApps.find(a => String(a.userId) === String(req.user.id));
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ id: app.id, userId: app.userId, name: app.name, status: app.status, appliedDate: app.appliedDate });
+    } else {
+      const app = await CreatorApplication.findOne({ userId: req.user.id }).sort({ appliedDate: -1 });
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ ...app._doc, id: app._id });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch application status' });
+  }
+});
+
+// Alias for Next.js frontend that prefixes /api/v1
+app.get('/api/v1/creator/application', authUser, async (req, res) => {
+  try {
+    if (useMemory()) {
+      const app = memoryCreatorApps.find(a => String(a.userId) === String(req.user.id));
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ id: app.id, userId: app.userId, name: app.name, status: app.status, appliedDate: app.appliedDate });
+    } else {
+      const app = await CreatorApplication.findOne({ userId: req.user.id }).sort({ appliedDate: -1 });
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ ...app._doc, id: app._id });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch application status' });
   }
 });
 
@@ -475,19 +555,41 @@ app.post('/api/admin/users/:id/temp-password', async (req, res) => {
 
 // --- Creator Management ---
 app.get('/api/admin/creators/applications', async (req, res) => {
-  const apps = await CreatorApplication.find().sort({ appliedDate: -1 });
-  res.json(apps.map(a => ({...a._doc, id: a._id})));
+  if (useMemory()) {
+    const list = [...memoryCreatorApps].sort((a, b) => new Date(b.appliedDate) - new Date(a.appliedDate));
+    return res.json(list);
+  } else {
+    const apps = await CreatorApplication.find().sort({ appliedDate: -1 });
+    return res.json(apps.map(a => ({...a._doc, id: a._id})));
+  }
 });
 
 app.post('/api/admin/creators/applications/:id/approve', async (req, res) => {
-  const app = await CreatorApplication.findByIdAndUpdate(req.params.id, { status: 'approved' });
-  await User.findByIdAndUpdate(app.userId, { role: 'creator' });
-  res.json({ success: true });
+  if (useMemory()) {
+    const idx = memoryCreatorApps.findIndex(a => String(a.id) === String(req.params.id));
+    if (idx === -1) return res.json({ success: true });
+    const app = memoryCreatorApps[idx];
+    memoryCreatorApps[idx] = { ...app, status: 'approved' };
+    return res.json({ success: true });
+  } else {
+    const app = await CreatorApplication.findByIdAndUpdate(req.params.id, { status: 'approved' });
+    await User.findByIdAndUpdate(app.userId, { role: 'creator' });
+    return res.json({ success: true });
+  }
 });
 
 app.post('/api/admin/creators/applications/:id/reject', async (req, res) => {
-  await CreatorApplication.findByIdAndUpdate(req.params.id, { status: 'rejected' });
-  res.json({ success: true });
+  if (useMemory()) {
+    const idx = memoryCreatorApps.findIndex(a => String(a.id) === String(req.params.id));
+    if (idx !== -1) {
+      const app = memoryCreatorApps[idx];
+      memoryCreatorApps[idx] = { ...app, status: 'rejected' };
+    }
+    return res.json({ success: true });
+  } else {
+    await CreatorApplication.findByIdAndUpdate(req.params.id, { status: 'rejected' });
+    return res.json({ success: true });
+  }
 });
 
 // --- Finance ---
@@ -521,8 +623,22 @@ app.get('/api/admin/finance/gateways', async (req, res) => {
   res.json(gws.map(g => ({...g._doc, id: g._id})));
 });
 
+app.post('/api/admin/finance/gateways', async (req, res) => {
+  const gw = await PaymentGateway.create(req.body);
+  res.json({...gw._doc, id: gw._id});
+});
+
 app.put('/api/admin/finance/gateways/:id', async (req, res) => {
   await PaymentGateway.findByIdAndUpdate(req.params.id, req.body);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
+  await PaymentGateway.findByIdAndUpdate(req.params.id, { isActive: !!req.body.isActive });
+  res.json({ success: true });
+});
+
+app.post('/api/admin/finance/gateways/:id/test', async (req, res) => {
   res.json({ success: true });
 });
 
@@ -583,6 +699,77 @@ app.post('/api/admin/templates', async (req, res) => {
 
 app.delete('/api/admin/templates/:id', async (req, res) => {
   await Template.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// --- Template Categories (Admin Managed) ---
+app.get('/api/admin/templates/categories', async (req, res) => {
+  if (useMemory()) {
+    return res.json(memoryCategories);
+  }
+  const cats = await Category.find().sort({ name: 1 });
+  res.json(cats.map(c => ({ id: c._id, name: c.name, subCategories: c.subCategories || [] })));
+});
+
+app.post('/api/admin/templates/categories', async (req, res) => {
+  const { name, subCategories } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  const subs = Array.isArray(subCategories) ? subCategories.filter(Boolean) : [];
+  if (useMemory()) {
+    const doc = { id: `CAT_${Date.now()}`, name: String(name), subCategories: subs };
+    memoryCategories.push(doc);
+    return res.json(doc);
+  }
+  const created = await Category.create({ name: String(name), subCategories: subs });
+  res.json({ id: created._id, name: created.name, subCategories: created.subCategories || [] });
+});
+
+app.put('/api/admin/templates/categories/:id', async (req, res) => {
+  const { id } = req.params;
+  if (useMemory()) {
+    const idx = memoryCategories.findIndex(c => String(c.id) === String(id));
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    const current = memoryCategories[idx];
+    memoryCategories[idx] = { ...current, ...req.body, id: current.id };
+    return res.json({ success: true });
+  }
+  await Category.findByIdAndUpdate(id, req.body);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/templates/categories/:id', async (req, res) => {
+  const { id } = req.params;
+  if (useMemory()) {
+    const before = memoryCategories.length;
+    for (let i = memoryCategories.length - 1; i >= 0; i--) {
+      if (String(memoryCategories[i].id) === String(id)) {
+        memoryCategories.splice(i, 1);
+      }
+    }
+    return res.json({ success: true, removed: before - memoryCategories.length });
+  }
+  await Category.findByIdAndDelete(id);
+  return res.json({ success: true });
+});
+
+// --- Filter Config (Genders/AgeGroups)
+app.get('/api/admin/templates/filter-config', async (req, res) => {
+  if (useMemory()) {
+    return res.json({ genders: ['male','female','unisex'], ageGroups: ['18-25','25-35','35-45','45+','All Ages'] });
+  }
+  let cfg = await FilterConfig.findOne();
+  if (!cfg) {
+    cfg = await FilterConfig.create({ genders: ['male','female','unisex'], ageGroups: ['18-25','25-35','35-45','45+','All Ages'] });
+  }
+  res.json({ genders: cfg.genders || [], ageGroups: cfg.ageGroups || [] });
+});
+
+app.put('/api/admin/templates/filter-config', async (req, res) => {
+  const { genders = [], ageGroups = [] } = req.body || {};
+  if (useMemory()) {
+    return res.json({ success: true });
+  }
+  await FilterConfig.findOneAndUpdate({}, { genders, ageGroups, updatedAt: new Date() }, { new: true, upsert: true });
   res.json({ success: true });
 });
 
