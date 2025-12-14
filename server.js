@@ -398,13 +398,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     const response = {
       id: String(gen._id),
-      userId: String(user._id),
-      templateId: template ? String(template._id) : undefined,
-      templateName: gen.templateName,
-      prompt: gen.prompt,
-      negativePrompt: gen.negativePrompt,
-      uploadedImages: gen.uploadedImages,
       generatedImage: gen.generatedImage,
+      visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
       quality: gen.quality,
       aspectRatio: gen.aspectRatio,
       pointsSpent: gen.pointsSpent,
@@ -435,17 +430,11 @@ app.get('/api/generation/history', authUser, async (req, res) => {
   const list = await Generation.find({ userId: req.user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
   res.json({ generations: list.map(g => ({
     id: String(g._id),
-    userId: String(g.userId),
-    templateId: g.templateId ? String(g.templateId) : undefined,
-    templateName: g.templateName,
-    prompt: g.prompt,
-    negativePrompt: g.negativePrompt,
-    uploadedImages: g.uploadedImages,
     generatedImage: g.generatedImage,
+    visiblePrompt: g.templateName || 'AI Generated Image',
     quality: g.quality,
     aspectRatio: g.aspectRatio,
     pointsSpent: g.pointsSpent,
-    status: g.status,
     createdAt: g.createdAt.toISOString(),
     isFavorite: g.isFavorite,
     downloadCount: g.downloadCount,
@@ -458,17 +447,10 @@ app.get('/api/generation/:id', authUser, async (req, res) => {
   if (!g) return res.status(404).json({ error: 'Not found' });
   res.json({
     id: String(g._id),
-    userId: String(g.userId),
-    templateId: g.templateId ? String(g.templateId) : undefined,
-    templateName: g.templateName,
-    prompt: g.prompt,
-    negativePrompt: g.negativePrompt,
-    uploadedImages: g.uploadedImages,
     generatedImage: g.generatedImage,
+    visiblePrompt: g.templateName || 'AI Generated Image',
     quality: g.quality,
     aspectRatio: g.aspectRatio,
-    pointsSpent: g.pointsSpent,
-    status: g.status,
     createdAt: g.createdAt.toISOString(),
     isFavorite: g.isFavorite,
     downloadCount: g.downloadCount,
@@ -476,6 +458,22 @@ app.get('/api/generation/:id', authUser, async (req, res) => {
   });
 });
 
+// Download & Share tracking
+app.post('/api/generation/:id/download', authUser, async (req, res) => {
+  await Generation.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { $inc: { downloadCount: 1 } }
+  );
+  res.json({ success: true });
+});
+
+app.post('/api/generation/:id/share', authUser, async (req, res) => {
+  await Generation.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { $inc: { shareCount: 1 } }
+  );
+  res.json({ success: true });
+});
 app.patch('/api/generation/:id/favorite', authUser, async (req, res) => {
   const g = await Generation.findOneAndUpdate({ _id: req.params.id, userId: req.user.id }, { $bit: { isFavorite: { xor: 1 } } }, { new: true });
   if (!g) return res.status(404).json({ error: 'Not found' });
@@ -778,21 +776,19 @@ app.get('/api/templates', async (req, res) => {
   const mapped = templates.map(t => ({
     id: t._id,
     title: t.title || '',
-    description: t.prompt || '',
-    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    description: '', // never expose original prompt
+    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
     additionalImages: [],
     category: 'unisex',
     subCategory: 'portrait',
-    tags: (t.prompt || '').split(/\s+/).filter(Boolean).slice(0,5),
+    tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
     creatorId: 'system',
     creatorName: 'Rupantar',
     creatorAvatar: '',
     creatorBio: '',
     creatorVerified: true,
-    hiddenPrompt: t.prompt || '',
-    visiblePrompt: t.prompt || '',
-    negativePrompt: '',
+    visiblePrompt: t.title || 'AI Generated Image',
     isFree: !t.isPremium,
     pointsCost: t.isPremium ? 30 : 0,
     usageCount: t.useCount || 0,
@@ -817,21 +813,19 @@ app.get('/api/templates/:id', async (req, res) => {
   const mapped = {
     id: t._id,
     title: t.title || '',
-    description: t.prompt || '',
-    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    description: '', // never expose original prompt
+    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
     additionalImages: [],
     category: 'unisex',
     subCategory: 'portrait',
-    tags: (t.prompt || '').split(/\s+/).filter(Boolean).slice(0,5),
+    tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
     creatorId: 'system',
     creatorName: 'Rupantar',
     creatorAvatar: '',
     creatorBio: '',
     creatorVerified: true,
-    hiddenPrompt: t.prompt || '',
-    visiblePrompt: t.prompt || '',
-    negativePrompt: '',
+    visiblePrompt: t.title || 'AI Generated Image',
     isFree: !t.isPremium,
     pointsCost: t.isPremium ? 30 : 0,
     usageCount: t.useCount || 0,

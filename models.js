@@ -136,6 +136,15 @@ const generationSchema = new mongoose.Schema({
   shareCount: { type: Number, default: 0 }
 });
 
+// Hide sensitive fields in all JSON responses
+generationSchema.set('toJSON', {
+  transform(doc, ret) {
+    delete ret.prompt;
+    delete ret.negativePrompt;
+    delete ret.uploadedImages;
+    return ret;
+  }
+});
 // 12. Quick Tools Config Schema
 const toolConfigSchema = new mongoose.Schema({
   tools: [
