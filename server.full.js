@@ -536,6 +536,12 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
     return res.json({ success: true });
   }
 });
+app.get('/api/admin/templates/categories', async (req, res) => {
+  const list = useMemory()
+    ? memoryCategories
+    : (await Category.find()).map(c => ({...c._doc, id: c._id}));
+  res.json(list);
+});
 
 app.get('/api/admin/templates', async (req, res) => {
   const list = await Template.find().sort({ useCount: -1 });
@@ -554,6 +560,34 @@ app.delete('/api/admin/templates/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/api/templates', async (req, res) => {
+  try {
+    const list = await Template.find().sort({ useCount: -1 });
+    res.json(list.map(t => ({...t._doc, id: t._id})));
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+app.get('/api/templates/:id', async (req, res) => {
+  try {
+    const t = await Template.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: 'Not found' });
+    res.json({ ...t._doc, id: t._id });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch template' });
+  }
+});
+app.get('/api/templates/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.json([]);
+    const re = new RegExp(q, 'i');
+    const list = await Template.find({ $or: [{ title: re }, { prompt: re }, { description: re }] }).limit(50);
+    res.json(list.map(t => ({...t._doc, id: t._id})));
+  } catch (e) {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
 // Upload demo image for template preview (Admin)
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/admin/upload/template-demo', upload.single('image'), async (req, res) => {
