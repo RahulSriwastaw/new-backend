@@ -16,6 +16,41 @@ const PORT = process.env.PORT || 5000;
 // Simple in-memory recent logs buffer (last 100 entries)
 const recentLogs = [];
 const memoryCreatorApps = [];
+const memoryTemplates = [
+  {
+    id: 'T001',
+    title: 'Cyberpunk Warrior',
+    imageUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=500&auto=format&fit=crop&q=60',
+    category: 'Sci-Fi',
+    prompt: 'cyberpunk street samurai neon lights',
+    status: 'active',
+    useCount: 1250,
+    isPremium: true,
+    source: 'manual'
+  },
+  {
+    id: 'T002',
+    title: 'Vintage Portrait',
+    imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=60',
+    category: 'Portrait',
+    prompt: 'vintage portrait soft lighting',
+    status: 'active',
+    useCount: 890,
+    isPremium: false,
+    source: 'manual'
+  },
+  {
+    id: 'T003',
+    title: 'Fantasy Landscape',
+    imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60',
+    category: 'Landscape',
+    prompt: 'floating islands waterfalls magical clouds',
+    status: 'active',
+    useCount: 350,
+    isPremium: true,
+    source: 'manual'
+  }
+];
 const memoryCategories = [
   { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
   { id: 'CAT_fashion', name: 'Fashion', subCategories: ['fashion'] },
@@ -34,29 +69,39 @@ const useMemory = () => !(mongoose.connection && mongoose.connection.readyState 
 const envOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map(o => o.trim())
-  .filter(Boolean);
-const allowedOrigins = [
+  .filter(Boolean)
+  .map(o => o.replace(/`/g, '').trim().replace(/\/$/, ''));
+const FRONTEND_URL = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+const ADMIN_URL = (process.env.ADMIN_URL || '').replace(/\/$/, '');
+const devOrigins = [
   'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3005',
-  'http://localhost:5000',
-  'http://localhost:5001',
-  'http://localhost:5002',
-  ...envOrigins.map(o => o.replace(/`/g, '').trim()),
+  'http://localhost:3005'
+];
+const allowedOrigins = [
+  ...envOrigins,
+  ...(FRONTEND_URL ? [FRONTEND_URL] : []),
+  ...(ADMIN_URL ? [ADMIN_URL] : []),
+  ...(process.env.NODE_ENV !== 'production' ? devOrigins : []),
 ];
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-    else callback(new Error('Not allowed by CORS'));
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) return callback(null, true);
+    return callback(null, false);
   },
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.use((req, res, next) => {
   if (req.url.startsWith('/api/v1/')) {
     req.url = req.url.replace('/api/v1/', '/api/');
   }
   next();
+});
+// Dedicated health endpoint for platform checks
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', nodeEnv: process.env.NODE_ENV || 'development', ts: new Date().toISOString() });
 });
 app.use(bodyParser.json({ limit: '25mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
@@ -70,12 +115,19 @@ app.use((req, res, next) => {
       path: req.originalUrl || req.url,
       status: res.statusCode,
       ms: Date.now() - start
-    });
-    if (recentLogs.length > 100) recentLogs.shift();
+  });
+  if (recentLogs.length > 100) recentLogs.shift();
   });
   next();
 });
 
+// Global Error Handlers (prevent container crash)
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
 // --- Database Connection ---
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -182,6 +234,11 @@ const seedDatabase = async () => {
   }
 };
 seedDatabase();
+
+// Root health-check for Railway
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', ts: new Date().toISOString() });
+});
 
 // ==========================================
 // USER APP ROUTES
@@ -681,13 +738,23 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
 
 // --- Templates ---
 app.get('/api/admin/templates', async (req, res) => {
-  const templates = await Template.find().sort({ _id: -1 });
-  const mapped = templates.map(t => ({
-    ...t._doc,
-    id: t._id,
-    imageUrl: (t.imageUrl && t.imageUrl.trim()) ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`
-  }));
-  res.json(mapped);
+  if (useMemory()) {
+    const mapped = memoryTemplates.map(t => ({
+      ...t,
+      imageUrl: (t.imageUrl && String(t.imageUrl).trim())
+        ? t.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`
+    }));
+    return res.json(mapped);
+  } else {
+    const templates = await Template.find().sort({ _id: -1 });
+    const mapped = templates.map(t => ({
+      ...t._doc,
+      id: t._id,
+      imageUrl: (t.imageUrl && t.imageUrl.trim()) ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.prompt || t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`
+    }));
+    res.json(mapped);
+  }
 });
 
 app.post('/api/admin/templates', async (req, res) => {
@@ -772,76 +839,156 @@ app.put('/api/admin/templates/filter-config', async (req, res) => {
 });
 
 app.get('/api/templates', async (req, res) => {
-  const templates = await Template.find().sort({ _id: -1 });
-  const mapped = templates.map(t => ({
-    id: t._id,
-    title: t.title || '',
-    description: '', // never expose original prompt
-    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    additionalImages: [],
-    category: 'unisex',
-    subCategory: 'portrait',
-    tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
-    creatorId: 'system',
-    creatorName: 'Rupantar',
-    creatorAvatar: '',
-    creatorBio: '',
-    creatorVerified: true,
-    visiblePrompt: t.title || 'AI Generated Image',
-    isFree: !t.isPremium,
-    pointsCost: t.isPremium ? 30 : 0,
-    usageCount: t.useCount || 0,
-    views: 0,
-    earnings: 0,
-    likeCount: 0,
-    saveCount: 0,
-    rating: 4.5,
-    ratingCount: 10,
-    ageGroup: 'All Ages',
-    state: 'active',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    status: (t.status === 'active' ? 'approved' : 'pending')
-  }));
-  res.json(mapped);
+  if (useMemory()) {
+    const mapped = memoryTemplates.map(t => ({
+      id: t.id,
+      title: t.title || '',
+      description: '',
+      image: t.imageUrl && String(t.imageUrl).trim()
+        ? t.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      demoImage: t.imageUrl && String(t.imageUrl).trim()
+        ? t.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      additionalImages: [],
+      category: 'unisex',
+      subCategory: 'portrait',
+      tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
+      creatorId: 'system',
+      creatorName: 'Rupantar',
+      creatorAvatar: '',
+      creatorBio: '',
+      creatorVerified: true,
+      visiblePrompt: t.title || 'AI Generated Image',
+      isFree: !t.isPremium,
+      pointsCost: t.isPremium ? 30 : 0,
+      usageCount: t.useCount || 0,
+      views: 0,
+      earnings: 0,
+      likeCount: 0,
+      saveCount: 0,
+      rating: 4.5,
+      ratingCount: 10,
+      ageGroup: 'All Ages',
+      state: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: (t.status === 'active' ? 'approved' : 'pending')
+    }));
+    return res.json(mapped);
+  } else {
+    const templates = await Template.find().sort({ _id: -1 });
+    const mapped = templates.map(t => ({
+      id: t._id,
+      title: t.title || '',
+      description: '',
+      image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      additionalImages: [],
+      category: 'unisex',
+      subCategory: 'portrait',
+      tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
+      creatorId: 'system',
+      creatorName: 'Rupantar',
+      creatorAvatar: '',
+      creatorBio: '',
+      creatorVerified: true,
+      visiblePrompt: t.title || 'AI Generated Image',
+      isFree: !t.isPremium,
+      pointsCost: t.isPremium ? 30 : 0,
+      usageCount: t.useCount || 0,
+      views: 0,
+      earnings: 0,
+      likeCount: 0,
+      saveCount: 0,
+      rating: 4.5,
+      ratingCount: 10,
+      ageGroup: 'All Ages',
+      state: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: (t.status === 'active' ? 'approved' : 'pending')
+    }));
+    res.json(mapped);
+  }
 });
 
 app.get('/api/templates/:id', async (req, res) => {
-  const t = await Template.findById(req.params.id);
-  if (!t) return res.status(404).json({ error: 'Not found' });
-  const mapped = {
-    id: t._id,
-    title: t.title || '',
-    description: '', // never expose original prompt
-    image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
-    additionalImages: [],
-    category: 'unisex',
-    subCategory: 'portrait',
-    tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
-    creatorId: 'system',
-    creatorName: 'Rupantar',
-    creatorAvatar: '',
-    creatorBio: '',
-    creatorVerified: true,
-    visiblePrompt: t.title || 'AI Generated Image',
-    isFree: !t.isPremium,
-    pointsCost: t.isPremium ? 30 : 0,
-    usageCount: t.useCount || 0,
-    views: 0,
-    earnings: 0,
-    likeCount: 0,
-    saveCount: 0,
-    rating: 4.5,
-    ratingCount: 10,
-    ageGroup: 'All Ages',
-    state: 'active',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    status: (t.status === 'active' ? 'approved' : 'pending')
-  };
-  res.json(mapped);
+  if (useMemory()) {
+    const t = memoryTemplates.find(x => String(x.id) === String(req.params.id));
+    if (!t) return res.status(404).json({ error: 'Not found' });
+    const mapped = {
+      id: t.id,
+      title: t.title || '',
+      description: '',
+      image: t.imageUrl && String(t.imageUrl).trim()
+        ? t.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      demoImage: t.imageUrl && String(t.imageUrl).trim()
+        ? t.imageUrl
+        : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      additionalImages: [],
+      category: 'unisex',
+      subCategory: 'portrait',
+      tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
+      creatorId: 'system',
+      creatorName: 'Rupantar',
+      creatorAvatar: '',
+      creatorBio: '',
+      creatorVerified: true,
+      visiblePrompt: t.title || 'AI Generated Image',
+      isFree: !t.isPremium,
+      pointsCost: t.isPremium ? 30 : 0,
+      usageCount: t.useCount || 0,
+      views: 0,
+      earnings: 0,
+      likeCount: 0,
+      saveCount: 0,
+      rating: 4.5,
+      ratingCount: 10,
+      ageGroup: 'All Ages',
+      state: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: (t.status === 'active' ? 'approved' : 'pending')
+    };
+    return res.json(mapped);
+  } else {
+    const t = await Template.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: 'Not found' });
+    const mapped = {
+      id: t._id,
+      title: t.title || '',
+      description: '',
+      image: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      demoImage: t.imageUrl && t.imageUrl.trim() ? t.imageUrl : `https://image.pollinations.ai/prompt/${encodeURIComponent(t.title || 'beautiful portrait, soft lighting')}?width=768&height=768&nologo=true`,
+      additionalImages: [],
+      category: 'unisex',
+      subCategory: 'portrait',
+      tags: (t.title || '').split(/\s+/).filter(Boolean).slice(0,5),
+      creatorId: 'system',
+      creatorName: 'Rupantar',
+      creatorAvatar: '',
+      creatorBio: '',
+      creatorVerified: true,
+      visiblePrompt: t.title || 'AI Generated Image',
+      isFree: !t.isPremium,
+      pointsCost: t.isPremium ? 30 : 0,
+      usageCount: t.useCount || 0,
+      views: 0,
+      earnings: 0,
+      likeCount: 0,
+      saveCount: 0,
+      rating: 4.5,
+      ratingCount: 10,
+      ageGroup: 'All Ages',
+      state: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: (t.status === 'active' ? 'approved' : 'pending')
+    };
+    res.json(mapped);
+  }
 });
 
 app.get('/api/admin/creators/stats', async (req, res) => {
