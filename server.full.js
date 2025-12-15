@@ -1,0 +1,627 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const { 
+  User, CreatorApplication, Transaction, AIModel, Template, Category,
+  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
+} = require('./models');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+const recentLogs = [];
+const memoryCreatorApps = [];
+const memoryCategories = [
+  { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
+  { id: 'CAT_fashion', name: 'Fashion', subCategories: ['fashion'] },
+  { id: 'CAT_business', name: 'Business', subCategories: ['business'] },
+  { id: 'CAT_cinematic', name: 'Cinematic', subCategories: ['cinematic'] },
+  { id: 'CAT_festival', name: 'Festival', subCategories: ['festival'] },
+  { id: 'CAT_portrait', name: 'Portrait', subCategories: ['portrait'] },
+  { id: 'CAT_couple', name: 'Couple', subCategories: ['couple'] },
+  { id: 'CAT_traditional', name: 'Traditional', subCategories: ['traditional'] },
+  { id: 'CAT_modern', name: 'Modern', subCategories: ['modern'] },
+  { id: 'CAT_cartoon', name: 'Cartoon', subCategories: ['cartoon'] },
+];
+const useMemory = () => !(mongoose.connection && mongoose.connection.readyState === 1);
+
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3005',
+  'http://localhost:5000',
+  'http://localhost:5001',
+  'http://localhost:5002',
+  'https://new-admin-pannel-nine.vercel.app/',
+  'https://rupantara-fronted.vercel.app/',
+  ...envOrigins.map(o => o.replace(/`/g, '').trim()),
+];
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    req.url = req.url.replace('/api/v1/', '/api/');
+  }
+  next();
+});
+app.use(bodyParser.json({ limit: '25mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    recentLogs.push({
+      ts: new Date().toISOString(),
+      method: req.method,
+      path: req.originalUrl || req.url,
+      status: res.statusCode,
+      ms: Date.now() - start
+    });
+    if (recentLogs.length > 100) recentLogs.shift();
+  });
+  next();
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('✅ MongoDB Connected Successfully');
+    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_CONNECTED', status: 200, ms: 0 });
+  })
+  .catch(err => {
+    console.error('❌ MongoDB Connection Error:', err);
+    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_ERROR', status: 500, ms: 0 });
+  });
+
+const authUser = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    req.user = decoded.user;
+    next();
+  } catch (err) {
+    res.status(401).json({ msg: 'Token is not valid' });
+  }
+};
+
+const seedDatabase = async () => {
+  try {
+    const adminCount = await Admin.countDocuments();
+    if (adminCount === 0) {
+      const hashedPassword = await bcrypt.hash(process.env.SUPER_ADMIN_PASSWORD || 'admin123', 10);
+      await Admin.create({
+        name: 'Super Admin',
+        email: process.env.SUPER_ADMIN_ID || 'admin@rupantar.ai',
+        password: hashedPassword,
+        role: 'super_admin',
+        permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports']
+      });
+    }
+    const modelCount = await AIModel.countDocuments();
+    if (modelCount === 0) {
+      await AIModel.create({
+        name: 'Pollinations Images',
+        provider: 'Pollinations',
+        costPerImage: 1,
+        isActive: true,
+        apiKey: ''
+      });
+    }
+    const templateCount = await Template.countDocuments();
+    if (templateCount === 0) {
+      await Template.insertMany([
+        {
+          title: 'Vintage Portrait',
+          imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=60',
+          category: 'Portrait',
+          prompt: 'vintage portrait soft lighting',
+          status: 'active',
+          useCount: 890,
+          isPremium: false,
+          source: 'manual'
+        },
+        {
+          title: 'Cyberpunk Warrior',
+          imageUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=500&auto=format&fit=crop&q=60',
+          category: 'Sci-Fi',
+          prompt: 'cyberpunk street samurai neon lights',
+          status: 'active',
+          useCount: 1250,
+          isPremium: true,
+          source: 'manual'
+        },
+        {
+          title: 'Fantasy Landscape',
+          imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60',
+          category: 'Landscape',
+          prompt: 'floating islands waterfalls magical clouds',
+          status: 'active',
+          useCount: 350,
+          isPremium: true,
+          source: 'manual'
+        }
+      ]);
+    }
+    const toolCfgCount = await ToolConfig.countDocuments();
+    if (toolCfgCount === 0) {
+      await ToolConfig.create({
+        tools: [
+          { key: 'remove-bg', name: 'BG Remove', cost: 0, isActive: true },
+          { key: 'enhance', name: 'Enhance', cost: 5, isActive: true },
+          { key: 'face-enhance', name: 'Face Fix', cost: 8, isActive: true },
+          { key: 'upscale', name: 'Upscale', cost: 10, isActive: true },
+          { key: 'colorize', name: 'Colorize', cost: 10, isActive: true },
+          { key: 'style', name: 'Style', cost: 8, isActive: true }
+        ]
+      });
+    }
+  } catch (err) {
+    console.log('Seeding Error:', err);
+  }
+};
+seedDatabase();
+
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', ts: new Date().toISOString() });
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, fullName, email, password } = req.body;
+    const finalName = (name || fullName || (email ? String(email).split('@')[0] : 'User')).trim();
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ msg: 'User already exists' });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user = new User({ name: finalName, email, password: hashedPassword, role: 'user', points: 50 });
+    await user.save();
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (email === process.env.SUPER_ADMIN_ID) return res.status(400).json({ msg: 'Please use Admin Login' });
+    const user = await User.findOne({ email }).select('+password');
+    if (!user || !(await bcrypt.compare(String(password), String(user.password)))) {
+      return res.status(400).json({ msg: 'Invalid Credentials' });
+    }
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/auth/social-login', async (req, res) => {
+  try {
+    const { provider = 'google', email, name } = req.body;
+    const finalEmail = email && String(email).trim() ? email : `${provider}_user_${Date.now()}@example.com`;
+    let user = await User.findOne({ email: finalEmail });
+    if (!user) {
+      user = await User.create({ name: name || provider.charAt(0).toUpperCase() + provider.slice(1) + ' User', email: finalEmail, role: 'user', points: 100, status: 'active' });
+    }
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.get('/api/user/me', authUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json(user);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/creator/apply', authUser, async (req, res) => {
+  try {
+    const { name, socialLinks = [] } = req.body;
+    const finalName = (name || '').toString().replace(/^@/, '').trim();
+    if (!finalName) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    const links = Array.isArray(socialLinks)
+      ? socialLinks.filter(Boolean).map(l => String(l).trim()).filter(l => l.length > 0)
+      : [];
+    if (useMemory()) {
+      const doc = { id: String(Date.now()), userId: String(req.user.id), name: finalName, socialLinks: links, status: 'pending', appliedDate: new Date() };
+      memoryCreatorApps.push(doc);
+      return res.json({ id: doc.id, userId: doc.userId, name: doc.name, socialLinks: doc.socialLinks, status: doc.status, appliedDate: doc.appliedDate.toISOString() });
+    } else {
+      const appDoc = await CreatorApplication.create({ userId: req.user.id, name: finalName, socialLinks: links });
+      return res.json({
+        id: String(appDoc._id),
+        userId: String(appDoc.userId),
+        name: appDoc.name,
+        socialLinks: appDoc.socialLinks || [],
+        status: appDoc.status,
+        appliedDate: appDoc.appliedDate ? appDoc.appliedDate.toISOString() : new Date().toISOString()
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+app.get('/api/creator/application', authUser, async (req, res) => {
+  try {
+    if (useMemory()) {
+      const app = memoryCreatorApps.find(a => String(a.userId) === String(req.user.id));
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ id: app.id, userId: app.userId, name: app.name, status: app.status, appliedDate: app.appliedDate });
+    } else {
+      const app = await CreatorApplication.findOne({ userId: req.user.id }).sort({ appliedDate: -1 });
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ ...app._doc, id: app._id });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch application status' });
+  }
+});
+
+app.get('/api/v1/creator/application', authUser, async (req, res) => {
+  try {
+    if (useMemory()) {
+      const app = memoryCreatorApps.find(a => String(a.userId) === String(req.user.id));
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ id: app.id, userId: app.userId, name: app.name, status: app.status, appliedDate: app.appliedDate });
+    } else {
+      const app = await CreatorApplication.findOne({ userId: req.user.id }).sort({ appliedDate: -1 });
+      if (!app) return res.status(404).json({ status: 'none' });
+      return res.json({ ...app._doc, id: app._id });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch application status' });
+  }
+});
+
+app.post('/api/generation/generate', authUser, async (req, res) => {
+  try {
+    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
+    const user = await User.findById(req.user.id);
+    const activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey');
+    const cost = activeModel?.costPerImage ?? 1;
+    if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
+    const finalPrompt = prompt || userPrompt || '';
+    let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
+    if (activeModel && activeModel.provider === 'OpenAI' && activeModel.apiKey) {
+      try {
+        const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${activeModel.apiKey}`
+          },
+          body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024' })
+        });
+        if (openaiRes.ok) {
+          const data = await openaiRes.json();
+          const b64 = data?.data?.[0]?.b64_json;
+          if (b64) {
+            imageUrl = `data:image/png;base64,${b64}`;
+          }
+        }
+      } catch {}
+    }
+    const safeUploadedImages = (Array.isArray(uploadedImages) ? uploadedImages : [])
+      .slice(0, 5)
+      .map((img) => {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          return img.slice(0, 200);
+        }
+        return img;
+      });
+    const template = templateId ? await Template.findById(templateId) : null;
+    const gen = await Generation.create({
+      userId: user._id,
+      templateId: template?._id,
+      templateName: template?.title,
+      prompt: finalPrompt,
+      negativePrompt: negativePrompt || '',
+      uploadedImages: safeUploadedImages,
+      generatedImage: imageUrl,
+      quality,
+      aspectRatio,
+      pointsSpent: cost,
+      status: 'completed'
+    });
+    user.points -= cost;
+    user.usesCount = (user.usesCount || 0) + 1;
+    await user.save();
+    await Transaction.create({
+      userId: user._id,
+      amount: cost,
+      type: 'debit',
+      description: `Image generation (${quality})`,
+      gateway: 'System',
+      status: 'success',
+      date: new Date()
+    });
+    if (template) {
+      template.useCount = (template.useCount || 0) + 1;
+      await template.save();
+    }
+    const response = {
+      id: String(gen._id),
+      generatedImage: gen.generatedImage,
+      visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
+      quality: gen.quality,
+      aspectRatio: gen.aspectRatio,
+      pointsSpent: gen.pointsSpent,
+      status: gen.status,
+      createdAt: gen.createdAt.toISOString(),
+      isFavorite: gen.isFavorite,
+      downloadCount: gen.downloadCount,
+      shareCount: gen.shareCount
+    };
+    res.json(response);
+  } catch (err) {
+    recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: String(err && err.message || err) });
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+app.post('/api/generate', authUser, async (req, res) => {
+  req.url = '/api/generation/generate';
+  app._router.handle(req, res);
+});
+
+app.get('/api/generation/history', authUser, async (req, res) => {
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '20', 10);
+  const skip = (page - 1) * limit;
+  const list = await Generation.find({ userId: req.user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
+  res.json({ generations: list.map(g => ({
+    id: String(g._id),
+    generatedImage: g.generatedImage,
+    visiblePrompt: g.templateName || 'AI Generated Image',
+    quality: g.quality,
+    aspectRatio: g.aspectRatio,
+    pointsSpent: g.pointsSpent,
+    createdAt: g.createdAt.toISOString(),
+    isFavorite: g.isFavorite,
+    downloadCount: g.downloadCount,
+    shareCount: g.shareCount
+  })) });
+});
+
+app.get('/api/generation/:id', authUser, async (req, res) => {
+  const g = await Generation.findOne({ _id: req.params.id, userId: req.user.id });
+  if (!g) return res.status(404).json({ error: 'Not found' });
+  res.json({
+    id: String(g._id),
+    generatedImage: g.generatedImage,
+    visiblePrompt: g.templateName || 'AI Generated Image',
+    quality: g.quality,
+    aspectRatio: g.aspectRatio,
+    createdAt: g.createdAt.toISOString(),
+    isFavorite: g.isFavorite,
+    downloadCount: g.downloadCount,
+    shareCount: g.shareCount
+  });
+});
+
+app.post('/api/generation/:id/download', authUser, async (req, res) => {
+  await Generation.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { $inc: { downloadCount: 1 } }
+  );
+  res.json({ success: true });
+});
+
+app.post('/api/generation/:id/share', authUser, async (req, res) => {
+  await Generation.findOneAndUpdate(
+    { _id: req.params.id, userId: req.user.id },
+    { $inc: { shareCount: 1 } }
+  );
+  res.json({ success: true });
+});
+app.patch('/api/generation/:id/favorite', authUser, async (req, res) => {
+  const g = await Generation.findOneAndUpdate({ _id: req.params.id, userId: req.user.id }, { $bit: { isFavorite: { xor: 1 } } }, { new: true });
+  if (!g) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true, isFavorite: g.isFavorite });
+});
+
+app.delete('/api/generation/:id', authUser, async (req, res) => {
+  await Generation.deleteOne({ _id: req.params.id, userId: req.user.id });
+  res.json({ success: true });
+});
+
+app.get('/api/packages', async (req, res) => {
+  try {
+    const pkgs = await PointsPackage.find({ isActive: true });
+    res.json(pkgs);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/auth/admin-login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    if (email === process.env.SUPER_ADMIN_ID && password === process.env.SUPER_ADMIN_PASSWORD) {
+       const payload = { user: { id: 'super_admin_env', role: 'super_admin' } };
+       const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
+       return res.json({
+         success: true, token,
+         user: { name: 'Rahul Malik', role: 'super_admin', permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports'] }
+       });
+    }
+    const admin = await Admin.findOne({ email }).select('+password');
+    if (!admin || !(await bcrypt.compare(password, admin.password))) return res.status(400).json({ msg: 'Invalid Credentials' });
+    
+    admin.lastActive = new Date();
+    await admin.save();
+    const token = jwt.sign({ user: { id: admin.id, role: admin.role } }, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
+    res.json({ success: true, token, user: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+app.get('/api/admin/creators', async (req, res) => {
+  const list = useMemory()
+    ? memoryCreatorApps
+    : (await CreatorApplication.find().sort({ appliedDate: -1 })).map(a => ({...a._doc, id: a._id}));
+  res.json(list);
+});
+app.patch('/api/admin/creators/:id/status', async (req, res) => {
+  const { status } = req.body;
+  if (useMemory()) {
+    const idx = memoryCreatorApps.findIndex(a => a.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ error: 'Not found' });
+    memoryCreatorApps[idx].status = status;
+    return res.json({ success: true });
+  } else {
+    const appDoc = await CreatorApplication.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!appDoc) return res.status(404).json({ error: 'Not found' });
+    return res.json({ success: true, id: String(appDoc._id), status: appDoc.status });
+  }
+});
+
+app.get('/api/admin/categories', async (req, res) => {
+  const list = useMemory()
+    ? memoryCategories
+    : (await Category.find()).map(c => ({...c._doc, id: c._id}));
+  res.json(list);
+});
+app.post('/api/admin/categories', async (req, res) => {
+  if (useMemory()) {
+    const doc = { id: String(Date.now()), name: String(req.body.name || '').trim(), subCategories: Array.isArray(req.body.subCategories) ? req.body.subCategories.filter(Boolean) : [] };
+    memoryCategories.push(doc);
+    return res.json(doc);
+  } else {
+    const c = await Category.create({ name: req.body.name, subCategories: req.body.subCategories || [] });
+    return res.json({ ...c._doc, id: c._id });
+  }
+});
+app.delete('/api/admin/categories/:id', async (req, res) => {
+  if (useMemory()) {
+    const idx = memoryCategories.findIndex(c => c.id === req.params.id);
+    if (idx >= 0) memoryCategories.splice(idx, 1);
+    return res.json({ success: true });
+  } else {
+    await Category.findByIdAndDelete(req.params.id);
+    return res.json({ success: true });
+  }
+});
+
+app.get('/api/admin/templates', async (req, res) => {
+  const list = await Template.find().sort({ useCount: -1 });
+  res.json(list.map(t => ({...t._doc, id: t._id})));
+});
+app.post('/api/admin/templates', async (req, res) => {
+  const t = await Template.create(req.body);
+  res.json({ ...t._doc, id: t._id });
+});
+app.patch('/api/admin/templates/:id', async (req, res) => {
+  const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json({ ...t._doc, id: t._id });
+});
+app.delete('/api/admin/templates/:id', async (req, res) => {
+  await Template.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/config/ai', async (req, res) => {
+  const models = await AIModel.find();
+  const finance = await FinanceConfig.findOne() || { coinExchangeRate: 1, pointsExchangeRate: 1, currency: 'USD' };
+  res.json({ models, finance });
+});
+app.post('/api/admin/config/ai', async (req, res) => {
+  const model = await AIModel.create(req.body);
+  res.json({ ...model._doc, id: model._id });
+});
+app.patch('/api/admin/config/ai/:id', async (req, res) => {
+  const updated = await AIModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  res.json({ ...updated._doc, id: updated._id });
+});
+app.delete('/api/admin/config/ai/:id', async (req, res) => {
+  await AIModel.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+app.put('/api/admin/config/ai/:id/activate', async (req, res) => {
+  await AIModel.updateMany({}, { isActive: false });
+  await AIModel.findByIdAndUpdate(req.params.id, { isActive: true });
+  res.json({ success: true });
+});
+app.put('/api/admin/config/ai/:id/cost', async (req, res) => {
+  await AIModel.findByIdAndUpdate(req.params.id, { costPerImage: req.body.cost });
+  res.json({ success: true });
+});
+app.put('/api/admin/config/ai/:id/apikey', async (req, res) => {
+  await AIModel.findByIdAndUpdate(req.params.id, { apiKey: req.body.apiKey });
+  res.json({ success: true });
+});
+app.put('/api/admin/config/ai/:id/details', async (req, res) => {
+  await AIModel.findByIdAndUpdate(req.params.id, req.body);
+  res.json({ success: true });
+});
+app.post('/api/admin/config/ai/:id/test', async (req, res) => {
+  res.json({ success: true });
+});
+app.delete('/api/admin/config/ai/cache', async (req, res) => {
+  res.json({ success: true });
+});
+app.get('/api/admin/system/admins', async (req, res) => {
+  const admins = await Admin.find();
+  res.json(admins.map(a => ({...a._doc, id: a._id})));
+});
+app.post('/api/admin/system/admins', async (req, res) => {
+  const hashedPassword = await bcrypt.hash(req.body.password, 10);
+  const admin = await Admin.create({ ...req.body, password: hashedPassword });
+  res.json({...admin._doc, id: admin._id});
+});
+app.delete('/api/admin/system/admins/:id', async (req, res) => {
+  await Admin.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+app.get('/api/admin/notifications', async (req, res) => {
+  const notifs = await Notification.find().sort({ sentAt: -1 });
+  res.json(notifs.map(n => ({...n._doc, id: n._id})));
+});
+app.post('/api/admin/notifications/send', async (req, res) => {
+  const data = { ...req.body, sentAt: req.body.scheduledFor ? undefined : new Date(), status: req.body.scheduledFor ? 'scheduled' : 'sent', reachCount: 100 };
+  const notif = await Notification.create(data);
+  res.json({...notif._doc, id: notif._id});
+});
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'SERVER_START', status: 200, ms: 0 });
+});
+app.get('/api/admin/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
+  res.json(recentLogs.slice(-limit));
+});
+
