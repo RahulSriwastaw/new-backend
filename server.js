@@ -53,10 +53,46 @@ app.get(['/api', '/api/v1'], (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 app.get(['/api/templates', '/api/v1/templates'], (req, res) => {
-  res.status(200).json([]);
+  res.status(200).json([
+    {
+      id: 'tpl_demo_1',
+      title: 'Wedding Portrait',
+      description: 'Elegant wedding-style AI portrait',
+      demoImage: 'https://picsum.photos/seed/wedding/600/800',
+      additionalImages: ['https://picsum.photos/seed/wedding2/600/800'],
+      category: 'Wedding',
+      subCategory: 'wedding',
+      tags: ['wedding','portrait'],
+      creatorId: 'demo_creator',
+      creatorName: 'Demo Creator',
+      creatorVerified: true,
+      hiddenPrompt: 'high quality wedding portrait',
+      visiblePrompt: 'Elegant wedding portrait',
+      negativePrompt: '',
+      isFree: true,
+      pointsCost: 0,
+      usageCount: 12,
+      likeCount: 5,
+      saveCount: 3,
+      rating: 4.5,
+      ratingCount: 8,
+      ageGroup: 'adult',
+      state: 'IN',
+      status: 'active'
+    }
+  ]);
 });
 app.get(['/api/user', '/api/v1/user'], (req, res) => {
   res.status(200).json({});
+});
+
+app.get(['/api/admin/templates/categories','/api/v1/admin/templates/categories'], (req, res) => {
+  res.status(200).json([
+    { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
+    { id: 'CAT_fashion', name: 'Fashion', subCategories: ['fashion'] },
+    { id: 'CAT_portrait', name: 'Portrait', subCategories: ['portrait'] },
+    { id: 'CAT_business', name: 'Business', subCategories: ['business'] },
+  ]);
 });
 
 app.get('/favicon.ico', (req, res) => {
