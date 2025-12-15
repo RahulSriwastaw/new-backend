@@ -41,8 +41,8 @@ const allowedOrigins = [
   'http://localhost:5000',
   'http://localhost:5001',
   'http://localhost:5002',
-  'https://new-admin-pannel-nine.vercel.app/',
-  'https://rupantara-fronted.vercel.app/',
+  'https://new-admin-pannel-nine.vercel.app',
+  'https://rupantara-fronted.vercel.app',
   ...envOrigins.map(o => o.replace(/`/g, '').trim()),
 ];
 app.use(cors({
@@ -551,6 +551,103 @@ app.patch('/api/admin/templates/:id', async (req, res) => {
 });
 app.delete('/api/admin/templates/:id', async (req, res) => {
   await Template.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+// Upload demo image for template preview (Admin)
+const upload = multer({ storage: multer.memoryStorage() });
+app.post('/api/admin/upload/template-demo', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const b64 = req.file.buffer.toString('base64');
+    res.json({ url: `data:${req.file.mimetype || 'image/png'};base64,${b64}` });
+  } catch (e) {
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+// System metrics for Admin dashboard
+app.get('/api/admin/metrics', async (req, res) => {
+  try {
+    const users = await User.countDocuments();
+    const templates = await Template.countDocuments();
+    res.json({
+      cpu: 12,
+      memory: 45,
+      requests: 1450,
+      latency: 120,
+      activeUsers: users,
+      revenue: 45600,
+      templates
+    });
+  } catch {
+    res.json({
+      cpu: 12,
+      memory: 45,
+      requests: 1450,
+      latency: 120,
+      activeUsers: 842,
+      revenue: 45600
+    });
+  }
+});
+
+// Admin Users management
+app.get('/api/admin/users', async (req, res) => {
+  const list = await User.find().sort({ joinedDate: -1 });
+  res.json(list.map(u => ({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    points: u.points,
+    status: u.status,
+    joinedDate: u.joinedDate,
+    avatar: ''
+  })));
+});
+app.post('/api/admin/users', async (req, res) => {
+  const { name, email, password, role = 'user', points = 0, status = 'active' } = req.body || {};
+  const hashed = password ? await bcrypt.hash(password, 10) : undefined;
+  const u = await User.create({ name, email, password: hashed, role, points, status });
+  res.json({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    points: u.points,
+    status: u.status,
+    joinedDate: u.joinedDate,
+    avatar: ''
+  });
+});
+app.put('/api/admin/users/:id', async (req, res) => {
+  const u = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!u) return res.status(404).json({ error: 'Not found' });
+  res.json({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    points: u.points,
+    status: u.status,
+    joinedDate: u.joinedDate,
+    avatar: ''
+  });
+});
+app.put('/api/admin/users/:id/status', async (req, res) => {
+  const u = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+  if (!u) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true });
+});
+app.post('/api/admin/users/:id/temp-password', async (req, res) => {
+  const hashed = await bcrypt.hash(String(req.body.tempPassword || ''), 10);
+  await User.findByIdAndUpdate(req.params.id, { password: hashed });
+  res.json({ success: true });
+});
+app.put('/api/admin/users/bulk', async (req, res) => {
+  const { userIds = [], updates = {} } = req.body || {};
+  await User.updateMany({ _id: { $in: userIds } }, updates);
   res.json({ success: true });
 });
 

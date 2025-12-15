@@ -2,10 +2,10 @@
   "name": "rupantar-ai-backend",
   "version": "1.0.0",
   "description": "Backend for Rupantar AI Admin & User App",
-  "main": "server.min.js",
+  "main": "server.full.js",
   "scripts": {
-    "start": "node server.min.js",
-    "dev": "nodemon server.min.js"
+    "start": "node server.full.js",
+    "dev": "nodemon server.full.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
