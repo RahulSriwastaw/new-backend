@@ -13,44 +13,52 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 // Simple in-memory recent logs buffer (last 100 entries)
 const recentLogs = [];
 const memoryCreatorApps = [];
-const memoryTemplates = [
-  {
-    id: 'T001',
-    title: 'Cyberpunk Warrior',
-    imageUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=500&auto=format&fit=crop&q=60',
-    category: 'Sci-Fi',
-    prompt: 'cyberpunk street samurai neon lights',
-    status: 'active',
-    useCount: 1250,
-    isPremium: true,
-    source: 'manual'
-  },
-  {
-    id: 'T002',
-    title: 'Vintage Portrait',
-    imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=60',
-    category: 'Portrait',
-    prompt: 'vintage portrait soft lighting',
-    status: 'active',
-    useCount: 890,
-    isPremium: false,
-    source: 'manual'
-  },
-  {
-    id: 'T003',
-    title: 'Fantasy Landscape',
-    imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60',
-    category: 'Landscape',
-    prompt: 'floating islands waterfalls magical clouds',
-    status: 'active',
-    useCount: 350,
-    isPremium: true,
-    source: 'manual'
-  }
-];
+function getMemoryTemplates() {
+  return [
+    {
+      id: 'T001',
+      title: 'Cyberpunk Warrior',
+      imageUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=500&auto=format&fit=crop&q=60',
+      category: 'Sci-Fi',
+      prompt: 'cyberpunk street samurai neon lights',
+      status: 'active',
+      useCount: 1250,
+      isPremium: true,
+      source: 'manual'
+    },
+    {
+      id: 'T002',
+      title: 'Vintage Portrait',
+      imageUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=500&auto=format&fit=crop&q=60',
+      category: 'Portrait',
+      prompt: 'vintage portrait soft lighting',
+      status: 'active',
+      useCount: 890,
+      isPremium: false,
+      source: 'manual'
+    },
+    {
+      id: 'T003',
+      title: 'Fantasy Landscape',
+      imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60',
+      category: 'Landscape',
+      prompt: 'floating islands waterfalls magical clouds',
+      status: 'active',
+      useCount: 350,
+      isPremium: true,
+      source: 'manual'
+    }
+  ];
+}
 const memoryCategories = [
   { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
   { id: 'CAT_fashion', name: 'Fashion', subCategories: ['fashion'] },
@@ -98,10 +106,6 @@ app.use((req, res, next) => {
     req.url = req.url.replace('/api/v1/', '/api/');
   }
   next();
-});
-// Dedicated health endpoint for platform checks
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', nodeEnv: process.env.NODE_ENV || 'development', ts: new Date().toISOString() });
 });
 app.use(bodyParser.json({ limit: '25mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
@@ -233,12 +237,6 @@ const seedDatabase = async () => {
     console.log('Seeding Error:', err);
   }
 };
-seedDatabase();
-
-// Root health-check for Railway
-app.get('/', (req, res) => {
-  res.status(200).json({ status: 'ok', ts: new Date().toISOString() });
-});
 
 // ==========================================
 // USER APP ROUTES
@@ -739,7 +737,7 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
 // --- Templates ---
 app.get('/api/admin/templates', async (req, res) => {
   if (useMemory()) {
-    const mapped = memoryTemplates.map(t => ({
+    const mapped = getMemoryTemplates().map(t => ({
       ...t,
       imageUrl: (t.imageUrl && String(t.imageUrl).trim())
         ? t.imageUrl
@@ -840,7 +838,7 @@ app.put('/api/admin/templates/filter-config', async (req, res) => {
 
 app.get('/api/templates', async (req, res) => {
   if (useMemory()) {
-    const mapped = memoryTemplates.map(t => ({
+    const mapped = getMemoryTemplates().map(t => ({
       id: t.id,
       title: t.title || '',
       description: '',
@@ -915,7 +913,7 @@ app.get('/api/templates', async (req, res) => {
 
 app.get('/api/templates/:id', async (req, res) => {
   if (useMemory()) {
-    const t = memoryTemplates.find(x => String(x.id) === String(req.params.id));
+    const t = getMemoryTemplates().find(x => String(x.id) === String(req.params.id));
     if (!t) return res.status(404).json({ error: 'Not found' });
     const mapped = {
       id: t.id,
@@ -1186,6 +1184,7 @@ app.post('/api/admin/notifications/send', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'SERVER_START', status: 200, ms: 0 });
+  seedDatabase();
 });
 // --- Admin recent logs ---
 app.get('/api/admin/logs', (req, res) => {
