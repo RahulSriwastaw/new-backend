@@ -11,7 +11,9 @@ const userSchema = new mongoose.Schema({
   joinedDate: { type: Date, default: Date.now },
   followersCount: { type: Number, default: 0 },
   likesCount: { type: Number, default: 0 },
-  usesCount: { type: Number, default: 0 }
+  usesCount: { type: Number, default: 0 },
+  firebaseUid: { type: String, index: true },
+  photoURL: { type: String }
 });
 
 // 2. Creator Application Schema

@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const admin = require('firebase-admin');
 const { 
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
@@ -104,6 +105,77 @@ const authUser = (req, res, next) => {
     res.status(401).json({ msg: 'Token is not valid' });
   }
 };
+
+// Firebase Admin initialization for production token verification
+let adminInitialized = false;
+try {
+  if (!admin.apps.length) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      admin.initializeApp({ credential: admin.credential.cert(sa) });
+    } else {
+      admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    }
+  }
+  adminInitialized = true;
+  recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'FIREBASE_ADMIN_INIT', status: 200, ms: 0 });
+} catch (e) {
+  console.error('Firebase Admin init failed:', e);
+  recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'FIREBASE_ADMIN_ERROR', status: 500, ms: 0 });
+}
+
+const verifyFirebaseIdToken = async (idToken) => {
+  if (!adminInitialized) throw new Error('Firebase Admin not initialized');
+  const decoded = await admin.auth().verifyIdToken(idToken);
+  return decoded;
+};
+
+// Production-safe Firebase login using verified ID token
+app.post('/api/auth/firebase-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ msg: 'idToken required' });
+    const decoded = await verifyFirebaseIdToken(idToken);
+    const { uid, email, name, picture } = decoded;
+    if (!email) return res.status(400).json({ msg: 'Email missing in token' });
+    let user = await User.findOne({ firebaseUid: uid });
+    if (!user) {
+      user = await User.findOne({ email });
+    }
+    if (!user) {
+      user = await User.create({
+        name: name || String(email).split('@')[0],
+        email,
+        firebaseUid: uid,
+        photoURL: picture || '',
+        role: 'user',
+        points: 100,
+        status: 'active'
+      });
+    } else {
+      let changed = false;
+      if (!user.firebaseUid) { user.firebaseUid = uid; changed = true; }
+      if (picture && user.photoURL !== picture) { user.photoURL = picture; changed = true; }
+      if (changed) await user.save();
+    }
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        points: user.points, 
+        role: user.role,
+        photoURL: user.photoURL || picture || ''
+      },
+      isNewUser: false
+    });
+  } catch (err) {
+    res.status(401).json({ msg: 'Invalid Firebase token' });
+  }
+});
 
 const seedDatabase = async () => {
   try {
@@ -221,11 +293,24 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.post('/api/auth/social-login', async (req, res) => {
   try {
-    const { provider = 'google', email, name } = req.body;
-    const finalEmail = email && String(email).trim() ? email : `${provider}_user_${Date.now()}@example.com`;
-    let user = await User.findOne({ email: finalEmail });
+    const { provider = 'google', email, name, uid, photoURL } = req.body;
+    const finalEmail = email && String(email).trim();
+    if (!finalEmail) return res.status(400).json({ msg: 'Email required' });
+    let user = await User.findOne({ firebaseUid: uid }) || await User.findOne({ email: finalEmail });
     if (!user) {
-      user = await User.create({ name: name || provider.charAt(0).toUpperCase() + provider.slice(1) + ' User', email: finalEmail, role: 'user', points: 100, status: 'active' });
+      user = await User.create({ 
+        name: name || String(finalEmail).split('@')[0], 
+        email: finalEmail, 
+        firebaseUid: uid, 
+        photoURL: photoURL || '', 
+        role: 'user', 
+        points: 100, 
+        status: 'active' 
+      });
+    } else if (uid && !user.firebaseUid) {
+      user.firebaseUid = uid;
+      if (photoURL) user.photoURL = photoURL;
+      await user.save();
     }
     const payload = { user: { id: user.id, role: user.role } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
