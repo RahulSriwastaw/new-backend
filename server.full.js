@@ -1156,6 +1156,44 @@ app.delete('/api/admin/system/admins/:id', async (req, res) => {
   await Admin.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
+// --- Admin Finance Management ---
+app.get('/api/admin/finance/config', async (_req, res) => {
+  const doc = await FinanceConfig.findOne() || await FinanceConfig.create({});
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.put('/api/admin/finance/config', async (req, res) => {
+  const existing = await FinanceConfig.findOne();
+  const doc = existing
+    ? await FinanceConfig.findByIdAndUpdate(existing._id, req.body, { new: true })
+    : await FinanceConfig.create(req.body);
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.get('/api/admin/finance/gateways', async (_req, res) => {
+  const gateways = await PaymentGateway.find();
+  res.json(gateways.map(g => ({ ...g._doc, id: String(g._id) })));
+});
+app.post('/api/admin/finance/gateways', async (req, res) => {
+  const { provider, name, publicKey, secretKey, isActive, isTestMode } = req.body;
+  let gateway = await PaymentGateway.findOne({ provider });
+  if (gateway) {
+    gateway.name = name || gateway.name;
+    gateway.isActive = isActive !== undefined ? isActive : gateway.isActive;
+    gateway.isTestMode = isTestMode !== undefined ? isTestMode : gateway.isTestMode;
+    if (publicKey) gateway.publicKey = publicKey;
+    if (secretKey) gateway.secretKey = secretKey;
+    await gateway.save();
+  } else {
+    gateway = await PaymentGateway.create({ provider, name, isActive, isTestMode, publicKey, secretKey });
+  }
+  res.json({ ...gateway._doc, id: String(gateway._id) });
+});
+app.put('/api/admin/finance/gateways/:id', async (req, res) => {
+  const update = { ...req.body };
+  if (!update.secretKey) delete update.secretKey;
+  const gateway = await PaymentGateway.findByIdAndUpdate(req.params.id, update, { new: true });
+  res.json({ ...gateway._doc, id: String(gateway._id) });
+});
+
 app.get('/api/admin/notifications', async (req, res) => {
   const notifs = await Notification.find().sort({ sentAt: -1 });
   res.json(notifs.map(n => ({ ...n._doc, id: n._id })));

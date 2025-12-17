@@ -90,6 +90,8 @@ const gatewaySchema = new mongoose.Schema({
 // 8. Finance Config Schema (Singleton)
 const financeConfigSchema = new mongoose.Schema({
   costPerCredit: { type: Number, default: 0.20 },
+  pointsPerRupee: { type: Number, default: 5 }, // Users get 5 points for 1 Rupee
+  creatorPayoutPerPoint: { type: Number, default: 0.10 }, // Creators get 0.10 Rupee per point
   currency: { type: String, default: 'INR' },
   taxRate: { type: Number, default: 18 }
 });
@@ -128,10 +130,10 @@ const generationSchema = new mongoose.Schema({
   negativePrompt: { type: String },
   uploadedImages: [{ type: String }],
   generatedImage: { type: String, required: true },
-  quality: { type: String, enum: ['SD','HD','UHD','2K','4K','8K'], default: 'HD' },
+  quality: { type: String, enum: ['SD', 'HD', 'UHD', '2K', '4K', '8K'], default: 'HD' },
   aspectRatio: { type: String, default: '1:1' },
   pointsSpent: { type: Number, default: 0 },
-  status: { type: String, enum: ['pending','processing','completed','failed'], default: 'completed' },
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'completed' },
   createdAt: { type: Date, default: Date.now },
   isFavorite: { type: Boolean, default: false },
   downloadCount: { type: Number, default: 0 },
