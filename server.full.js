@@ -46,15 +46,93 @@ const allowedOrigins = [
   'https://rupantara-fronted.vercel.app',
   ...envOrigins.map(o => o.replace(/`/g, '').trim()),
 ];
+// Debugging CORS: Allow all origins
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, false);
-  },
+  origin: true,
   credentials: true,
   optionsSuccessStatus: 200
 }));
+
+// ... (request logging middleware remains same)
+
+// Firebase Google Login - Verify ID Token
+app.post('/api/auth/firebase-login', async (req, res) => {
+  console.log('👉 /api/auth/firebase-login called');
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      console.log('❌ No idToken provided');
+      return res.status(400).json({ msg: 'ID token required' });
+    }
+
+    console.log('🔑 verifying idToken of length:', idToken.length);
+
+    // Verify the ID token with Firebase Admin
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (tokenErr) {
+      console.error('❌ verifyIdToken failed:', tokenErr);
+      return res.status(401).json({ msg: 'Invalid Token Signature', error: tokenErr.message });
+    }
+
+    const { uid, email, name, picture } = decodedToken;
+    console.log('✅ Token Verified. UID:', uid, 'Email:', email);
+
+    if (!email) {
+      return res.status(400).json({ msg: 'Email not found in token' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ firebaseUid: uid }) || await User.findOne({ email });
+
+    if (!user) {
+      // Create new user
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email,
+        firebaseUid: uid,
+        photoURL: picture || '',
+        role: 'user',
+        points: 50,
+        status: 'active',
+      });
+      console.log('✅ New user created via Firebase:', email);
+    } else {
+      // Update existing user with Firebase UID if missing
+      if (!user.firebaseUid) {
+        user.firebaseUid = uid;
+      }
+      if (picture && !user.photoURL) {
+        user.photoURL = picture;
+      }
+      await user.save();
+      console.log('✅ Existing user logged in via Firebase:', email);
+    }
+
+    // Generate JWT token
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        points: user.points,
+        role: user.role,
+        photoURL: user.photoURL,
+        joinedDate: user.joinedDate,
+      },
+    });
+  } catch (err) {
+    console.error('❌ Firebase login error:', err);
+    res.status(500).json({ error: 'Firebase authentication failed', msg: err.message, stack: err.stack });
+  }
+});
 app.use((req, res, next) => {
   if (req.url.startsWith('/api/v1/')) {
     req.url = req.url.replace('/api/v1/', '/api/');
