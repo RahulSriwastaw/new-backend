@@ -53,6 +53,9 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
+app.use(bodyParser.json({ limit: '25mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
+
 // ... (request logging middleware remains same)
 
 // Firebase Google Login - Verify ID Token
@@ -139,8 +142,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(bodyParser.json({ limit: '25mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
+
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
