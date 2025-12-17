@@ -141,7 +141,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
 
     // Generate JWT token
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
 
     res.json({
       token,
@@ -217,7 +217,7 @@ const authUser = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025');
     req.user = decoded.user;
     next();
   } catch (err) {
@@ -379,7 +379,7 @@ app.post('/api/auth/register', async (req, res) => {
     user = new User({ name: finalName, email, password: hashedPassword, role: 'user', points: 50 });
     await user.save();
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
   } catch (err) {
     res.status(500).send('Server Error');
@@ -395,7 +395,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ msg: 'Invalid Credentials' });
     }
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
   } catch (err) {
     res.status(500).send('Server Error');
@@ -424,7 +424,7 @@ app.post('/api/auth/social-login', async (req, res) => {
       await user.save();
     }
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, points: user.points, role: user.role } });
   } catch (err) {
     res.status(500).send('Server Error');
@@ -477,7 +477,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
 
     // Generate JWT token
     const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
 
     res.json({
       token,
@@ -814,7 +814,7 @@ app.post('/api/auth/admin-login', async (req, res) => {
   try {
     if (email === process.env.SUPER_ADMIN_ID && password === process.env.SUPER_ADMIN_PASSWORD) {
       const payload = { user: { id: 'super_admin_env', role: 'super_admin' } };
-      const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
+      const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '12h' });
       return res.json({
         success: true, token,
         user: { name: 'Rahul Malik', role: 'super_admin', permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports'] }
@@ -825,7 +825,7 @@ app.post('/api/auth/admin-login', async (req, res) => {
 
     admin.lastActive = new Date();
     await admin.save();
-    const token = jwt.sign({ user: { id: admin.id, role: admin.role } }, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
+    const token = jwt.sign({ user: { id: admin.id, role: admin.role } }, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '12h' });
     res.json({ success: true, token, user: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
   } catch (err) {
     res.status(500).json({ msg: 'Server Error' });
