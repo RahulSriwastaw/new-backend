@@ -7,6 +7,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const admin = require('firebase-admin');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
@@ -252,51 +255,7 @@ const verifyFirebaseIdToken = async (idToken) => {
 };
 
 // Production-safe Firebase login using verified ID token
-app.post('/api/auth/firebase-login', async (req, res) => {
-  try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ msg: 'idToken required' });
-    const decoded = await verifyFirebaseIdToken(idToken);
-    const { uid, email, name, picture } = decoded;
-    if (!email) return res.status(400).json({ msg: 'Email missing in token' });
-    let user = await User.findOne({ firebaseUid: uid });
-    if (!user) {
-      user = await User.findOne({ email });
-    }
-    if (!user) {
-      user = await User.create({
-        name: name || String(email).split('@')[0],
-        email,
-        firebaseUid: uid,
-        photoURL: picture || '',
-        role: 'user',
-        points: 100,
-        status: 'active'
-      });
-    } else {
-      let changed = false;
-      if (!user.firebaseUid) { user.firebaseUid = uid; changed = true; }
-      if (picture && user.photoURL !== picture) { user.photoURL = picture; changed = true; }
-      if (changed) await user.save();
-    }
-    const payload = { user: { id: user.id, role: user.role } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        points: user.points,
-        role: user.role,
-        photoURL: user.photoURL || picture || ''
-      },
-      isNewUser: false
-    });
-  } catch (err) {
-    res.status(401).json({ msg: 'Invalid Firebase token' });
-  }
-});
+
 
 async function seedDatabase() {
   try {
@@ -355,6 +314,25 @@ async function seedDatabase() {
           source: 'manual'
         }
       ]);
+    }
+    const packagesCount = await PointsPackage.countDocuments();
+    if (packagesCount === 0) {
+      await PointsPackage.insertMany([
+        { name: 'Starter', price: 199, points: 100, bonusPoints: 0, isPopular: false, isActive: true, tag: 'Best for Trial' },
+        { name: 'Pro', price: 799, points: 500, bonusPoints: 50, isPopular: true, isActive: true, tag: 'Most Popular' },
+        { name: 'Ultimate', price: 1499, points: 1200, bonusPoints: 200, isPopular: false, isActive: true, tag: 'Best Value' }
+      ]);
+    }
+    const gatewayCount = await PaymentGateway.countDocuments();
+    if (gatewayCount === 0) {
+      await PaymentGateway.create({
+        name: 'Razorpay',
+        provider: 'razorpay',
+        isActive: false,
+        isTestMode: true,
+        publicKey: '',
+        secretKey: ''
+      });
     }
     const toolCfgCount = await ToolConfig.countDocuments();
     if (toolCfgCount === 0) {
@@ -1232,6 +1210,209 @@ app.post('/api/admin/notifications/send', async (req, res) => {
   const notif = await Notification.create(data);
   res.json({ ...notif._doc, id: notif._id });
 });
+// --- Wallet Routes ---
+app.get('/api/wallet/balance', authUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    // Calculate total earned (sum of all credit transactions)
+    const earned = await Transaction.aggregate([
+      { $match: { userId: user._id, type: 'credit' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalEarned = earned.length > 0 ? earned[0].total : 0;
+
+    // Calculate total spent (sum of all debit transactions)
+    const spent = await Transaction.aggregate([
+      { $match: { userId: user._id, type: 'debit' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalSpent = spent.length > 0 ? spent[0].total : 0;
+
+    res.json({
+      balance: user.points,
+      totalEarned,
+      totalSpent
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+app.get('/api/wallet/transactions', authUser, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const type = req.query.type;
+
+    const query = { userId: req.user.id };
+    if (type) query.type = type === 'earned' ? 'credit' : 'debit';
+
+    const transactions = await Transaction.find(query)
+      .sort({ date: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Transform to frontend format
+    const formatted = transactions.map(t => ({
+      id: t._id,
+      amount: t.type === 'debit' ? -t.amount : t.amount,
+      description: t.description,
+      date: t.date,
+      createdAt: t.date,
+      type: t.type,
+      balanceAfter: 0 // Ideally this should be stored in transaction or calculated
+    }));
+
+    res.json({ transactions: formatted });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+app.post('/api/wallet/add-points', authUser, async (req, res) => {
+  // Logic restricted to specific scenarios or dev/test
+  // For production, this should be admin only or internal logic
+  try {
+    const { amount, description } = req.body;
+    if (!amount) return res.status(400).json({ msg: 'Amount required' });
+
+    const user = await User.findById(req.user.id);
+    user.points += parseInt(amount);
+    await user.save();
+
+    await Transaction.create({
+      userId: user._id,
+      amount: Math.abs(amount),
+      type: amount > 0 ? 'credit' : 'debit',
+      description: description || 'Manual adjustment',
+      status: 'success'
+    });
+
+    res.json({ success: true, balance: user.points });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+// --- Packages Routes ---
+app.get('/api/packages', async (req, res) => {
+  try {
+    const packages = await PointsPackage.find({ isActive: true }).sort({ price: 1 });
+    // Transform to match frontend expectations if needed
+    const formatted = packages.map(p => ({
+      id: p._id,
+      name: p.name,
+      price: p.price,
+      credits: p.points,
+      bonus: p.bonusPoints,
+      popular: p.isPopular,
+      features: p.tag ? [p.tag] : []
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+// --- Payment Routes (Razorpay) ---
+app.post('/api/payment/create-order', authUser, async (req, res) => {
+  try {
+    const { packageId, gateway = 'razorpay' } = req.body;
+    if (gateway !== 'razorpay') return res.status(400).json({ msg: 'Only Razorpay supported currently' });
+
+    const pkg = await PointsPackage.findById(packageId);
+    if (!pkg) return res.status(404).json({ msg: 'Package not found' });
+
+    // Get Razorpay Config
+    const config = await PaymentGateway.findOne({ provider: 'razorpay' });
+    if (!config || !config.isActive) return res.status(400).json({ msg: 'Payment gateway not configured' });
+
+    // Initialize Razorpay
+    // Note: secretKey is 'select: false' by default, need to explicitly select it
+    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
+
+    // Fallback environment variables if DB config missing (for reliability)
+    const key_id = config.publicKey || process.env.RAZORPAY_KEY_ID;
+    const key_secret = configWithSecret.secretKey || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_id || !key_secret) {
+      return res.status(500).json({ msg: 'Gateway credentials missing' });
+    }
+
+    const instance = new Razorpay({ key_id, key_secret });
+
+    const options = {
+      amount: pkg.price * 100, // Amount in paise
+      currency: "INR",
+      receipt: `order_${Date.now()}`,
+      notes: {
+        userId: req.user.id,
+        packageId: packageId
+      }
+    };
+
+    const order = await instance.orders.create(options);
+    res.json({
+      id: order.id,
+      currency: order.currency,
+      amount: order.amount,
+      keyId: key_id // Send public key to frontend
+    });
+
+  } catch (err) {
+    console.error('Payment Init Error:', err);
+    res.status(500).json({ msg: 'Payment initialization failed', error: err.message });
+  }
+});
+
+app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packageId } = req.body;
+
+    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
+    const key_secret = configWithSecret ? configWithSecret.secretKey : process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_secret) return res.status(500).json({ msg: 'Server config error' });
+
+    const generated_signature = crypto
+      .createHmac("sha256", key_secret)
+      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .digest("hex");
+
+    if (generated_signature === razorpay_signature) {
+      // Payment Success
+      const pkg = await PointsPackage.findById(packageId);
+      if (!pkg) return res.status(404).json({ msg: 'Package not found' });
+
+      const pointsToAdd = pkg.points + (pkg.bonusPoints || 0);
+
+      const user = await User.findById(req.user.id);
+      user.points += pointsToAdd;
+      await user.save();
+
+      // Record Transaction
+      await Transaction.create({
+        userId: user._id,
+        amount: pointsToAdd,
+        type: 'credit',
+        description: `Purchased ${pkg.name}`,
+        gateway: 'razorpay',
+        status: 'success'
+      });
+
+      res.json({ success: true, newBalance: user.points });
+    } else {
+      res.status(400).json({ msg: 'Invalid signature' });
+    }
+  } catch (err) {
+    console.error('Payment Verify Error:', err);
+    res.status(500).json({ msg: 'Verification failed' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'SERVER_START', status: 200, ms: 0 });
