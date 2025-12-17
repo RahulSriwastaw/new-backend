@@ -649,6 +649,31 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           } else {
             console.error("Stability Error:", await resp.text());
           }
+        } else if (provider.includes('minimax')) {
+          const resp = await fetch('https://api.minimax.chat/v1/text_to_image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${activeModel.apiKey}`
+            },
+            body: JSON.stringify({
+              prompt: finalPrompt,
+              model: "image-01"
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            // Note: Adjust parsing based on actual MiniMax API response structure
+            // Assuming standard URL or Base64 return. If URL, we might need to proxy or save it.
+            // For now assuming base64 or direct url in a standard field.
+            // This is a placeholder as MiniMax API specifics vary.
+            // If MiniMax returns a URL, we use it directly.
+            if (data.url) imageUrl = data.url;
+            else if (data.data && data.data[0] && data.data[0].url) imageUrl = data.data[0].url;
+            else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
+          } else {
+            console.error("MiniMax Error:", await resp.text());
+          }
         }
       } catch (e) {
         console.error("AI Generation External API Error:", e);
