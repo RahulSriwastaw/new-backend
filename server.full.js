@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const admin = require('firebase-admin');
-const { 
+const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
 } = require('./models');
@@ -192,13 +192,13 @@ app.post('/api/auth/firebase-login', async (req, res) => {
     }
     const payload = { user: { id: user.id, role: user.role } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.json({ 
-      token, 
-      user: { 
-        id: user.id, 
-        name: user.name, 
-        email: user.email, 
-        points: user.points, 
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        points: user.points,
         role: user.role,
         photoURL: user.photoURL || picture || ''
       },
@@ -329,14 +329,14 @@ app.post('/api/auth/social-login', async (req, res) => {
     if (!finalEmail) return res.status(400).json({ msg: 'Email required' });
     let user = await User.findOne({ firebaseUid: uid }) || await User.findOne({ email: finalEmail });
     if (!user) {
-      user = await User.create({ 
-        name: name || String(finalEmail).split('@')[0], 
-        email: finalEmail, 
-        firebaseUid: uid, 
-        photoURL: photoURL || '', 
-        role: 'user', 
-        points: 100, 
-        status: 'active' 
+      user = await User.create({
+        name: name || String(finalEmail).split('@')[0],
+        email: finalEmail,
+        firebaseUid: uid,
+        photoURL: photoURL || '',
+        role: 'user',
+        points: 100,
+        status: 'active'
       });
     } else if (uid && !user.firebaseUid) {
       user.firebaseUid = uid;
@@ -350,6 +350,74 @@ app.post('/api/auth/social-login', async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
+// Firebase Google Login - Verify ID Token
+app.post('/api/auth/firebase-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ msg: 'ID token required' });
+    }
+
+    // Verify the ID token with Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!email) {
+      return res.status(400).json({ msg: 'Email not found in token' });
+    }
+
+    // Find or create user
+    let user = await User.findOne({ firebaseUid: uid }) || await User.findOne({ email });
+
+    if (!user) {
+      // Create new user
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email,
+        firebaseUid: uid,
+        photoURL: picture || '',
+        role: 'user',
+        points: 50,
+        status: 'active',
+      });
+      console.log('✅ New user created via Firebase:', email);
+    } else {
+      // Update existing user with Firebase UID if missing
+      if (!user.firebaseUid) {
+        user.firebaseUid = uid;
+      }
+      if (picture && !user.photoURL) {
+        user.photoURL = picture;
+      }
+      await user.save();
+      console.log('✅ Existing user logged in via Firebase:', email);
+    }
+
+    // Generate JWT token
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        points: user.points,
+        role: user.role,
+        photoURL: user.photoURL,
+        joinedDate: user.joinedDate,
+      },
+    });
+  } catch (err) {
+    console.error('❌ Firebase login error:', err);
+    res.status(500).json({ error: 'Firebase authentication failed', msg: err.message });
+  }
+});
+
 
 app.get('/api/user/me', authUser, async (req, res) => {
   try {
@@ -524,7 +592,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             imageUrl = `data:image/png;base64,${b64}`;
           }
         }
-      } catch {}
+      } catch { }
     }
     const safeUploadedImages = (Array.isArray(uploadedImages) ? uploadedImages : [])
       .slice(0, 5)
@@ -594,18 +662,20 @@ app.get('/api/generation/history', authUser, async (req, res) => {
   const limit = parseInt(req.query.limit || '20', 10);
   const skip = (page - 1) * limit;
   const list = await Generation.find({ userId: req.user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
-  res.json({ generations: list.map(g => ({
-    id: String(g._id),
-    generatedImage: g.generatedImage,
-    visiblePrompt: g.templateName || 'AI Generated Image',
-    quality: g.quality,
-    aspectRatio: g.aspectRatio,
-    pointsSpent: g.pointsSpent,
-    createdAt: g.createdAt.toISOString(),
-    isFavorite: g.isFavorite,
-    downloadCount: g.downloadCount,
-    shareCount: g.shareCount
-  })) });
+  res.json({
+    generations: list.map(g => ({
+      id: String(g._id),
+      generatedImage: g.generatedImage,
+      visiblePrompt: g.templateName || 'AI Generated Image',
+      quality: g.quality,
+      aspectRatio: g.aspectRatio,
+      pointsSpent: g.pointsSpent,
+      createdAt: g.createdAt.toISOString(),
+      isFavorite: g.isFavorite,
+      downloadCount: g.downloadCount,
+      shareCount: g.shareCount
+    }))
+  });
 });
 
 app.get('/api/generation/:id', authUser, async (req, res) => {
@@ -663,16 +733,16 @@ app.post('/api/auth/admin-login', async (req, res) => {
   const { email, password } = req.body;
   try {
     if (email === process.env.SUPER_ADMIN_ID && password === process.env.SUPER_ADMIN_PASSWORD) {
-       const payload = { user: { id: 'super_admin_env', role: 'super_admin' } };
-       const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
-       return res.json({
-         success: true, token,
-         user: { name: 'Rahul Malik', role: 'super_admin', permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports'] }
-       });
+      const payload = { user: { id: 'super_admin_env', role: 'super_admin' } };
+      const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
+      return res.json({
+        success: true, token,
+        user: { name: 'Rahul Malik', role: 'super_admin', permissions: ['manage_users', 'manage_creators', 'manage_templates', 'manage_finance', 'manage_ai', 'manage_settings', 'view_reports'] }
+      });
     }
     const admin = await Admin.findOne({ email }).select('+password');
     if (!admin || !(await bcrypt.compare(password, admin.password))) return res.status(400).json({ msg: 'Invalid Credentials' });
-    
+
     admin.lastActive = new Date();
     await admin.save();
     const token = jwt.sign({ user: { id: admin.id, role: admin.role } }, process.env.JWT_SECRET || 'secret', { expiresIn: '12h' });
@@ -685,7 +755,7 @@ app.post('/api/auth/admin-login', async (req, res) => {
 app.get('/api/admin/creators', async (req, res) => {
   const list = useMemory()
     ? memoryCreatorApps
-    : (await CreatorApplication.find().sort({ appliedDate: -1 })).map(a => ({...a._doc, id: a._id}));
+    : (await CreatorApplication.find().sort({ appliedDate: -1 })).map(a => ({ ...a._doc, id: a._id }));
   res.json(list);
 });
 app.patch('/api/admin/creators/:id/status', async (req, res) => {
@@ -705,7 +775,7 @@ app.patch('/api/admin/creators/:id/status', async (req, res) => {
 app.get('/api/admin/categories', async (req, res) => {
   const list = useMemory()
     ? memoryCategories
-    : (await Category.find()).map(c => ({...c._doc, id: c._id}));
+    : (await Category.find()).map(c => ({ ...c._doc, id: c._id }));
   res.json(list);
 });
 app.post('/api/admin/categories', async (req, res) => {
@@ -749,13 +819,13 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
 app.get('/api/admin/templates/categories', async (req, res) => {
   const list = useMemory()
     ? memoryCategories
-    : (await Category.find()).map(c => ({...c._doc, id: c._id}));
+    : (await Category.find()).map(c => ({ ...c._doc, id: c._id }));
   res.json(list);
 });
 
 app.get('/api/admin/templates', async (req, res) => {
   const list = await Template.find().sort({ useCount: -1 });
-  res.json(list.map(t => ({...t._doc, id: t._id})));
+  res.json(list.map(t => ({ ...t._doc, id: t._id })));
 });
 app.post('/api/admin/templates', async (req, res) => {
   const t = await Template.create(req.body);
@@ -791,7 +861,7 @@ app.delete('/api/admin/templates/:id', async (req, res) => {
 app.get('/api/templates', async (req, res) => {
   try {
     const list = await Template.find().sort({ useCount: -1 });
-    res.json(list.map(t => ({...t._doc, id: t._id})));
+    res.json(list.map(t => ({ ...t._doc, id: t._id })));
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch templates' });
   }
@@ -811,7 +881,7 @@ app.get('/api/templates/search', async (req, res) => {
     if (!q) return res.json([]);
     const re = new RegExp(q, 'i');
     const list = await Template.find({ $or: [{ title: re }, { prompt: re }, { description: re }] }).limit(50);
-    res.json(list.map(t => ({...t._doc, id: t._id})));
+    res.json(list.map(t => ({ ...t._doc, id: t._id })));
   } catch (e) {
     res.status(500).json({ error: 'Search failed' });
   }
@@ -1053,12 +1123,12 @@ app.delete('/api/admin/config/ai/cache', async (req, res) => {
 });
 app.get('/api/admin/system/admins', async (req, res) => {
   const admins = await Admin.find();
-  res.json(admins.map(a => ({...a._doc, id: a._id})));
+  res.json(admins.map(a => ({ ...a._doc, id: a._id })));
 });
 app.post('/api/admin/system/admins', async (req, res) => {
   const hashedPassword = await bcrypt.hash(req.body.password, 10);
   const admin = await Admin.create({ ...req.body, password: hashedPassword });
-  res.json({...admin._doc, id: admin._id});
+  res.json({ ...admin._doc, id: admin._id });
 });
 app.delete('/api/admin/system/admins/:id', async (req, res) => {
   await Admin.findByIdAndDelete(req.params.id);
@@ -1066,12 +1136,12 @@ app.delete('/api/admin/system/admins/:id', async (req, res) => {
 });
 app.get('/api/admin/notifications', async (req, res) => {
   const notifs = await Notification.find().sort({ sentAt: -1 });
-  res.json(notifs.map(n => ({...n._doc, id: n._id})));
+  res.json(notifs.map(n => ({ ...n._doc, id: n._id })));
 });
 app.post('/api/admin/notifications/send', async (req, res) => {
   const data = { ...req.body, sentAt: req.body.scheduledFor ? undefined : new Date(), status: req.body.scheduledFor ? 'scheduled' : 'sent', reachCount: 100 };
   const notif = await Notification.create(data);
-  res.json({...notif._doc, id: notif._id});
+  res.json({ ...notif._doc, id: notif._id });
 });
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
