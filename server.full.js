@@ -221,7 +221,10 @@ const authUser = (req, res, next) => {
     req.user = decoded.user;
     next();
   } catch (err) {
-    res.status(401).json({ msg: 'Token is not valid' });
+    console.error('❌ authUser Failed:', err.message);
+    const usedSecret = process.env.JWT_SECRET ? 'Using Env Var' : 'Using Fallback';
+    console.log(`Debug: Token Prefix: ${token.substring(0, 10)}... | Secret: ${usedSecret}`);
+    res.status(401).json({ msg: 'Token is not valid', error: err.message });
   }
 };
 
