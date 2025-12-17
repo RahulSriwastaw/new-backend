@@ -1286,7 +1286,8 @@ app.put('/api/admin/tools/config', async (req, res) => {
 });
 
 app.get('/api/admin/config/ai', async (req, res) => {
-  const models = await AIModel.find();
+  const modelsList = await AIModel.find().select('+apiKey');
+  const models = modelsList.map(m => ({ ...m._doc, id: m._id }));
   const finance = await FinanceConfig.findOne() || { coinExchangeRate: 1, pointsExchangeRate: 1, currency: 'USD' };
   res.json({ models, finance });
 });
