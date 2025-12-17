@@ -110,10 +110,28 @@ const authUser = (req, res, next) => {
 let adminInitialized = false;
 try {
   if (!admin.apps.length) {
+    let serviceAccount = null;
+
+    // Preferred: full service account JSON in one env var
     if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      admin.initializeApp({ credential: admin.credential.cert(sa) });
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } else if (
+      process.env.FIREBASE_PROJECT_ID &&
+      process.env.FIREBASE_CLIENT_EMAIL &&
+      process.env.FIREBASE_PRIVATE_KEY
+    ) {
+      // Fallback: construct service account from individual env vars
+      serviceAccount = {
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      };
+    }
+
+    if (serviceAccount) {
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } else {
+      // Final fallback to application default credentials (GCP)
       admin.initializeApp({ credential: admin.credential.applicationDefault() });
     }
   }
