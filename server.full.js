@@ -908,6 +908,39 @@ app.get('/api/templates/search', async (req, res) => {
     res.status(500).json({ error: 'Search failed' });
   }
 });
+
+app.post('/api/templates/:id/view', async (req, res) => {
+  try {
+    await Template.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error' });
+  }
+});
+
+app.post('/api/templates/:id/like', authUser, async (req, res) => {
+  try {
+    const template = await Template.findByIdAndUpdate(req.params.id, { $inc: { likeCount: 1 } }, { new: true });
+    if (template && template.creatorId) {
+      await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: 1 } });
+    }
+    res.json({ success: true, likes: template ? template.likeCount : 0 });
+  } catch (e) {
+    res.status(500).json({ error: 'Error' });
+  }
+});
+
+app.post('/api/user/follow/:id', authUser, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (targetId === req.user.id) return res.status(400).json({ msg: 'Cannot follow self' });
+
+    await User.findByIdAndUpdate(targetId, { $inc: { followersCount: 1 } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error' });
+  }
+});
 // Upload demo image for template preview (Admin)
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/admin/upload/template-demo', upload.single('image'), async (req, res) => {

@@ -54,6 +54,7 @@ const templateSchema = new mongoose.Schema({
   prompt: { type: String },
   status: { type: String, enum: ['active', 'draft'], default: 'active' },
   useCount: { type: Number, default: 0 },
+  viewCount: { type: Number, default: 0 },
   isPremium: { type: Boolean, default: false },
   source: { type: String, default: 'manual' },
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
