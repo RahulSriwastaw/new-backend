@@ -360,6 +360,82 @@ app.get('/api/user/me', authUser, async (req, res) => {
   }
 });
 
+// Backward-compatible alias used by the frontend client
+app.get('/api/auth/me', authUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json(user);
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
+});
+
+// Wallet APIs (used by user app)
+app.get('/api/wallet/balance', authUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.json({ points: user.points ?? 0 });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+app.get('/api/wallet/transactions', authUser, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '20', 10);
+    const skip = (page - 1) * limit;
+    const type = req.query.type ? String(req.query.type) : undefined;
+
+    const query = { userId: req.user.id };
+    if (type) {
+      // @ts-ignore
+      query.type = type;
+    }
+
+    const txs = await Transaction.find(query)
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return res.json({ transactions: txs.map(t => ({ ...t._doc, id: String(t._id) })) });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// Used by frontend for manual crediting / dev flows
+app.post('/api/wallet/add-points', authUser, async (req, res) => {
+  try {
+    const amount = Number(req.body.amount || 0);
+    const description = String(req.body.description || 'Wallet credit');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.points = (user.points || 0) + amount;
+    await user.save();
+
+    const tx = await Transaction.create({
+      userId: user._id,
+      amount,
+      type: 'credit',
+      description,
+      gateway: 'System',
+      status: 'success',
+      date: new Date()
+    });
+
+    return res.json({ success: true, points: user.points, transaction: { ...tx._doc, id: String(tx._id) } });
+  } catch (err) {
+    return res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 app.post('/api/creator/apply', authUser, async (req, res) => {
   try {
     const { name, socialLinks = [] } = req.body;
@@ -642,6 +718,24 @@ app.post('/api/admin/categories', async (req, res) => {
     return res.json({ ...c._doc, id: c._id });
   }
 });
+
+// Admin panel uses PUT for category updates
+app.put('/api/admin/categories/:id', async (req, res) => {
+  if (useMemory()) {
+    const idx = memoryCategories.findIndex(c => c.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ error: 'Not found' });
+    if (req.body.name !== undefined) memoryCategories[idx].name = String(req.body.name).trim();
+    if (req.body.subCategories !== undefined) {
+      memoryCategories[idx].subCategories = Array.isArray(req.body.subCategories) ? req.body.subCategories.filter(Boolean) : [];
+    }
+    return res.json(memoryCategories[idx]);
+  }
+
+  const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  return res.json({ ...updated._doc, id: updated._id });
+});
+
 app.delete('/api/admin/categories/:id', async (req, res) => {
   if (useMemory()) {
     const idx = memoryCategories.findIndex(c => c.id === req.params.id);
@@ -669,8 +763,26 @@ app.post('/api/admin/templates', async (req, res) => {
 });
 app.patch('/api/admin/templates/:id', async (req, res) => {
   const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!t) return res.status(404).json({ error: 'Not found' });
   res.json({ ...t._doc, id: t._id });
 });
+
+// Admin panel uses PUT for template updates
+app.put('/api/admin/templates/:id', async (req, res) => {
+  const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!t) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...t._doc, id: t._id });
+});
+
+// Bulk update helper used by the Admin UI
+app.put('/api/admin/templates/bulk-update', async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+  const updates = req.body.updates || {};
+  if (!ids.length) return res.json({ success: true, modifiedCount: 0 });
+  const result = await Template.updateMany({ _id: { $in: ids } }, updates);
+  res.json({ success: true, modifiedCount: result.modifiedCount ?? 0 });
+});
+
 app.delete('/api/admin/templates/:id', async (req, res) => {
   await Template.findByIdAndDelete(req.params.id);
   res.json({ success: true });
@@ -799,6 +911,104 @@ app.put('/api/admin/users/bulk', async (req, res) => {
   const { userIds = [], updates = {} } = req.body || {};
   await User.updateMany({ _id: { $in: userIds } }, updates);
   res.json({ success: true });
+});
+
+// Admin profile (used by Admin panel settings). This backend currently has no multi-admin profile
+// management; keep a safe stub to avoid 404s.
+app.put('/api/admin/profile', async (_req, res) => {
+  res.json({ success: true });
+});
+
+// Admin - Finance
+app.get('/api/admin/finance/transactions', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '50', 10);
+    const skip = (page - 1) * limit;
+    const list = await Transaction.find().sort({ date: -1 }).skip(skip).limit(limit);
+    res.json(list.map(t => ({ ...t._doc, id: String(t._id) })));
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+app.get('/api/admin/finance/packages', async (_req, res) => {
+  const list = await PointsPackage.find().sort({ isPopular: -1, price: 1 });
+  res.json(list.map(p => ({ ...p._doc, id: String(p._id) })));
+});
+app.post('/api/admin/finance/packages', async (req, res) => {
+  const doc = await PointsPackage.create(req.body);
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.put('/api/admin/finance/packages/:id', async (req, res) => {
+  const doc = await PointsPackage.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.delete('/api/admin/finance/packages/:id', async (req, res) => {
+  await PointsPackage.findByIdAndDelete(req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/finance/gateways', async (_req, res) => {
+  const list = await PaymentGateway.find().sort({ name: 1 });
+  res.json(list.map(g => ({ ...g._doc, id: String(g._id) })));
+});
+app.post('/api/admin/finance/gateways', async (req, res) => {
+  const doc = await PaymentGateway.create(req.body);
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.put('/api/admin/finance/gateways/:id', async (req, res) => {
+  const doc = await PaymentGateway.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
+  const isActive = !!req.body.isActive;
+  if (isActive) {
+    await PaymentGateway.updateMany({}, { isActive: false });
+  }
+  const doc = await PaymentGateway.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true, id: String(doc._id), isActive: doc.isActive });
+});
+app.post('/api/admin/finance/gateways/:id/test', async (_req, res) => {
+  res.json({ success: true });
+});
+
+app.get('/api/admin/finance/config', async (_req, res) => {
+  const doc = await FinanceConfig.findOne() || await FinanceConfig.create({});
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+app.put('/api/admin/finance/config', async (req, res) => {
+  const existing = await FinanceConfig.findOne();
+  const doc = existing
+    ? await FinanceConfig.findByIdAndUpdate(existing._id, req.body, { new: true })
+    : await FinanceConfig.create(req.body);
+  res.json({ ...doc._doc, id: String(doc._id) });
+});
+
+// Admin - Tools configuration
+app.get('/api/admin/tools/config', async (_req, res) => {
+  const cfg = await ToolConfig.findOne() || await ToolConfig.create({
+    tools: [
+      { key: 'remove-bg', name: 'BG Remove', cost: 0, isActive: true },
+      { key: 'enhance', name: 'Enhance', cost: 5, isActive: true },
+      { key: 'face-enhance', name: 'Face Fix', cost: 8, isActive: true },
+      { key: 'upscale', name: 'Upscale', cost: 10, isActive: true },
+      { key: 'colorize', name: 'Colorize', cost: 10, isActive: true },
+      { key: 'style', name: 'Style', cost: 8, isActive: true }
+    ]
+  });
+  res.json({ ...cfg._doc, id: String(cfg._id) });
+});
+app.put('/api/admin/tools/config', async (req, res) => {
+  const tools = Array.isArray(req.body.tools) ? req.body.tools : [];
+  const existing = await ToolConfig.findOne();
+  const cfg = existing
+    ? await ToolConfig.findByIdAndUpdate(existing._id, { tools, updatedAt: new Date() }, { new: true })
+    : await ToolConfig.create({ tools });
+  res.json({ ...cfg._doc, id: String(cfg._id) });
 });
 
 app.get('/api/admin/config/ai', async (req, res) => {
