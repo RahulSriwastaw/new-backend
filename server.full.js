@@ -339,17 +339,19 @@ async function seedDatabase() {
         { name: 'Ultimate', price: 1499, points: 1200, bonusPoints: 200, isPopular: false, isActive: true, tag: 'Best Value' }
       ]);
     }
-    const gatewayCount = await PaymentGateway.countDocuments();
-    if (gatewayCount === 0) {
-      await PaymentGateway.create({
+    // Force update/create Razorpay Gateway to ensure it is Active
+    await PaymentGateway.findOneAndUpdate(
+      { provider: 'razorpay' },
+      {
         name: 'Razorpay',
         provider: 'razorpay',
-        isActive: false,
+        isActive: true,
         isTestMode: true,
-        publicKey: '',
-        secretKey: ''
-      });
-    }
+        publicKey: process.env.RAZORPAY_KEY_ID || '',
+        secretKey: process.env.RAZORPAY_KEY_SECRET || ''
+      },
+      { upsert: true, new: true }
+    );
     const toolCfgCount = await ToolConfig.countDocuments();
     if (toolCfgCount === 0) {
       await ToolConfig.create({
@@ -522,70 +524,7 @@ app.get('/api/auth/me', authUser, async (req, res) => {
 });
 
 // Wallet APIs (used by user app)
-app.get('/api/wallet/balance', authUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json({ points: user.points ?? 0 });
-  } catch (err) {
-    return res.status(500).json({ error: 'Server Error' });
-  }
-});
 
-app.get('/api/wallet/transactions', authUser, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page || '1', 10);
-    const limit = parseInt(req.query.limit || '20', 10);
-    const skip = (page - 1) * limit;
-    const type = req.query.type ? String(req.query.type) : undefined;
-
-    const query = { userId: req.user.id };
-    if (type) {
-      // @ts-ignore
-      query.type = type;
-    }
-
-    const txs = await Transaction.find(query)
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    return res.json({ transactions: txs.map(t => ({ ...t._doc, id: String(t._id) })) });
-  } catch (err) {
-    return res.status(500).json({ error: 'Server Error' });
-  }
-});
-
-// Used by frontend for manual crediting / dev flows
-app.post('/api/wallet/add-points', authUser, async (req, res) => {
-  try {
-    const amount = Number(req.body.amount || 0);
-    const description = String(req.body.description || 'Wallet credit');
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid amount' });
-    }
-
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    user.points = (user.points || 0) + amount;
-    await user.save();
-
-    const tx = await Transaction.create({
-      userId: user._id,
-      amount,
-      type: 'credit',
-      description,
-      gateway: 'System',
-      status: 'success',
-      date: new Date()
-    });
-
-    return res.json({ success: true, points: user.points, transaction: { ...tx._doc, id: String(tx._id) } });
-  } catch (err) {
-    return res.status(500).json({ error: 'Server Error' });
-  }
-});
 
 app.post('/api/creator/apply', authUser, async (req, res) => {
   try {
