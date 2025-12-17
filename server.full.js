@@ -597,25 +597,57 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
     const finalPrompt = prompt || userPrompt || '';
     let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
-    if (activeModel && activeModel.provider === 'OpenAI' && activeModel.apiKey) {
+    if (activeModel && activeModel.apiKey) {
       try {
-        const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${activeModel.apiKey}`
-          },
-          body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024' })
-        });
-        if (openaiRes.ok) {
-          const data = await openaiRes.json();
-          const b64 = data?.data?.[0]?.b64_json;
-          if (b64) {
-            imageUrl = `data:image/png;base64,${b64}`;
+        const provider = activeModel.provider.toLowerCase();
+
+        if (provider.includes('openai')) {
+          const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${activeModel.apiKey}`
+            },
+            body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
+          });
+          if (openaiRes.ok) {
+            const data = await openaiRes.json();
+            const b64 = data?.data?.[0]?.b64_json;
+            if (b64) imageUrl = `data:image/png;base64,${b64}`;
           }
+        } else if (provider.includes('stability')) {
+          const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${activeModel.apiKey}`
+            },
+            body: JSON.stringify({
+              text_prompts: [{ text: finalPrompt, weight: 1 }],
+              samples: 1,
+              steps: 30
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.artifacts && data.artifacts[0]) {
+              imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
+            }
+          }
+        } else {
+          // Generic fallback or other providers (Gemini, Grok via custom wrapper if available)
+          // For now continue using Pollinations/Default if provider implementation missing
+          // Or user can use Pollinations as provider name
         }
-      } catch { }
+      } catch (e) {
+        console.error("AI Generation Error:", e);
+      }
     }
+
+    // --- Quick Tools Implementation (Generic Handler) ---
+    // Note: Tools routes logic placed here for context, but should ideally be separate.
+    // Since we are inside generate route, we just proceed.
+
     const safeUploadedImages = (Array.isArray(uploadedImages) ? uploadedImages : [])
       .slice(0, 5)
       .map((img) => {
@@ -678,6 +710,100 @@ app.post('/api/generate', authUser, async (req, res) => {
   req.url = '/api/generation/generate';
   app._router.handle(req, res);
 });
+
+// --- Quick Tools Routes ---
+app.post('/api/tools/:action', authUser, async (req, res) => {
+  try {
+    const { action } = req.params; // remove-bg, upscale, face-enhance, compress
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: 'Image URL required' });
+
+    const toolCfg = await ToolConfig.findOne();
+    const tool = toolCfg?.tools.find(t => t.key === action);
+    if (!tool || !tool.isActive) return res.status(400).json({ error: 'Tool not active' });
+
+    const user = await User.findById(req.user.id);
+    const cost = tool.cost || 0;
+    if (user.points < cost) return res.status(400).json({ error: `Insufficient points (Need ${cost})` });
+
+    // Implementation for Stability AI (Covers RemoveBG, Upscale)
+    // For specific tools, add more providers here
+    let resultUrl = imageUrl;
+    let success = false;
+
+    // Use Tool API Key if set, otherwise active Model key? 
+    // Usually tools have dedicated keys in ToolConfig.
+    // If not, we might check generic AI Model key if provider matches.
+    let apiKey = tool.apiKey;
+    if (!apiKey && tool.provider === 'Stability') {
+      const activeModel = await AIModel.findOne({ provider: 'Stability' }).select('+apiKey');
+      apiKey = activeModel?.apiKey;
+    }
+
+    if (tool.provider === 'Stability' || (['remove-bg', 'upscale', 'enhance'].includes(action) && apiKey)) {
+      // Fetch source image
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) throw new Error('Failed to fetch source image');
+      const blob = await imgRes.blob();
+
+      const formData = new FormData();
+      formData.append('image', blob);
+      formData.append('output_format', 'png');
+
+      let apiPath = '';
+      if (action === 'remove-bg') apiPath = 'https://api.stability.ai/v2beta/stable-image/edit/remove-background';
+      else if (action === 'upscale') apiPath = 'https://api.stability.ai/v2beta/stable-image/upscale/conservative';
+      else if (action === 'face-enhance' || action === 'enhance') apiPath = 'https://api.stability.ai/v2beta/stable-image/upscale/creative'; // Approximation
+
+      if (apiPath) {
+        const sRes = await fetch(apiPath, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, Accept: 'image/*' },
+          body: formData
+        });
+
+        if (sRes.ok) {
+          const outBlob = await sRes.blob();
+          const buf = await outBlob.arrayBuffer();
+          const b64 = Buffer.from(buf).toString('base64');
+          resultUrl = `data:image/png;base64,${b64}`;
+          success = true;
+        } else {
+          const errTxt = await sRes.text();
+          console.error(`Stability API Error (${action}):`, errTxt);
+        }
+      }
+    } else {
+      // Placeholder for System/Mock
+      // In real deployment this would use a python service or other API
+      // For now, if no provider configured, we return original
+      success = true;
+    }
+
+    if (success) {
+      if (cost > 0) {
+        user.points -= cost;
+        await user.save();
+        await Transaction.create({
+          userId: user._id,
+          amount: cost,
+          type: 'debit',
+          description: `Tool used: ${tool.name}`,
+          gateway: 'System',
+          status: 'success'
+        });
+      }
+      res.json({ result: resultUrl, points: user.points });
+    } else {
+      res.status(500).json({ error: 'Tool processing failed' });
+    }
+
+  } catch (err) {
+    console.error("Tool Error:", err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 
 app.get('/api/generation/history', authUser, async (req, res) => {
   const page = parseInt(req.query.page || '1', 10);
