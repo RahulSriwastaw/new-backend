@@ -1089,9 +1089,68 @@ app.delete('/api/admin/templates/:id', async (req, res) => {
 
 app.get('/api/templates', async (req, res) => {
   try {
-    const list = await Template.find().sort({ useCount: -1 });
+    const { category, subCategory, gender, state, ageGroup, isPremium, sort, search, tags, page, limit } = req.query;
+
+    const query = { status: 'active' }; // Only show active templates
+
+    // 1. Filters
+    if (category && category !== 'All') query.category = category;
+    if (subCategory) query.subCategory = subCategory;
+    if (gender && gender !== 'All') {
+      query.gender = Array.isArray(gender) ? { $in: gender } : gender;
+    }
+    // For state, support checking "India" or specific states if implemented
+    if (state && state !== 'All') {
+      query.state = Array.isArray(state) ? { $in: state } : state;
+    }
+    if (ageGroup && ageGroup !== 'All') {
+      query.ageGroup = Array.isArray(ageGroup) ? { $in: ageGroup } : ageGroup;
+    }
+
+    // Premium Filter
+    if (isPremium === 'true') query.isPremium = true;
+    else if (isPremium === 'false') query.isPremium = false;
+
+    // Search Filter
+    if (search) {
+      const re = new RegExp(String(search).trim(), 'i');
+      query.$or = [
+        { title: re },
+        { description: re },
+        { category: re },
+        { tags: { $in: [re] } }
+      ];
+    }
+
+    // Tags Filter (Comma separated)
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagList.length > 0) {
+        query.tags = { $in: tagList };
+      }
+    }
+
+    // 2. Sorting
+    let sortOption = { useCount: -1 }; // Default: Trending
+    if (sort === 'Latest') sortOption = { createdAt: -1 };
+    else if (sort === 'Oldest') sortOption = { createdAt: 1 };
+    else if (sort === 'Popular' || sort === 'Top Rated') sortOption = { likeCount: -1 };
+    else if (sort === 'Trending') sortOption = { useCount: -1 };
+
+    // 3. Pagination
+    const pageNum = parseInt(page || '1');
+    const limitNum = parseInt(limit || '50');
+    const skip = (pageNum - 1) * limitNum;
+
+    const list = await Template.find(query)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+
+    // Return mapped result
     res.json(list.map(t => ({ ...t._doc, id: t._id })));
   } catch (e) {
+    console.error("Template Fetch Error:", e);
     res.status(500).json({ error: 'Failed to fetch templates' });
   }
 });

@@ -48,16 +48,23 @@ const aiModelSchema = new mongoose.Schema({
 // 5. Template Schema
 const templateSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  description: { type: String },
   imageUrl: { type: String, required: true },
   category: { type: String, default: 'General' },
   subCategory: { type: String, default: '' },
   prompt: { type: String },
+  negativePrompt: { type: String },
+  tags: [{ type: String }],
+  gender: { type: String, enum: ['Male', 'Female', 'Unisex', ''], default: '' },
+  ageGroup: { type: String, default: '' },
+  state: { type: String, default: '' }, // For Indian filters
   status: { type: String, enum: ['active', 'draft'], default: 'active' },
   useCount: { type: Number, default: 0 },
   viewCount: { type: Number, default: 0 },
   isPremium: { type: Boolean, default: false },
   source: { type: String, default: 'manual' },
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdAt: { type: Date, default: Date.now },
   likeCount: { type: Number, default: 0 }
 });
 
