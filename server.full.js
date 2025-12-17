@@ -775,10 +775,27 @@ app.post('/api/auth/admin-login', async (req, res) => {
 });
 
 app.get('/api/admin/creators', async (req, res) => {
-  const list = useMemory()
-    ? memoryCreatorApps
-    : (await CreatorApplication.find().sort({ appliedDate: -1 })).map(a => ({ ...a._doc, id: a._id }));
-  res.json(list);
+  if (useMemory()) return res.json(memoryCreatorApps);
+
+  try {
+    const apps = await CreatorApplication.find().sort({ appliedDate: -1 }).populate('userId');
+    const list = apps.map(a => {
+      const u = a.userId || {};
+      return {
+        ...a._doc,
+        id: String(a._id),
+        followers: u.followersCount || 0,
+        likes: u.likesCount || 0,
+        uses: u.usesCount || 0,
+        points: u.points || 0,
+        userEmail: u.email,
+        avatar: u.photoURL || ''
+      };
+    });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch creators' });
+  }
 });
 app.patch('/api/admin/creators/:id/status', async (req, res) => {
   const { status } = req.body;
@@ -990,7 +1007,13 @@ app.get('/api/admin/users', async (req, res) => {
     points: u.points,
     status: u.status,
     joinedDate: u.joinedDate,
-    avatar: ''
+    avatar: u.photoURL || '',
+    followersCount: u.followersCount || 0,
+    likesCount: u.likesCount || 0,
+    usesCount: u.usesCount || 0,
+    followers: u.followersCount || 0,
+    likes: u.likesCount || 0,
+    uses: u.usesCount || 0
   })));
 });
 app.post('/api/admin/users', async (req, res) => {
