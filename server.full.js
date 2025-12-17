@@ -116,14 +116,27 @@ app.post('/api/auth/firebase-login', async (req, res) => {
       console.log('✅ New user created via Firebase:', email);
     } else {
       // Update existing user with Firebase UID if missing
+      let changed = false;
       if (!user.firebaseUid) {
         user.firebaseUid = uid;
+        changed = true;
       }
       if (picture && !user.photoURL) {
         user.photoURL = picture;
+        changed = true;
       }
-      await user.save();
-      console.log('✅ Existing user logged in via Firebase:', email);
+      // Fix for legacy users with missing name causing validation error
+      if (!user.name) {
+        user.name = finalName;
+        changed = true;
+      }
+
+      if (changed) {
+        await user.save();
+        console.log('✅ Existing user updated via Firebase:', email);
+      } else {
+        console.log('✅ Existing user logged in (no changes):', email);
+      }
     }
 
     // Generate JWT token
