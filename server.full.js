@@ -1238,15 +1238,45 @@ app.post('/api/user/follow/:id', authUser, async (req, res) => {
     res.status(500).json({ error: 'Error' });
   }
 });
-// Upload demo image for template preview (Admin)
+const cloudinary = require('cloudinary').v2;
+
+// ... existing code ...
+
+// Upload demo image for template preview (Admin) - Uses Cloudinary Account 2
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/admin/upload/template-demo', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });
-    const b64 = req.file.buffer.toString('base64');
-    res.json({ url: `data:${req.file.mimetype || 'image/png'};base64,${b64}` });
+
+    // Configure Cloudinary for Account 2 (Creator Demo Images)
+    cloudinary.config({
+      cloud_name: 'dmbrs338o',
+      api_key: '943571584978134',
+      api_secret: 'xLvXUL573laZHjFTwbpZboBBhNA'
+    });
+
+    // Use upload_stream for memory buffer
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'template_demos', resource_type: 'image' },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary Upload Error:', error);
+          return res.status(500).json({ error: 'Upload failed' });
+        }
+        res.json({ url: result.secure_url });
+      }
+    );
+
+    // Create stream from buffer
+    const { Readable } = require('stream');
+    const bufferStream = new Readable();
+    bufferStream.push(req.file.buffer);
+    bufferStream.push(null);
+    bufferStream.pipe(stream);
+
   } catch (e) {
-    res.status(500).json({ error: 'Upload failed' });
+    console.error("Upload Endpoint Error:", e);
+    res.status(500).json({ error: 'Server Error during upload' });
   }
 });
 
