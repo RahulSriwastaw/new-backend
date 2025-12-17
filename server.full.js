@@ -81,19 +81,28 @@ app.post('/api/auth/firebase-login', async (req, res) => {
     }
 
     const { uid, email, name, picture } = decodedToken;
-    console.log('✅ Token Verified. UID:', uid, 'Email:', email);
+    console.log('✅ Token Verified. UID:', uid, 'Email:', email, 'Name in Token:', name);
 
     if (!email) {
       return res.status(400).json({ msg: 'Email not found in token' });
+    }
+
+    // Explicitly derive name to ensure it is never empty
+    let finalName = 'User';
+    if (name && typeof name === 'string' && name.trim().length > 0) {
+      finalName = name.trim();
+    } else if (email) {
+      finalName = email.split('@')[0] || 'User';
     }
 
     // Find or create user
     let user = await User.findOne({ firebaseUid: uid }) || await User.findOne({ email });
 
     if (!user) {
+      console.log('Creating new user with name:', finalName);
       // Create new user
       user = await User.create({
-        name: name || email.split('@')[0],
+        name: finalName,
         email,
         firebaseUid: uid,
         photoURL: picture || '',
