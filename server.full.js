@@ -84,15 +84,29 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('✅ MongoDB Connected Successfully');
-    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_CONNECTED', status: 200, ms: 0 });
-  })
-  .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err);
-    recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_ERROR', status: 500, ms: 0 });
-  });
+const mongoUri =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI ||
+  process.env.MONGO_URL ||
+  process.env.MONGODB_URL;
+
+if (!mongoUri) {
+  console.warn('⚠️  MongoDB URI not set (MONGODB_URI/MONGO_URI/MONGO_URL/MONGODB_URL); running in memory mode');
+  recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_URI_MISSING', status: 500, ms: 0 });
+} else {
+  mongoose
+    .connect(mongoUri, { serverSelectionTimeoutMS: 8000 })
+    .then(() => {
+      console.log('✅ MongoDB Connected Successfully');
+      recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_CONNECTED', status: 200, ms: 0 });
+      // Seed only when DB is available (prevents buffering timeouts when running without Mongo)
+      seedDatabase().catch(err => console.log('Seeding Error:', err));
+    })
+    .catch(err => {
+      console.error('❌ MongoDB Connection Error:', err);
+      recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'MONGODB_ERROR', status: 500, ms: 0 });
+    });
+}
 
 const authUser = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -195,7 +209,7 @@ app.post('/api/auth/firebase-login', async (req, res) => {
   }
 });
 
-const seedDatabase = async () => {
+async function seedDatabase() {
   try {
     const adminCount = await Admin.countDocuments();
     if (adminCount === 0) {
@@ -269,8 +283,7 @@ const seedDatabase = async () => {
   } catch (err) {
     console.log('Seeding Error:', err);
   }
-};
-seedDatabase();
+}
 
 app.get('/', (req, res) => {
   res.status(200).json({ status: 'ok', ts: new Date().toISOString() });
