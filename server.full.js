@@ -604,7 +604,25 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     const cost = activeModel?.costPerImage ?? 1;
     if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
 
-    const finalPrompt = prompt || userPrompt || '';
+    // Resolve Template safely and EARLY to use its prompt
+    let template = null;
+    if (templateId && String(templateId).match(/^[0-9a-fA-F]{24}$/)) {
+      try { template = await Template.findById(templateId); } catch (ex) { }
+    }
+
+    // Determine Final Prompt
+    let finalPrompt = prompt || userPrompt || '';
+    if (template && template.prompt) {
+      // If user provided a prompt, append it to template prompt, otherwise use template prompt
+      if (finalPrompt) {
+        finalPrompt = `${template.prompt}, ${finalPrompt}`;
+      } else {
+        finalPrompt = template.prompt;
+      }
+    }
+
+    // Fallback if still empty
+    if (!finalPrompt) finalPrompt = "high quality, artistic image";
     let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
 
     // Try External Providers
@@ -692,11 +710,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       }).filter(Boolean);
     }
 
-    // Resolve Template safely
-    let template = null;
-    if (templateId && String(templateId).match(/^[0-9a-fA-F]{24}$/)) {
-      try { template = await Template.findById(templateId); } catch (ex) { }
-    }
+
 
     // Create Record
     const gen = await Generation.create({
