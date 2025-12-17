@@ -590,121 +590,146 @@ app.get('/api/v1/creator/application', authUser, async (req, res) => {
 
 app.post('/api/generation/generate', authUser, async (req, res) => {
   try {
-    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
-    const user = await User.findById(req.user.id);
-    const activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey');
-    const cost = activeModel?.costPerImage ?? 1;
-    if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
-    const finalPrompt = prompt || userPrompt || '';
-    let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
-    if (activeModel && activeModel.apiKey) {
-      try {
-        const provider = activeModel.provider.toLowerCase();
+    try {
+      const { templateId, userPrompt, prompt, negativePrompt, uploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
 
-        if (provider.includes('openai')) {
-          const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${activeModel.apiKey}`
-            },
-            body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
-          });
-          if (openaiRes.ok) {
-            const data = await openaiRes.json();
-            const b64 = data?.data?.[0]?.b64_json;
-            if (b64) imageUrl = `data:image/png;base64,${b64}`;
-          }
-        } else if (provider.includes('stability')) {
-          const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${activeModel.apiKey}`
-            },
-            body: JSON.stringify({
-              text_prompts: [{ text: finalPrompt, weight: 1 }],
-              samples: 1,
-              steps: 30
-            })
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.artifacts && data.artifacts[0]) {
-              imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
+      // Validate User
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Determine Logic/Cost
+      const activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey');
+      const cost = activeModel?.costPerImage ?? 1;
+      if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
+
+      const finalPrompt = prompt || userPrompt || '';
+      let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
+
+      // Try External Providers
+      if (activeModel && activeModel.apiKey) {
+        try {
+          const provider = (activeModel.provider || '').toLowerCase();
+
+          if (provider.includes('openai')) {
+            const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${activeModel.apiKey}`
+              },
+              body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
+            });
+            if (openaiRes.ok) {
+              const data = await openaiRes.json();
+              const b64 = data?.data?.[0]?.b64_json;
+              if (b64) imageUrl = `data:image/png;base64,${b64}`;
+            } else {
+              console.error("OpenAI Error:", await openaiRes.text());
+            }
+          } else if (provider.includes('stability')) {
+            const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${activeModel.apiKey}`
+              },
+              body: JSON.stringify({
+                text_prompts: [{ text: finalPrompt, weight: 1 }],
+                samples: 1,
+                steps: 30
+              })
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.artifacts && data.artifacts[0]) {
+                imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
+              }
+            } else {
+              console.error("Stability Error:", await resp.text());
             }
           }
-        } else {
-          // Generic fallback or other providers (Gemini, Grok via custom wrapper if available)
-          // For now continue using Pollinations/Default if provider implementation missing
-          // Or user can use Pollinations as provider name
+        } catch (e) {
+          console.error("AI Generation External API Error:", e);
         }
-      } catch (e) {
-        console.error("AI Generation Error:", e);
       }
-    }
 
-    // --- Quick Tools Implementation (Generic Handler) ---
-    // Note: Tools routes logic placed here for context, but should ideally be separate.
-    // Since we are inside generate route, we just proceed.
+      // Handle Uploaded Images safely
+      let safeUploadedImages = [];
+      if (Array.isArray(uploadedImages)) {
+        safeUploadedImages = uploadedImages.slice(0, 5).map(img => {
+          if (typeof img === 'string' && img.length > 5000000) return null; // Skip insane sizes
+          if (typeof img === 'string' && img.startsWith('data:')) {
+            return img.slice(0, 500); // Store truncated preview or full? truncated for safety if just logging
+          }
+          return img; // Store full link if it's a URL
+        }).filter(Boolean);
+      }
 
-    const safeUploadedImages = (Array.isArray(uploadedImages) ? uploadedImages : [])
-      .slice(0, 5)
-      .map((img) => {
-        if (typeof img === 'string' && img.startsWith('data:')) {
-          return img.slice(0, 200);
-        }
-        return img;
+      // Resolve Template safely
+      let template = null;
+      if (templateId && String(templateId).match(/^[0-9a-fA-F]{24}$/)) {
+        try { template = await Template.findById(templateId); } catch (ex) { }
+      }
+
+      // Create Record
+      const gen = await Generation.create({
+        userId: user._id,
+        templateId: template?._id,
+        templateName: template?.title,
+        prompt: finalPrompt,
+        negativePrompt: negativePrompt || '',
+        uploadedImages: safeUploadedImages,
+        generatedImage: imageUrl,
+        quality,
+        aspectRatio,
+        pointsSpent: cost,
+        status: 'completed'
       });
-    const template = templateId ? await Template.findById(templateId) : null;
-    const gen = await Generation.create({
-      userId: user._id,
-      templateId: template?._id,
-      templateName: template?.title,
-      prompt: finalPrompt,
-      negativePrompt: negativePrompt || '',
-      uploadedImages: safeUploadedImages,
-      generatedImage: imageUrl,
-      quality,
-      aspectRatio,
-      pointsSpent: cost,
-      status: 'completed'
-    });
-    user.points -= cost;
-    user.usesCount = (user.usesCount || 0) + 1;
-    await user.save();
-    await Transaction.create({
-      userId: user._id,
-      amount: cost,
-      type: 'debit',
-      description: `Image generation (${quality})`,
-      gateway: 'System',
-      status: 'success',
-      date: new Date()
-    });
-    if (template) {
-      template.useCount = (template.useCount || 0) + 1;
-      await template.save();
+
+      // Deduct Points
+      user.points -= cost;
+      user.usesCount = (user.usesCount || 0) + 1;
+      await user.save();
+
+      await Transaction.create({
+        userId: user._id,
+        amount: cost,
+        type: 'debit',
+        description: `Image generation (${quality})`,
+        gateway: 'System',
+        status: 'success',
+        date: new Date()
+      });
+
+      if (template) {
+        template.useCount = (template.useCount || 0) + 1;
+        await template.save();
+      }
+
+      const response = {
+        id: String(gen._id),
+        generatedImage: gen.generatedImage,
+        visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
+        quality: gen.quality,
+        aspectRatio: gen.aspectRatio,
+        pointsSpent: gen.pointsSpent,
+        status: gen.status,
+        createdAt: gen.createdAt.toISOString(),
+        isFavorite: gen.isFavorite,
+        downloadCount: gen.downloadCount,
+        shareCount: gen.shareCount
+      };
+      res.json(response);
+    } catch (err) {
+      const errorMsg = String(err && err.message ? err.message : Cc(err));
+      console.error("Generation Validated Catch:", err);
+      recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: errorMsg });
+      // Return actual error in dev mode or for admin debugging
+      res.status(500).json({ error: 'Server Error', details: errorMsg });
     }
-    const response = {
-      id: String(gen._id),
-      generatedImage: gen.generatedImage,
-      visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
-      quality: gen.quality,
-      aspectRatio: gen.aspectRatio,
-      pointsSpent: gen.pointsSpent,
-      status: gen.status,
-      createdAt: gen.createdAt.toISOString(),
-      isFavorite: gen.isFavorite,
-      downloadCount: gen.downloadCount,
-      shareCount: gen.shareCount
-    };
-    res.json(response);
-  } catch (err) {
-    recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: String(err && err.message || err) });
-    res.status(500).json({ error: 'Server Error' });
-  }
-});
+  });
 
 app.post('/api/generate', authUser, async (req, res) => {
   req.url = '/api/generation/generate';
