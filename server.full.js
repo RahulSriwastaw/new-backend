@@ -987,6 +987,37 @@ app.get('/api/admin/creators', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch creators' });
   }
 });
+
+app.post('/api/admin/creators', async (req, res) => {
+  try {
+    const { userId, name, socialLinks = [], status = 'approved' } = req.body;
+    const appDoc = await CreatorApplication.create({
+      userId,
+      name,
+      socialLinks,
+      status,
+      appliedDate: new Date()
+    });
+
+    // Auto-update user role if approved
+    if (status === 'approved') {
+      await User.findByIdAndUpdate(userId, { role: 'creator' });
+    }
+
+    const u = await User.findById(userId);
+
+    res.json({
+      ...appDoc._doc,
+      id: String(appDoc._id),
+      userEmail: u ? u.email : '',
+      avatar: u ? u.photoURL : ''
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to add creator' });
+  }
+});
+
 app.patch('/api/admin/creators/:id/status', async (req, res) => {
   const { status } = req.body;
   if (useMemory()) {
