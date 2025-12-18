@@ -1823,6 +1823,48 @@ app.put('/api/admin/finance/gateways/:id', async (req, res) => {
   res.json({ ...gateway._doc, id: String(gateway._id) });
 });
 
+app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
+  const isActive = !!req.body.isActive;
+  if (isActive) {
+    await PaymentGateway.updateMany({}, { isActive: false });
+  }
+  const doc = await PaymentGateway.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  res.json({ success: true, id: String(doc._id), isActive: doc.isActive });
+});
+
+app.get('/api/admin/fix-gateways-duplicates', async (req, res) => {
+  // 1. Group by provider
+  const gateways = await PaymentGateway.find();
+  const map = {};
+  for (const g of gateways) {
+    const key = (g.provider || 'unknown').toLowerCase();
+    if (!map[key]) map[key] = [];
+    map[key].push(g);
+  }
+
+  // 2. Keep latest active, delete others
+  let deleted = 0;
+  for (const key in map) {
+    const list = map[key];
+    if (list.length > 1) {
+      // Sort: Active first (true=-1), then latest ID (desc)
+      list.sort((a, b) => {
+        if (a.isActive && !b.isActive) return -1;
+        if (!a.isActive && b.isActive) return 1;
+        return String(b._id).localeCompare(String(a._id));
+      });
+      const toKeep = list[0];
+      const toDelete = list.slice(1);
+      for (const d of toDelete) {
+        await PaymentGateway.findByIdAndDelete(d._id);
+        deleted++;
+      }
+    }
+  }
+  res.json({ success: true, deletedCount: deleted });
+});
+
 app.get('/api/admin/notifications', async (req, res) => {
   try {
     const notifs = await Notification.find().sort({ sentAt: -1 });
