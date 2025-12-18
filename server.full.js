@@ -1088,6 +1088,77 @@ app.patch('/api/admin/creators/:id/status', async (req, res) => {
   }
 });
 
+// Detailed Creator Profile for Admin
+app.get('/api/admin/creators/:id/profile', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const application = await CreatorApplication.findOne({ userId });
+    const templates = await Template.find({ creatorId: userId }).sort({ createdAt: -1 });
+    const earnings = await CreatorEarning.find({ creatorId: userId }).sort({ date: -1 }).limit(100);
+    const withdrawals = await Withdrawal.find({ creatorId: userId }).sort({ requestedAt: -1 });
+
+    // Calculate Stats
+    const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+    const monthlyEarnings = earnings
+      .filter(e => new Date(e.date).getMonth() === new Date().getMonth())
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const totalWithdrawals = withdrawals
+      .filter(w => w.status === 'completed')
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    // Group earnings by date for growth chart (last 30 days)
+    const stats = await CreatorEarning.aggregate([
+      { $match: { creatorId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          amount: { $sum: "$amount" },
+          count: { $sum: "$usageCount" }
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 30 }
+    ]);
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        points: user.points,
+        status: user.status,
+        joinedDate: user.joinedDate,
+        avatar: user.photoURL,
+        followers: user.followersCount || 0,
+        likes: user.likesCount || 0,
+        uses: user.usesCount || 0
+      },
+      application,
+      templates,
+      earnings: earnings.slice(0, 20), // Return last 20 earnings
+      withdrawals,
+      summary: {
+        totalEarnings,
+        monthlyEarnings,
+        totalWithdrawals,
+        pendingWithdrawals: withdrawals
+          .filter(w => w.status === 'pending' || w.status === 'processing')
+          .reduce((sum, w) => sum + w.amount, 0),
+        activeTemplates: templates.filter(t => t.status === 'active').length
+      },
+      growthStats: stats
+    });
+  } catch (err) {
+    console.error('Creator Profile Error:', err);
+    res.status(500).json({ error: 'Failed to fetch creator profile' });
+  }
+});
+
 app.get('/api/admin/categories', async (req, res) => {
   const list = useMemory()
     ? memoryCategories
