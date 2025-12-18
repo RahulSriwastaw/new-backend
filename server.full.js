@@ -1819,6 +1819,7 @@ app.post('/api/admin/finance/gateways', async (req, res) => {
 app.put('/api/admin/finance/gateways/:id', async (req, res) => {
   const update = { ...req.body };
   if (!update.secretKey) delete update.secretKey;
+  if (update.provider) update.provider = update.provider.toLowerCase(); // Normalize
   const gateway = await PaymentGateway.findByIdAndUpdate(req.params.id, update, { new: true });
   res.json({ ...gateway._doc, id: String(gateway._id) });
 });
@@ -2038,7 +2039,7 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
     // --- STRIPE LOGIC ---
     if (gateway.toLowerCase() === 'stripe') {
-      const config = await PaymentGateway.findOne({ provider: 'stripe', isActive: true }).select('+secretKey').sort({ _id: -1 });
+      const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i }, isActive: true }).select('+secretKey').sort({ _id: -1 });
       if (!config) return res.status(400).json({ msg: 'Stripe gateway is disabled or not configured' });
 
       const stripeKey = config.secretKey || process.env.STRIPE_SECRET_KEY;
@@ -2075,7 +2076,7 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     // Pkg already retrieved above
 
     // Get Razorpay Config (select secretKey explicitly, get latest Active one)
-    const config = await PaymentGateway.findOne({ provider: 'razorpay', isActive: true })
+    const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i }, isActive: true })
       .select('+secretKey')
       .sort({ _id: -1 });
 
