@@ -2031,6 +2031,17 @@ app.get('/api/packages', async (req, res) => {
 });
 
 // --- Payment Routes (Razorpay) ---
+// Public route to get active gateway
+app.get('/api/payment/active-gateway', async (req, res) => {
+  try {
+    const active = await PaymentGateway.findOne({ isActive: true });
+    // Default to razorpay if nothing active (historically)
+    res.json({ provider: active ? active.provider.toLowerCase() : 'razorpay' });
+  } catch (e) {
+    res.json({ provider: 'razorpay' });
+  }
+});
+
 app.post('/api/payment/create-order', authUser, async (req, res) => {
   try {
     const { packageId, gateway = 'razorpay' } = req.body;
