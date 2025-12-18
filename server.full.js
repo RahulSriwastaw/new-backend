@@ -1623,7 +1623,187 @@ app.delete('/api/admin/system/admins/:id', async (req, res) => {
   await Admin.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
+
+// ====================================
+// ADMIN WITHDRAWAL MANAGEMENT APIs
+// ====================================
+
+// Get all withdrawals (for admin)
+app.get('/api/admin/withdrawals', async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+
+    const query = {};
+    if (status) query.status = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const withdrawals = await Withdrawal.find(query)
+      .sort({ requestedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('creatorId', 'name email');
+
+    const total = await Withdrawal.countDocuments(query);
+
+    res.json(withdrawals.map(w => ({
+      id: String(w._id),
+      creatorId: w.creatorId ? String(w.creatorId._id) : null,
+      creatorName: w.creatorId?.name || 'Unknown',
+      creatorEmail: w.creatorId?.email || '',
+      amount: w.amount,
+      method: w.method,
+      status: w.status,
+      bankDetails: w.method === 'bank' ? {
+        bankName: w.bankDetails?.bankName,
+        accountNumber: w.bankDetails?.accountNumber,
+        ifscCode: w.bankDetails?.ifscCode,
+        accountHolderName: w.bankDetails?.accountHolderName
+      } : undefined,
+      upiId: w.method === 'upi' ? w.upiId : undefined,
+      requestedAt: w.requestedAt,
+      processedAt: w.processedAt,
+      transactionId: w.transactionId,
+      remarks: w.remarks,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    })));
+  } catch (e) {
+    console.error('Admin Withdrawals Error:', e);
+    res.status(500).json({ error: 'Failed to fetch withdrawals' });
+  }
+});
+
+// Get withdrawal stats for admin
+app.get('/api/admin/withdrawals/stats', async (req, res) => {
+  try {
+    const pending = await Withdrawal.countDocuments({ status: 'pending' });
+    const processing = await Withdrawal.countDocuments({ status: 'processing' });
+    const completed = await Withdrawal.countDocuments({ status: 'completed' });
+    const rejected = await Withdrawal.countDocuments({ status: 'rejected' });
+
+    const pendingAmount = await Withdrawal.aggregate([
+      { $match: { status: { $in: ['pending', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    const completedAmount = await Withdrawal.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    res.json({
+      pending,
+      processing,
+      completed,
+      rejected,
+      pendingAmount: pendingAmount[0]?.total || 0,
+      completedAmount: completedAmount[0]?.total || 0
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch withdrawal stats' });
+  }
+});
+
+// Process withdrawal (set to processing)
+app.post('/api/admin/withdrawals/:id/process', async (req, res) => {
+  try {
+    const withdrawal = await Withdrawal.findByIdAndUpdate(
+      req.params.id,
+      { status: 'processing' },
+      { new: true }
+    );
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // Notify creator
+    await CreatorNotification.create({
+      creatorId: withdrawal.creatorId,
+      type: 'withdrawal',
+      title: 'Withdrawal Processing',
+      message: `Your withdrawal request of $${withdrawal.amount.toFixed(2)} is now being processed.`,
+      relatedId: withdrawal._id
+    });
+
+    res.json({ success: true, status: withdrawal.status });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to process withdrawal' });
+  }
+});
+
+// Approve withdrawal
+app.post('/api/admin/withdrawals/:id/approve', async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+
+    const withdrawal = await Withdrawal.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'completed',
+        processedAt: new Date(),
+        transactionId: transactionId || `TXN${Date.now()}`
+      },
+      { new: true }
+    );
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // Notify creator
+    await CreatorNotification.create({
+      creatorId: withdrawal.creatorId,
+      type: 'payment',
+      title: 'Withdrawal Completed',
+      message: `Your withdrawal of $${withdrawal.amount.toFixed(2)} has been successfully processed. Transaction ID: ${withdrawal.transactionId}`,
+      relatedId: withdrawal._id
+    });
+
+    res.json({ success: true, status: withdrawal.status });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to approve withdrawal' });
+  }
+});
+
+// Reject withdrawal
+app.post('/api/admin/withdrawals/:id/reject', async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const withdrawal = await Withdrawal.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'rejected',
+        processedAt: new Date(),
+        remarks: reason || 'Rejected by admin'
+      },
+      { new: true }
+    );
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // Notify creator
+    await CreatorNotification.create({
+      creatorId: withdrawal.creatorId,
+      type: 'withdrawal',
+      title: 'Withdrawal Rejected',
+      message: `Your withdrawal request of $${withdrawal.amount.toFixed(2)} was rejected. Reason: ${reason || 'Rejected by admin'}. The amount has been returned to your available balance.`,
+      relatedId: withdrawal._id
+    });
+
+    res.json({ success: true, status: withdrawal.status });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to reject withdrawal' });
+  }
+});
+
 // --- Admin Finance Management ---
+
 app.get('/api/admin/finance/config', async (_req, res) => {
   const doc = await FinanceConfig.findOne() || await FinanceConfig.create({});
   res.json({ ...doc._doc, id: String(doc._id) });
