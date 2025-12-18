@@ -2070,7 +2070,7 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/payment/success?session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
+        success_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/pro?payment_success=true&session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
         cancel_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/pro`,
         metadata: { userId: req.user.id, packageId: packageId },
       });
