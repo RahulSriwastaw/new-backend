@@ -220,6 +220,47 @@ const adsConfigSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// 15. Withdrawal Request Schema (Creator Payouts)
+const withdrawalSchema = new mongoose.Schema({
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  amount: { type: Number, required: true },
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'rejected'], default: 'pending' },
+  method: { type: String, enum: ['bank', 'upi'], required: true },
+  bankDetails: {
+    accountHolderName: { type: String },
+    bankName: { type: String },
+    accountNumber: { type: String },
+    ifscCode: { type: String },
+    accountType: { type: String, enum: ['savings', 'current'], default: 'savings' },
+    panNumber: { type: String }
+  },
+  upiId: { type: String },
+  requestedAt: { type: Date, default: Date.now },
+  processedAt: { type: Date },
+  transactionId: { type: String },
+  remarks: { type: String }
+});
+
+// 16. Creator Notification Schema
+const creatorNotificationSchema = new mongoose.Schema({
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type: { type: String, enum: ['template', 'payment', 'system', 'earning', 'withdrawal'], required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  read: { type: Boolean, default: false },
+  relatedId: { type: mongoose.Schema.Types.ObjectId }, // Related template/withdrawal ID
+  createdAt: { type: Date, default: Date.now }
+});
+
+// 17. Creator Earning Schema (Track template earnings)
+const creatorEarningSchema = new mongoose.Schema({
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Template', required: true },
+  amount: { type: Number, required: true },
+  usageCount: { type: Number, default: 1 },
+  date: { type: Date, default: Date.now }
+});
+
 
 module.exports = {
   User: mongoose.model('User', userSchema),
@@ -236,5 +277,8 @@ module.exports = {
   Generation: mongoose.model('Generation', generationSchema),
   ToolConfig: mongoose.model('ToolConfig', toolConfigSchema),
   FilterConfig: mongoose.model('FilterConfig', filterConfigSchema),
-  AdsConfig: mongoose.model('AdsConfig', adsConfigSchema)
+  AdsConfig: mongoose.model('AdsConfig', adsConfigSchema),
+  Withdrawal: mongoose.model('Withdrawal', withdrawalSchema),
+  CreatorNotification: mongoose.model('CreatorNotification', creatorNotificationSchema),
+  CreatorEarning: mongoose.model('CreatorEarning', creatorEarningSchema)
 };

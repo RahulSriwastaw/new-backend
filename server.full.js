@@ -12,8 +12,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
-  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig
+  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
+  Withdrawal, CreatorNotification, CreatorEarning
 } = require('./models');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -773,6 +775,31 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     if (template) {
       template.useCount = (template.useCount || 0) + 1;
       await template.save();
+
+      // Track creator earnings if template has a creator
+      if (template.creatorId) {
+        const financeConfig = await FinanceConfig.findOne() || { creatorPayoutPerPoint: 0.10 };
+        const creatorEarning = cost * financeConfig.creatorPayoutPerPoint;
+
+        if (creatorEarning > 0) {
+          await CreatorEarning.create({
+            creatorId: template.creatorId,
+            templateId: template._id,
+            amount: creatorEarning,
+            usageCount: 1,
+            date: new Date()
+          });
+
+          // Send notification to creator
+          await CreatorNotification.create({
+            creatorId: template.creatorId,
+            type: 'earning',
+            title: 'New Earning!',
+            message: `You earned $${creatorEarning.toFixed(2)} from "${template.title}" usage.`,
+            relatedId: template._id
+          });
+        }
+      }
     }
 
     const response = {
@@ -2093,6 +2120,605 @@ app.get('/api/ads/availability', authUser, async (req, res) => {
   } catch (e) {
     console.error('Ad Availability Error:', e);
     res.status(500).json({ error: 'Failed to check ad availability' });
+  }
+});
+
+// ====================================
+// CREATOR DASHBOARD APIs
+// ====================================
+
+// Get Creator Dashboard Stats (Overview Page)
+app.get('/api/creator/stats', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Check if user is a creator
+    const user = await User.findById(userId);
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    // Get creator templates
+    const templates = await Template.find({ creatorId: userId });
+    const totalTemplates = templates.length;
+    const approvedTemplates = templates.filter(t => t.status === 'active').length;
+    const pendingTemplates = templates.filter(t => t.status === 'draft').length;
+
+    // Calculate total usage, views, likes
+    const totalUses = templates.reduce((sum, t) => sum + (t.useCount || 0), 0);
+    const totalViews = templates.reduce((sum, t) => sum + (t.viewCount || 0), 0);
+    const totalLikes = templates.reduce((sum, t) => sum + (t.likeCount || 0), 0);
+
+    // Get earnings
+    const earningsAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalEarnings = earningsAgg[0]?.total || 0;
+
+    // This month earnings
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const thisMonthAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id, date: { $gte: startOfMonth } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const thisMonthEarnings = thisMonthAgg[0]?.total || 0;
+
+    // Last month earnings
+    const startOfLastMonth = new Date(startOfMonth);
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+    const endOfLastMonth = new Date(startOfMonth);
+    endOfLastMonth.setMilliseconds(-1);
+
+    const lastMonthAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id, date: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const lastMonthEarnings = lastMonthAgg[0]?.total || 0;
+
+    // Pending withdrawal
+    const pendingWithdrawals = await Withdrawal.aggregate([
+      { $match: { creatorId: user._id, status: { $in: ['pending', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const pendingWithdrawal = pendingWithdrawals[0]?.total || 0;
+
+    // Templates this week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const templatesThisWeek = templates.filter(t => new Date(t.createdAt) >= oneWeekAgo).length;
+
+    res.json({
+      totalTemplates,
+      approvedTemplates,
+      pendingTemplates,
+      rejectedTemplates: 0,
+      templatesThisWeek,
+      totalUses,
+      totalViews,
+      totalLikes,
+      followers: user.followersCount || 0,
+      totalEarnings,
+      thisMonthEarnings,
+      lastMonthEarnings,
+      pendingWithdrawal,
+      availableBalance: totalEarnings - pendingWithdrawal
+    });
+  } catch (e) {
+    console.error('Creator Stats Error:', e);
+    res.status(500).json({ error: 'Failed to fetch creator stats' });
+  }
+});
+
+// Get Creator Earnings with breakdown
+app.get('/api/creator/earnings', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    // Total earnings
+    const earningsAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalEarnings = earningsAgg[0]?.total || 0;
+
+    // This month earnings
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const thisMonthAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id, date: { $gte: startOfMonth } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const thisMonthEarnings = thisMonthAgg[0]?.total || 0;
+
+    // Last month earnings
+    const startOfLastMonth = new Date(startOfMonth);
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+    const endOfLastMonth = new Date(startOfMonth);
+    endOfLastMonth.setMilliseconds(-1);
+
+    const lastMonthAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id, date: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const lastMonthEarnings = lastMonthAgg[0]?.total || 0;
+
+    // Get pending withdrawals
+    const pendingWithdrawals = await Withdrawal.aggregate([
+      { $match: { creatorId: user._id, status: { $in: ['pending', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const pendingWithdrawal = pendingWithdrawals[0]?.total || 0;
+
+    // Earnings breakdown by template (top 10)
+    const templateBreakdown = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id } },
+      {
+        $group: {
+          _id: '$templateId',
+          totalEarnings: { $sum: '$amount' },
+          totalUses: { $sum: '$usageCount' }
+        }
+      },
+      { $sort: { totalEarnings: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'templates',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'template'
+        }
+      },
+      { $unwind: { path: '$template', preserveNullAndEmptyArrays: true } }
+    ]);
+
+    const templateEarnings = templateBreakdown.map(item => ({
+      templateId: String(item._id),
+      templateName: item.template?.title || 'Unknown Template',
+      earnings: item.totalEarnings,
+      uses: item.totalUses
+    }));
+
+    // Monthly earnings trend (last 12 months)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const monthlyTrend = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id, date: { $gte: oneYearAgo } } },
+      {
+        $group: {
+          _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+          total: { $sum: '$amount' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    res.json({
+      totalEarnings,
+      thisMonthEarnings,
+      lastMonthEarnings,
+      pendingWithdrawal,
+      availableBalance: totalEarnings - pendingWithdrawal,
+      templateEarnings,
+      monthlyTrend: monthlyTrend.map(m => ({
+        month: `${m._id.year}-${String(m._id.month).padStart(2, '0')}`,
+        amount: m.total
+      }))
+    });
+  } catch (e) {
+    console.error('Creator Earnings Error:', e);
+    res.status(500).json({ error: 'Failed to fetch earnings' });
+  }
+});
+
+// Get Creator Templates
+app.get('/api/creator/templates', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { status, sort = 'recent', page = 1, limit = 20 } = req.query;
+
+    const query = { creatorId: user._id };
+    if (status && status !== 'all') {
+      if (status === 'approved') query.status = 'active';
+      else if (status === 'pending') query.status = 'draft';
+      else query.status = status;
+    }
+
+    let sortOption = { createdAt: -1 };
+    if (sort === 'popular') sortOption = { useCount: -1 };
+    else if (sort === 'earnings') sortOption = { useCount: -1 }; // Use useCount as proxy for earnings
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const templates = await Template.find(query)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Template.countDocuments(query);
+
+    res.json({
+      templates: templates.map(t => ({
+        id: String(t._id),
+        title: t.title,
+        description: t.description,
+        image: t.imageUrl,
+        demoImage: t.imageUrl,
+        category: t.category,
+        subCategory: t.subCategory,
+        status: t.status === 'active' ? 'approved' : t.status === 'draft' ? 'pending' : t.status,
+        views: t.viewCount || 0,
+        usageCount: t.useCount || 0,
+        likeCount: t.likeCount || 0,
+        rating: 4.5, // Default rating
+        earnings: (t.useCount || 0) * 0.10, // Estimate
+        createdAt: t.createdAt,
+        tags: t.tags || []
+      })),
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (e) {
+    console.error('Creator Templates Error:', e);
+    res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+
+// Submit Withdrawal Request
+app.post('/api/creator/withdraw', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { amount, method, bankDetails, upiId } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Invalid withdrawal amount' });
+    }
+
+    if (!method || !['bank', 'upi'].includes(method)) {
+      return res.status(400).json({ error: 'Invalid withdrawal method' });
+    }
+
+    if (method === 'upi' && (!upiId || !upiId.includes('@'))) {
+      return res.status(400).json({ error: 'Invalid UPI ID' });
+    }
+
+    if (method === 'bank' && (!bankDetails || !bankDetails.accountNumber || !bankDetails.ifscCode)) {
+      return res.status(400).json({ error: 'Incomplete bank details' });
+    }
+
+    // Check available balance
+    const earningsAgg = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalEarnings = earningsAgg[0]?.total || 0;
+
+    const pendingWithdrawals = await Withdrawal.aggregate([
+      { $match: { creatorId: user._id, status: { $in: ['pending', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const pendingAmount = pendingWithdrawals[0]?.total || 0;
+
+    const availableBalance = totalEarnings - pendingAmount;
+
+    if (amount > availableBalance) {
+      return res.status(400).json({ error: `Insufficient balance. Available: $${availableBalance.toFixed(2)}` });
+    }
+
+    // Create withdrawal request
+    const withdrawal = await Withdrawal.create({
+      creatorId: user._id,
+      amount,
+      method,
+      bankDetails: method === 'bank' ? bankDetails : undefined,
+      upiId: method === 'upi' ? upiId : undefined
+    });
+
+    // Create notification for creator
+    await CreatorNotification.create({
+      creatorId: user._id,
+      type: 'withdrawal',
+      title: 'Withdrawal Request Submitted',
+      message: `Your withdrawal request for $${amount.toFixed(2)} to ${method === 'upi' ? upiId : bankDetails.bankName} has been submitted.`,
+      relatedId: withdrawal._id
+    });
+
+    res.json({
+      id: String(withdrawal._id),
+      amount: withdrawal.amount,
+      method: withdrawal.method,
+      status: withdrawal.status,
+      requestedAt: withdrawal.requestedAt
+    });
+  } catch (e) {
+    console.error('Withdrawal Request Error:', e);
+    res.status(500).json({ error: 'Failed to submit withdrawal request' });
+  }
+});
+
+// Get Withdrawal History
+app.get('/api/creator/withdrawals', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { page = 1, limit = 20, status } = req.query;
+
+    const query = { creatorId: user._id };
+    if (status) query.status = status;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const withdrawals = await Withdrawal.find(query)
+      .sort({ requestedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Withdrawal.countDocuments(query);
+
+    res.json({
+      withdrawals: withdrawals.map(w => ({
+        id: String(w._id),
+        amount: w.amount,
+        method: w.method,
+        status: w.status,
+        bankDetails: w.method === 'bank' ? {
+          bankName: w.bankDetails?.bankName,
+          accountNumber: w.bankDetails?.accountNumber ? '****' + w.bankDetails.accountNumber.slice(-4) : ''
+        } : undefined,
+        upiId: w.method === 'upi' ? w.upiId : undefined,
+        requestedAt: w.requestedAt,
+        processedAt: w.processedAt,
+        transactionId: w.transactionId,
+        remarks: w.remarks
+      })),
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (e) {
+    console.error('Withdrawals List Error:', e);
+    res.status(500).json({ error: 'Failed to fetch withdrawals' });
+  }
+});
+
+// Get Creator Notifications
+app.get('/api/creator/notifications', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { page = 1, limit = 20, type } = req.query;
+
+    const query = { creatorId: user._id };
+    if (type && type !== 'all') query.type = type;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const notifications = await CreatorNotification.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await CreatorNotification.countDocuments(query);
+    const unreadCount = await CreatorNotification.countDocuments({ creatorId: user._id, read: false });
+
+    res.json({
+      notifications: notifications.map(n => ({
+        id: String(n._id),
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        read: n.read,
+        relatedId: n.relatedId ? String(n.relatedId) : null,
+        createdAt: n.createdAt
+      })),
+      unreadCount,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (e) {
+    console.error('Creator Notifications Error:', e);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Mark Notification as Read
+app.patch('/api/creator/notifications/:id/read', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    await CreatorNotification.findOneAndUpdate(
+      { _id: id, creatorId: userId },
+      { read: true }
+    );
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// Mark All Notifications as Read
+app.post('/api/creator/notifications/mark-all-read', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await CreatorNotification.updateMany(
+      { creatorId: userId, read: false },
+      { read: true }
+    );
+
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to mark notifications as read' });
+  }
+});
+
+// Get Creator Transaction History
+app.get('/api/creator/transactions', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { page = 1, limit = 20, type } = req.query;
+
+    // Get earnings as transactions
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const earnings = await CreatorEarning.find({ creatorId: user._id })
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('templateId', 'title');
+
+    const withdrawals = await Withdrawal.find({ creatorId: user._id, status: 'completed' })
+      .sort({ processedAt: -1 });
+
+    // Combine and format as transactions
+    const transactions = [];
+
+    earnings.forEach(e => {
+      transactions.push({
+        id: String(e._id),
+        type: 'creator_earning',
+        amount: e.amount,
+        description: `Earnings from ${e.templateId?.title || 'template usage'}`,
+        relatedTemplateId: e.templateId ? String(e.templateId._id) : null,
+        createdAt: e.date
+      });
+    });
+
+    withdrawals.forEach(w => {
+      transactions.push({
+        id: String(w._id),
+        type: 'withdrawal',
+        amount: -w.amount,
+        description: `Withdrawal to ${w.method === 'upi' ? w.upiId : w.bankDetails?.bankName}`,
+        createdAt: w.processedAt || w.requestedAt
+      });
+    });
+
+    // Sort by date
+    transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Calculate running balance
+    let runningBalance = 0;
+    const earningsTotal = await CreatorEarning.aggregate([
+      { $match: { creatorId: user._id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const withdrawalsTotal = await Withdrawal.aggregate([
+      { $match: { creatorId: user._id, status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    runningBalance = (earningsTotal[0]?.total || 0) - (withdrawalsTotal[0]?.total || 0);
+
+    res.json({
+      transactions: transactions.slice(0, parseInt(limit)).map(t => ({
+        ...t,
+        balanceAfter: runningBalance
+      })),
+      currentBalance: runningBalance,
+      page: parseInt(page),
+      total: transactions.length
+    });
+  } catch (e) {
+    console.error('Creator Transactions Error:', e);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+// Create Template (By Creator)
+app.post('/api/creator/templates', authUser, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user || user.role !== 'creator') {
+      return res.status(403).json({ error: 'Not a creator account' });
+    }
+
+    const { title, description, imageUrl, category, subCategory, prompt, negativePrompt, tags, gender, isPremium } = req.body;
+
+    if (!title || !imageUrl) {
+      return res.status(400).json({ error: 'Title and image are required' });
+    }
+
+    const template = await Template.create({
+      title,
+      description,
+      imageUrl,
+      category: category || 'General',
+      subCategory: subCategory || '',
+      prompt,
+      negativePrompt,
+      tags: tags || [],
+      gender: gender || '',
+      isPremium: isPremium || false,
+      creatorId: user._id,
+      status: 'draft', // Pending approval
+      source: 'creator'
+    });
+
+    // Create notification
+    await CreatorNotification.create({
+      creatorId: user._id,
+      type: 'template',
+      title: 'Template Submitted',
+      message: `Your template "${title}" has been submitted for review.`,
+      relatedId: template._id
+    });
+
+    res.json({
+      id: String(template._id),
+      title: template.title,
+      status: 'pending',
+      createdAt: template.createdAt
+    });
+  } catch (e) {
+    console.error('Create Template Error:', e);
+    res.status(500).json({ error: 'Failed to create template' });
   }
 });
 
