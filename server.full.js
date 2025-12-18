@@ -743,8 +743,10 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
 
 
+
     // Create Record
     const gen = await Generation.create({
+
       userId: user._id,
       templateId: template?._id,
       templateName: template?.title,
@@ -823,6 +825,77 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: errorMsg });
     // Return actual error in dev mode or for admin debugging
     res.status(500).json({ error: 'Server Error', details: errorMsg });
+  }
+});
+
+
+// Admin - Get Creator Detailed Profile
+app.get('/api/admin/creators/:id/profile', authUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const application = await CreatorApplication.findOne({ userId: id });
+    const templates = await Template.find({ creatorId: id }).sort({ createdAt: -1 });
+    const earnings = await CreatorEarning.find({ creatorId: id }).sort({ date: 1 });
+    const withdrawals = await Withdrawal.find({ creatorId: id }).sort({ requestedAt: -1 });
+
+    // Calculate Stats
+    const totalEarnings = earnings.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalLikes = templates.reduce((acc, curr) => acc + (curr.likeCount || 0), 0);
+    const totalUses = templates.reduce((acc, curr) => acc + (curr.useCount || 0), 0);
+    const totalSaves = templates.reduce((acc, curr) => acc + (curr.saveCount || 0), 0);
+
+    // Prepare Graph Data (Last 30 days earnings)
+    const last30Days = [...Array(30)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return d.toISOString().split('T')[0];
+    });
+
+    const earningsMap = {};
+    earnings.forEach(e => {
+      const date = e.date.toISOString().split('T')[0];
+      earningsMap[date] = (earningsMap[date] || 0) + e.amount;
+    });
+
+    const growthStats = last30Days.map(date => ({
+      date,
+      earnings: earningsMap[date] || 0
+    }));
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.photoURL,
+        role: user.role,
+        status: user.status,
+        joinedDate: user.joinedDate,
+        followers: user.followersCount || 0,
+        walletBalance: user.points
+      },
+      application: application ? {
+        bio: application.bio,
+        socialLinks: application.socialLinks,
+        status: application.status
+      } : null,
+      stats: {
+        totalEarnings,
+        totalLikes,
+        totalUses,
+        totalSaves
+      },
+      templates,
+      earnings,
+      withdrawals,
+      growthStats
+    });
+  } catch (err) {
+    console.error('Error fetching creator profile:', err);
+    res.status(500).json({ error: 'Server Error' });
   }
 });
 
