@@ -2159,7 +2159,7 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
 // --- Stripe Verify ---
 app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
   try {
-    const { paymentIntentId } = req.body;
+    const { paymentIntentId, sessionId } = req.body;
 
     // Get Stripe Secret Key
     const config = await PaymentGateway.findOne({ provider: 'stripe', isActive: true })
@@ -2170,19 +2170,39 @@ app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
     if (!stripeKey) return res.status(500).json({ msg: 'Stripe configuration missing' });
 
     const stripe = Stripe(stripeKey);
-    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    let status = 'pending';
+    let metadata = {};
+    let paymentId = '';
 
-    if (intent.status === 'succeeded') {
-      const packageId = intent.metadata.packageId;
-      const userId = intent.metadata.userId; // Trust metadata or use req.user.id if consistent
+    if (sessionId) {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      status = session.payment_status === 'paid' ? 'succeeded' : session.payment_status;
+      metadata = session.metadata || {};
+      paymentId = session.payment_intent || session.id;
+    } else if (paymentIntentId) {
+      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      status = intent.status;
+      metadata = intent.metadata || {};
+      paymentId = intent.id;
+    } else {
+      return res.status(400).json({ msg: 'Missing payment ID' });
+    }
 
-      if (userId !== req.user.id) {
+    if (status === 'succeeded') {
+      const packageId = metadata.packageId;
+      const userId = metadata.userId;
+
+      if (!userId || userId !== req.user.id) {
+        // Fallback: If webhook verification, userId might not match req.user (if called from server)
+        // But here we are calling from frontend authUser.
+        // If metadata missing, we have a problem.
+        if (!userId) return res.status(400).json({ msg: 'Invalid payment metadata' });
+        // Warn but allow if authenticated? No, security risk.
         return res.status(400).json({ msg: 'User mismatch' });
       }
 
-      // Check if already processed to prevent double crediting?
-      // Ideally we check Transaction history by paymentId
-      const existingTxn = await Transaction.findOne({ paymentId: paymentIntentId });
+      // Check if already processed
+      const existingTxn = await Transaction.findOne({ paymentId: paymentId });
       if (existingTxn) {
         return res.json({ success: true, message: 'Already processed', newBalance: (await User.findById(userId)).points });
       }
@@ -2201,13 +2221,13 @@ app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
         amount: pkg.price,
         type: 'credit',
         description: `Purchased ${pkg.name} (Stripe)`,
-        paymentId: paymentIntentId,
+        paymentId: paymentId,
         date: new Date()
       });
 
       return res.json({ success: true, newBalance: user.points });
     } else {
-      return res.status(400).json({ msg: `Payment status: ${intent.status}` });
+      return res.status(400).json({ msg: `Payment status: ${status}` });
     }
   } catch (e) {
     console.error('Stripe Verify Error:', e);
