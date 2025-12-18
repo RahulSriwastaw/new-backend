@@ -2121,7 +2121,9 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
       id: order.id,
       currency: order.currency,
       amount: order.amount,
-      keyId: key_id // Send public key to frontend
+      amount: order.amount,
+      keyId: key_id,
+      key: key_id // standard name
     });
 
   } catch (err) {
