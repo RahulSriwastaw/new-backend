@@ -2050,7 +2050,9 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
     // --- STRIPE LOGIC ---
     if (gateway.toLowerCase() === 'stripe') {
-      const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i } }).select('+secretKey').sort({ _id: -1 });
+      const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i } })
+        .select('+secretKey')
+        .sort({ isActive: -1, _id: -1 });
 
       // If config exists in DB, check if active
       if (config && !config.isActive) {
@@ -2098,7 +2100,7 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     // Get Razorpay Config (select secretKey explicitly)
     const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
       .select('+secretKey')
-      .sort({ _id: -1 });
+      .sort({ isActive: -1, _id: -1 });
 
     // If config exists in DB, check if active
     if (config && !config.isActive) {
@@ -2152,7 +2154,7 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
 
     const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
       .select('+secretKey')
-      .sort({ _id: -1 });
+      .sort({ isActive: -1, _id: -1 });
 
     if (config && !config.isActive) return res.status(400).json({ msg: 'Razorpay disabled in Admin Panel' });
 
@@ -2204,7 +2206,7 @@ app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
     // Get Stripe Secret Key
     const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i } })
       .select('+secretKey')
-      .sort({ _id: -1 });
+      .sort({ isActive: -1, _id: -1 });
 
     if (config && !config.isActive) return res.status(400).json({ msg: 'Stripe disabled in Admin Panel' });
 
