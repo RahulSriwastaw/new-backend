@@ -163,12 +163,57 @@ const toolConfigSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+
 // 13. Filter Config (Admin-managed for Template Filters)
 const filterConfigSchema = new mongoose.Schema({
   genders: [{ type: String }], // e.g., ['male','female','unisex']
   ageGroups: [{ type: String }], // e.g., ['18-25','25-35','35-45','45+','All Ages']
   updatedAt: { type: Date, default: Date.now }
 });
+
+// 14. Ads Config Schema (Admin-managed Ad System)
+const adsConfigSchema = new mongoose.Schema({
+  isEnabled: { type: Boolean, default: true },
+  provider: { type: String, default: 'google_admob' }, // 'google_admob', 'custom', 'facebook_audience'
+
+  // Reward Configuration
+  rewardType: { type: String, enum: ['fixed', 'random', 'range'], default: 'fixed' },
+  fixedPoints: { type: Number, default: 5 }, // Points for 'fixed' type
+  randomMin: { type: Number, default: 3 }, // Min points for 'random/range' type
+  randomMax: { type: Number, default: 10 }, // Max points for 'random/range' type
+
+  // Page-wise Ad Placement (Toggle for each page)
+  pages: {
+    home: { type: Boolean, default: true },
+    templates: { type: Boolean, default: true },
+    generate: { type: Boolean, default: true },
+    history: { type: Boolean, default: false },
+    profile: { type: Boolean, default: false },
+    wallet: { type: Boolean, default: true },
+    rewards: { type: Boolean, default: true }
+  },
+
+  // Template Page Specific Settings
+  templateAdsSettings: {
+    showBetweenTemplates: { type: Boolean, default: true },
+    frequency: { type: Number, default: 6 }, // Show ad after every N templates
+  },
+
+  // Ad Provider IDs (for different platforms)
+  adIds: {
+    bannerId: { type: String, default: '' },
+    interstitialId: { type: String, default: '' },
+    rewardedId: { type: String, default: '' },
+    nativeId: { type: String, default: '' }
+  },
+
+  // Daily Limits
+  maxAdsPerUser: { type: Number, default: 20 }, // Max ads a user can watch per day
+  cooldownMinutes: { type: Number, default: 3 }, // Cooldown between ads
+
+  updatedAt: { type: Date, default: Date.now }
+});
+
 
 module.exports = {
   User: mongoose.model('User', userSchema),
@@ -184,5 +229,6 @@ module.exports = {
   Notification: mongoose.model('Notification', notificationSchema),
   Generation: mongoose.model('Generation', generationSchema),
   ToolConfig: mongoose.model('ToolConfig', toolConfigSchema),
-  FilterConfig: mongoose.model('FilterConfig', filterConfigSchema)
+  FilterConfig: mongoose.model('FilterConfig', filterConfigSchema),
+  AdsConfig: mongoose.model('AdsConfig', adsConfigSchema)
 };

@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
-  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig
+  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig
 } = require('./models');
 
 const app = express();
@@ -1772,6 +1772,209 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
     res.status(500).json({ msg: 'Verification failed' });
   }
 });
+
+// ============================================
+// Ads Management System
+// ============================================
+
+// Get Ads Config (Public - for frontend to know what pages to show ads on)
+app.get('/api/ads/config', async (req, res) => {
+  try {
+    let config = await AdsConfig.findOne();
+    if (!config) {
+      // Create default config if not exists
+      config = await AdsConfig.create({});
+    }
+    res.json(config);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch ads config' });
+  }
+});
+
+// Admin: Get Ads Config
+app.get('/api/admin/ads/config', async (req, res) => {
+  try {
+    let config = await AdsConfig.findOne();
+    if (!config) {
+      config = await AdsConfig.create({});
+    }
+    res.json({ ...config._doc, id: String(config._id) });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch ads config' });
+  }
+});
+
+// Admin: Update Ads Config
+app.put('/api/admin/ads/config', async (req, res) => {
+  try {
+    let config = await AdsConfig.findOne();
+    if (!config) {
+      config = await AdsConfig.create(req.body);
+    } else {
+      Object.assign(config, req.body);
+      config.updatedAt = new Date();
+      await config.save();
+    }
+    res.json({ ...config._doc, id: String(config._id) });
+  } catch (e) {
+    console.error('Update Ads Config Error:', e);
+    res.status(500).json({ error: 'Failed to update ads config' });
+  }
+});
+
+// User: Watch Ad and Get Reward
+app.post('/api/ads/watch', authUser, async (req, res) => {
+  try {
+    const { adType = 'rewarded', page = 'rewards' } = req.body;
+
+    const config = await AdsConfig.findOne();
+    if (!config || !config.isEnabled) {
+      return res.status(400).json({ error: 'Ads are currently disabled' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check daily limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayWatchCount = await Transaction.countDocuments({
+      userId: user._id,
+      description: { $regex: /^Ad Reward/i },
+      date: { $gte: today }
+    });
+
+    if (todayWatchCount >= config.maxAdsPerUser) {
+      return res.status(429).json({
+        error: 'Daily ad limit reached',
+        limit: config.maxAdsPerUser
+      });
+    }
+
+    // Check cooldown
+    const lastAdWatch = await Transaction.findOne({
+      userId: user._id,
+      description: { $regex: /^Ad Reward/i }
+    }).sort({ date: -1 });
+
+    if (lastAdWatch) {
+      const timeSinceLastAd = Date.now() - new Date(lastAdWatch.date).getTime();
+      const cooldownMs = config.cooldownMinutes * 60 * 1000;
+
+      if (timeSinceLastAd < cooldownMs) {
+        const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastAd) / 1000);
+        return res.status(429).json({
+          error: 'Please wait before watching another ad',
+          remainingSeconds
+        });
+      }
+    }
+
+    // Calculate reward based on config
+    let pointsEarned = 0;
+
+    if (config.rewardType === 'fixed') {
+      pointsEarned = config.fixedPoints;
+    } else if (config.rewardType === 'random') {
+      pointsEarned = Math.floor(Math.random() * (config.randomMax - config.randomMin + 1)) + config.randomMin;
+    } else if (config.rewardType === 'range') {
+      // Range: pick a random value between min and max
+      pointsEarned = Math.floor(Math.random() * (config.randomMax - config.randomMin + 1)) + config.randomMin;
+    }
+
+    // Add points to user
+    user.points += pointsEarned;
+    await user.save();
+
+    // Record transaction
+    await Transaction.create({
+      userId: user._id,
+      amount: pointsEarned,
+      type: 'credit',
+      description: `Ad Reward (${adType} on ${page})`,
+      gateway: config.provider || 'ads',
+      status: 'success',
+      date: new Date()
+    });
+
+    res.json({
+      success: true,
+      pointsEarned,
+      newBalance: user.points,
+      watchCount: todayWatchCount + 1,
+      remainingToday: config.maxAdsPerUser - (todayWatchCount + 1)
+    });
+  } catch (e) {
+    console.error('Ad Watch Error:', e);
+    res.status(500).json({ error: 'Failed to process ad reward' });
+  }
+});
+
+// User: Check Ad Availability
+app.get('/api/ads/availability', authUser, async (req, res) => {
+  try {
+    const config = await AdsConfig.findOne();
+    if (!config || !config.isEnabled) {
+      return res.json({ available: false, reason: 'Ads disabled' });
+    }
+
+    // Check daily limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayWatchCount = await Transaction.countDocuments({
+      userId: req.user.id,
+      description: { $regex: /^Ad Reward/i },
+      date: { $gte: today }
+    });
+
+    if (todayWatchCount >= config.maxAdsPerUser) {
+      return res.json({
+        available: false,
+        reason: 'Daily limit reached',
+        watchedToday: todayWatchCount,
+        maxDaily: config.maxAdsPerUser
+      });
+    }
+
+    // Check cooldown
+    const lastAdWatch = await Transaction.findOne({
+      userId: req.user.id,
+      description: { $regex: /^Ad Reward/i }
+    }).sort({ date: -1 });
+
+    if (lastAdWatch) {
+      const timeSinceLastAd = Date.now() - new Date(lastAdWatch.date).getTime();
+      const cooldownMs = config.cooldownMinutes * 60 * 1000;
+
+      if (timeSinceLastAd < cooldownMs) {
+        const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastAd) / 1000);
+        return res.json({
+          available: false,
+          reason: 'Cooldown active',
+          remainingSeconds
+        });
+      }
+    }
+
+    res.json({
+      available: true,
+      watchedToday: todayWatchCount,
+      maxDaily: config.maxAdsPerUser,
+      rewardType: config.rewardType,
+      estimatedReward: config.rewardType === 'fixed'
+        ? config.fixedPoints
+        : `${config.randomMin}-${config.randomMax}`
+    });
+  } catch (e) {
+    console.error('Ad Availability Error:', e);
+    res.status(500).json({ error: 'Failed to check ad availability' });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
