@@ -2037,18 +2037,26 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
       const stripe = Stripe(stripeKey);
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(pkg.price * 100), // cents
-        currency: 'inr', // or usd, configurable?
+      // Use Checkout Session for easier integration
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'inr',
+            product_data: { name: pkg.name },
+            unit_amount: Math.round(pkg.price * 100),
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/payment/success?session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
+        cancel_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/pro`,
         metadata: { userId: req.user.id, packageId: packageId },
-        automatic_payment_methods: { enabled: true },
       });
 
       return res.json({
-        clientSecret: paymentIntent.client_secret,
-        id: paymentIntent.id,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency
+        url: session.url,
+        gateway: 'stripe'
       });
     }
 
@@ -2145,6 +2153,65 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
   } catch (err) {
     console.error('Payment Verify Error:', err);
     res.status(500).json({ msg: 'Verification failed' });
+  }
+});
+
+// --- Stripe Verify ---
+app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
+  try {
+    const { paymentIntentId } = req.body;
+
+    // Get Stripe Secret Key
+    const config = await PaymentGateway.findOne({ provider: 'stripe', isActive: true })
+      .select('+secretKey')
+      .sort({ _id: -1 });
+
+    const stripeKey = config?.secretKey || process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) return res.status(500).json({ msg: 'Stripe configuration missing' });
+
+    const stripe = Stripe(stripeKey);
+    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (intent.status === 'succeeded') {
+      const packageId = intent.metadata.packageId;
+      const userId = intent.metadata.userId; // Trust metadata or use req.user.id if consistent
+
+      if (userId !== req.user.id) {
+        return res.status(400).json({ msg: 'User mismatch' });
+      }
+
+      // Check if already processed to prevent double crediting?
+      // Ideally we check Transaction history by paymentId
+      const existingTxn = await Transaction.findOne({ paymentId: paymentIntentId });
+      if (existingTxn) {
+        return res.json({ success: true, message: 'Already processed', newBalance: (await User.findById(userId)).points });
+      }
+
+      const pkg = await PointsPackage.findById(packageId);
+      if (!pkg) return res.status(404).json({ msg: 'Package not found' });
+
+      const user = await User.findById(userId);
+      const pointsToAdd = pkg.points + (pkg.bonusPoints || 0);
+      user.points += pointsToAdd;
+      await user.save();
+
+      // Log Transaction
+      await Transaction.create({
+        userId: user._id,
+        amount: pkg.price,
+        type: 'credit',
+        description: `Purchased ${pkg.name} (Stripe)`,
+        paymentId: paymentIntentId,
+        date: new Date()
+      });
+
+      return res.json({ success: true, newBalance: user.points });
+    } else {
+      return res.status(400).json({ msg: `Payment status: ${intent.status}` });
+    }
+  } catch (e) {
+    console.error('Stripe Verify Error:', e);
+    res.status(500).json({ msg: 'Verification failed', error: e.message });
   }
 });
 
