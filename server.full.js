@@ -18,6 +18,7 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 const recentLogs = [];
+let globalRequestCount = 0;
 const memoryCreatorApps = [];
 const memoryCategories = [
   { id: 'CAT_wedding', name: 'Wedding', subCategories: ['wedding'] },
@@ -178,6 +179,7 @@ app.use((req, res, next) => {
       status: res.statusCode,
       ms: Date.now() - start
     });
+    globalRequestCount++;
     if (recentLogs.length > 100) recentLogs.shift();
   });
   next();
@@ -1510,6 +1512,51 @@ app.post('/api/admin/config/ai/:id/test', async (req, res) => {
 app.delete('/api/admin/config/ai/cache', async (req, res) => {
   res.json({ success: true });
 });
+
+// --- Admin System Metrics ---
+app.get('/api/admin/metrics', async (req, res) => {
+  try {
+    const activeUsers = await User.countDocuments({ status: 'active' });
+
+    // Revenue Calculation (Approximate based on credit transactions)
+    // We assume non-system, non-ad credits are purchases
+    const revenueAgg = await Transaction.aggregate([
+      {
+        $match: {
+          type: 'credit',
+          status: 'success',
+          gateway: { $nin: ['System', 'ads', 'System (Refund)'] }
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    // Convert points to estimated rupees (Assuming 1 Rupee = 5 Points as per default config, or fetch config)
+    const finConfig = await FinanceConfig.findOne();
+    const conversionRate = finConfig?.pointsPerRupee || 5;
+    const totalPointsSold = revenueAgg[0]?.total || 0;
+    const estRevenue = Math.round(totalPointsSold / conversionRate);
+
+    // Latency Calculation
+    const avgLatency = recentLogs.length > 0
+      ? Math.round(recentLogs.reduce((acc, log) => acc + log.ms, 0) / recentLogs.length)
+      : 0;
+
+    res.json({
+      cpu: 0, // Not easily available in node without headers
+      memory: Math.round(process.memoryUsage().heapUsed / 1024 / 1024), // MB
+      requests: globalRequestCount,
+      latency: avgLatency,
+      activeUsers,
+      revenue: estRevenue
+    });
+  } catch (e) {
+    console.error('Metrics Error:', e);
+    // Return zeroed metrics on error instead of 500 to keep dashboard alive
+    res.json({ cpu: 0, memory: 0, requests: 0, latency: 0, activeUsers: 0, revenue: 0 });
+  }
+});
+
 app.get('/api/admin/system/admins', async (req, res) => {
   const admins = await Admin.find();
   res.json(admins.map(a => ({ ...a._doc, id: a._id })));
