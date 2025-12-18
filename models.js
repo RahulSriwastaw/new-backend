@@ -22,7 +22,13 @@ const creatorAppSchema = new mongoose.Schema({
   name: { type: String, required: true },
   socialLinks: [{ type: String }],
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
-  appliedDate: { type: Date, default: Date.now }
+  appliedDate: { type: Date, default: Date.now },
+  demoTemplates: [{
+    image: { type: String },
+    prompt: { type: String }
+  }],
+  bio: { type: String },
+  rejectionReason: { type: String }
 });
 
 // 3. Transaction Schema

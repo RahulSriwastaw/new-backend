@@ -530,7 +530,7 @@ app.get('/api/auth/me', authUser, async (req, res) => {
 
 app.post('/api/creator/apply', authUser, async (req, res) => {
   try {
-    const { name, socialLinks = [] } = req.body;
+    const { name, socialLinks = [], bio, demoTemplates = [] } = req.body;
     const finalName = (name || '').toString().replace(/^@/, '').trim();
     if (!finalName) {
       return res.status(400).json({ error: 'Name is required' });
@@ -539,15 +539,41 @@ app.post('/api/creator/apply', authUser, async (req, res) => {
       ? socialLinks.filter(Boolean).map(l => String(l).trim()).filter(l => l.length > 0)
       : [];
     if (useMemory()) {
-      const doc = { id: String(Date.now()), userId: String(req.user.id), name: finalName, socialLinks: links, status: 'pending', appliedDate: new Date() };
+      const doc = {
+        id: String(Date.now()),
+        userId: String(req.user.id),
+        name: finalName,
+        socialLinks: links,
+        bio,
+        demoTemplates,
+        status: 'pending',
+        appliedDate: new Date()
+      };
       memoryCreatorApps.push(doc);
-      return res.json({ id: doc.id, userId: doc.userId, name: doc.name, socialLinks: doc.socialLinks, status: doc.status, appliedDate: doc.appliedDate.toISOString() });
+      return res.json({
+        id: doc.id,
+        userId: doc.userId,
+        name: doc.name,
+        socialLinks: doc.socialLinks,
+        bio: doc.bio,
+        demoTemplates: doc.demoTemplates,
+        status: doc.status,
+        appliedDate: doc.appliedDate.toISOString()
+      });
     } else {
-      const appDoc = await CreatorApplication.create({ userId: req.user.id, name: finalName, socialLinks: links });
+      const appDoc = await CreatorApplication.create({
+        userId: req.user.id,
+        name: finalName,
+        socialLinks: links,
+        bio,
+        demoTemplates
+      });
       return res.json({
         id: String(appDoc._id),
         userId: String(appDoc.userId),
         name: appDoc.name,
+        bio: appDoc.bio,
+        demoTemplates: appDoc.demoTemplates || [],
         socialLinks: appDoc.socialLinks || [],
         status: appDoc.status,
         appliedDate: appDoc.appliedDate ? appDoc.appliedDate.toISOString() : new Date().toISOString()
