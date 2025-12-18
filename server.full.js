@@ -1821,16 +1821,30 @@ app.get('/api/admin/finance/gateways', async (_req, res) => {
 });
 app.post('/api/admin/finance/gateways', async (req, res) => {
   const { provider, name, publicKey, secretKey, isActive, isTestMode } = req.body;
-  let gateway = await PaymentGateway.findOne({ provider });
+
+  // Normalize provider to prevent duplicates (e.g. Razorpay vs razorpay)
+  const normProvider = provider.toLowerCase();
+
+  let gateway = await PaymentGateway.findOne({ provider: { $regex: new RegExp(`^${normProvider}$`, 'i') } });
+
   if (gateway) {
     gateway.name = name || gateway.name;
     gateway.isActive = isActive !== undefined ? isActive : gateway.isActive;
     gateway.isTestMode = isTestMode !== undefined ? isTestMode : gateway.isTestMode;
     if (publicKey) gateway.publicKey = publicKey;
     if (secretKey) gateway.secretKey = secretKey;
+    // Ensure provider is consistent
+    gateway.provider = normProvider;
     await gateway.save();
   } else {
-    gateway = await PaymentGateway.create({ provider, name, isActive, isTestMode, publicKey, secretKey });
+    gateway = await PaymentGateway.create({
+      provider: normProvider,
+      name,
+      isActive,
+      isTestMode,
+      publicKey,
+      secretKey
+    });
   }
   res.json({ ...gateway._doc, id: String(gateway._id) });
 });
