@@ -1468,39 +1468,6 @@ app.get('/api/admin/finance/gateways', async (_req, res) => {
   const list = await PaymentGateway.find().sort({ name: 1 });
   res.json(list.map(g => ({ ...g._doc, id: String(g._id) })));
 });
-app.post('/api/admin/finance/gateways', async (req, res) => {
-  const doc = await PaymentGateway.create(req.body);
-  res.json({ ...doc._doc, id: String(doc._id) });
-});
-app.put('/api/admin/finance/gateways/:id', async (req, res) => {
-  const doc = await PaymentGateway.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  res.json({ ...doc._doc, id: String(doc._id) });
-});
-app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
-  const isActive = !!req.body.isActive;
-  if (isActive) {
-    await PaymentGateway.updateMany({}, { isActive: false });
-  }
-  const doc = await PaymentGateway.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  res.json({ success: true, id: String(doc._id), isActive: doc.isActive });
-});
-app.post('/api/admin/finance/gateways/:id/test', async (_req, res) => {
-  res.json({ success: true });
-});
-
-app.get('/api/admin/finance/config', async (_req, res) => {
-  const doc = await FinanceConfig.findOne() || await FinanceConfig.create({});
-  res.json({ ...doc._doc, id: String(doc._id) });
-});
-app.put('/api/admin/finance/config', async (req, res) => {
-  const existing = await FinanceConfig.findOne();
-  const doc = existing
-    ? await FinanceConfig.findByIdAndUpdate(existing._id, req.body, { new: true })
-    : await FinanceConfig.create(req.body);
-  res.json({ ...doc._doc, id: String(doc._id) });
-});
 
 // Admin - Tools configuration
 app.get('/api/admin/tools/config', async (_req, res) => {
