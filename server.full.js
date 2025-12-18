@@ -2050,11 +2050,20 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
     // --- STRIPE LOGIC ---
     if (gateway.toLowerCase() === 'stripe') {
-      const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i }, isActive: true }).select('+secretKey').sort({ _id: -1 });
-      if (!config) return res.status(400).json({ msg: 'Stripe gateway is disabled or not configured' });
+      const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i } }).select('+secretKey').sort({ _id: -1 });
 
-      const stripeKey = config.secretKey || process.env.STRIPE_SECRET_KEY;
+      // If config exists in DB, check if active
+      if (config && !config.isActive) {
+        return res.status(400).json({ msg: 'Stripe gateway is disabled in Admin Panel' });
+      }
+
+      const stripeKey = config?.secretKey || process.env.STRIPE_SECRET_KEY;
       if (!stripeKey) return res.status(500).json({ msg: 'Stripe secret key missing' });
+
+      // Verification of mode
+      if (config?.isTestMode && stripeKey.startsWith('sk_live')) {
+        console.warn('⚠️ Warning: Using Stripe LIVE key while in TEST mode. Payments WILL be real!');
+      }
 
       const stripe = Stripe(stripeKey);
 
@@ -2086,14 +2095,14 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
     // Pkg already retrieved above
 
-    // Get Razorpay Config (select secretKey explicitly, get latest Active one)
-    const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i }, isActive: true })
+    // Get Razorpay Config (select secretKey explicitly)
+    const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
       .select('+secretKey')
       .sort({ _id: -1 });
 
     // If config exists in DB, check if active
     if (config && !config.isActive) {
-      return res.status(400).json({ msg: 'Payment gateway is currently disabled' });
+      return res.status(400).json({ msg: 'Razorpay gateway is disabled in Admin Panel' });
     }
 
     // Use DB credentials if available, otherwise fallback to ENV
@@ -2101,7 +2110,12 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_id || !key_secret) {
-      return res.status(500).json({ msg: 'Gateway credentials missing (Check Admin Panel or .env)' });
+      return res.status(500).json({ msg: 'Razorpay credentials missing' });
+    }
+
+    // Verification of mode
+    if (config?.isTestMode && key_id.startsWith('rzp_live')) {
+      console.warn('⚠️ Warning: Using Razorpay LIVE key while in TEST mode. Payments WILL be real!');
     }
 
     const instance = new Razorpay({ key_id, key_secret });
@@ -2136,12 +2150,15 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packageId } = req.body;
 
-    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay', isActive: true })
+    const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
       .select('+secretKey')
       .sort({ _id: -1 });
-    const key_secret = configWithSecret ? configWithSecret.secretKey : process.env.RAZORPAY_KEY_SECRET;
 
-    if (!key_secret) return res.status(500).json({ msg: 'Server config error' });
+    if (config && !config.isActive) return res.status(400).json({ msg: 'Razorpay disabled in Admin Panel' });
+
+    const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_secret) return res.status(500).json({ msg: 'Server config error: Razorpay secret missing' });
 
     const generated_signature = crypto
       .createHmac("sha256", key_secret)
@@ -2185,9 +2202,11 @@ app.post('/api/payment/verify-stripe', authUser, async (req, res) => {
     const { paymentIntentId, sessionId } = req.body;
 
     // Get Stripe Secret Key
-    const config = await PaymentGateway.findOne({ provider: 'stripe', isActive: true })
+    const config = await PaymentGateway.findOne({ provider: { $regex: /^stripe$/i } })
       .select('+secretKey')
       .sort({ _id: -1 });
+
+    if (config && !config.isActive) return res.status(400).json({ msg: 'Stripe disabled in Admin Panel' });
 
     const stripeKey = config?.secretKey || process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) return res.status(500).json({ msg: 'Stripe configuration missing' });
