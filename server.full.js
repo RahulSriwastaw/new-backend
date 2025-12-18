@@ -2014,26 +2014,26 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     const pkg = await PointsPackage.findById(packageId);
     if (!pkg) return res.status(404).json({ msg: 'Package not found' });
 
-    // Get Razorpay Config
-    const config = await PaymentGateway.findOne({ provider: 'razorpay' });
-    if (!config || !config.isActive) return res.status(400).json({ msg: 'Payment gateway not configured' });
+    // Get Razorpay Config (select secretKey explicitly)
+    const config = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
 
-    // Initialize Razorpay
-    // Note: secretKey is 'select: false' by default, need to explicitly select it
-    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
+    // If config exists in DB, check if active
+    if (config && !config.isActive) {
+      return res.status(400).json({ msg: 'Payment gateway is currently disabled' });
+    }
 
-    // Fallback environment variables if DB config missing (for reliability)
-    const key_id = config.publicKey || process.env.RAZORPAY_KEY_ID;
-    const key_secret = configWithSecret.secretKey || process.env.RAZORPAY_KEY_SECRET;
+    // Use DB credentials if available, otherwise fallback to ENV
+    const key_id = config?.publicKey || process.env.RAZORPAY_KEY_ID;
+    const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_id || !key_secret) {
-      return res.status(500).json({ msg: 'Gateway credentials missing' });
+      return res.status(500).json({ msg: 'Gateway credentials missing (Check Admin Panel or .env)' });
     }
 
     const instance = new Razorpay({ key_id, key_secret });
 
     const options = {
-      amount: pkg.price * 100, // Amount in paise
+      amount: Math.round(pkg.price * 100), // Amount in paise (integer)
       currency: "INR",
       receipt: `order_${Date.now()}`,
       notes: {
