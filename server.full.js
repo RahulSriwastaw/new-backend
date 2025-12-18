@@ -1609,13 +1609,61 @@ app.put('/api/admin/finance/gateways/:id', async (req, res) => {
 });
 
 app.get('/api/admin/notifications', async (req, res) => {
-  const notifs = await Notification.find().sort({ sentAt: -1 });
-  res.json(notifs.map(n => ({ ...n._doc, id: n._id })));
+  try {
+    const notifs = await Notification.find().sort({ sentAt: -1 });
+    res.json(notifs.map(n => ({ ...n._doc, id: n._id })));
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
 });
+
 app.post('/api/admin/notifications/send', async (req, res) => {
-  const data = { ...req.body, sentAt: req.body.scheduledFor ? undefined : new Date(), status: req.body.scheduledFor ? 'scheduled' : 'sent', reachCount: 100 };
-  const notif = await Notification.create(data);
-  res.json({ ...notif._doc, id: notif._id });
+  try {
+    const { target, scheduledFor } = req.body;
+    let reachCount = 0;
+
+    // Calculate real reach count based on target
+    if (target === 'all_users') {
+      reachCount = await User.countDocuments({});
+    } else if (target === 'active_users') {
+      reachCount = await User.countDocuments({ status: 'active' });
+    } else if (target === 'paid_users') {
+      // Users who have at least one credit transaction (assuming purchases)
+      const payingUserIds = await Transaction.distinct('userId', { type: 'credit', gateway: { $ne: 'System' } });
+      reachCount = payingUserIds.length;
+    } else if (target === 'all_creators') {
+      reachCount = await User.countDocuments({ role: 'creator' });
+    } else if (target === 'free_users') {
+      // Approximation: All users minus paid users
+      const total = await User.countDocuments({});
+      const paid = (await Transaction.distinct('userId', { type: 'credit', gateway: { $ne: 'System' } })).length;
+      reachCount = Math.max(0, total - paid);
+    } else if (target === 'specific_user') {
+      reachCount = 1;
+    }
+
+    const data = {
+      ...req.body,
+      sentAt: scheduledFor ? undefined : new Date(),
+      status: scheduledFor ? 'scheduled' : 'sent',
+      reachCount
+    };
+
+    const notif = await Notification.create(data);
+    res.json({ ...notif._doc, id: notif._id });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Failed to send notification" });
+  }
+});
+
+app.delete('/api/admin/notifications/:id', async (req, res) => {
+  try {
+    await Notification.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to delete notification" });
+  }
 });
 // --- Wallet Routes ---
 app.get('/api/wallet/balance', authUser, async (req, res) => {
