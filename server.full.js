@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const admin = require('firebase-admin');
 const Razorpay = require('razorpay');
+const Stripe = require('stripe');
 const crypto = require('crypto');
 const fs = require('fs');
 const {
@@ -2023,10 +2024,38 @@ app.get('/api/packages', async (req, res) => {
 app.post('/api/payment/create-order', authUser, async (req, res) => {
   try {
     const { packageId, gateway = 'razorpay' } = req.body;
-    if (gateway !== 'razorpay') return res.status(400).json({ msg: 'Only Razorpay supported currently' });
-
     const pkg = await PointsPackage.findById(packageId);
     if (!pkg) return res.status(404).json({ msg: 'Package not found' });
+
+    // --- STRIPE LOGIC ---
+    if (gateway.toLowerCase() === 'stripe') {
+      const config = await PaymentGateway.findOne({ provider: 'stripe', isActive: true }).select('+secretKey').sort({ _id: -1 });
+      if (!config) return res.status(400).json({ msg: 'Stripe gateway is disabled or not configured' });
+
+      const stripeKey = config.secretKey || process.env.STRIPE_SECRET_KEY;
+      if (!stripeKey) return res.status(500).json({ msg: 'Stripe secret key missing' });
+
+      const stripe = Stripe(stripeKey);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(pkg.price * 100), // cents
+        currency: 'inr', // or usd, configurable?
+        metadata: { userId: req.user.id, packageId: packageId },
+        automatic_payment_methods: { enabled: true },
+      });
+
+      return res.json({
+        clientSecret: paymentIntent.client_secret,
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency
+      });
+    }
+
+    // --- RAZORPAY LOGIC (Default) ---
+    if (gateway !== 'razorpay') return res.status(400).json({ msg: 'Unsupported gateway' });
+
+    // Pkg already retrieved above
 
     // Get Razorpay Config (select secretKey explicitly, get latest Active one)
     const config = await PaymentGateway.findOne({ provider: 'razorpay', isActive: true })
