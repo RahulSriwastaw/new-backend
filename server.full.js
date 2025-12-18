@@ -2014,8 +2014,10 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     const pkg = await PointsPackage.findById(packageId);
     if (!pkg) return res.status(404).json({ msg: 'Package not found' });
 
-    // Get Razorpay Config (select secretKey explicitly)
-    const config = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
+    // Get Razorpay Config (select secretKey explicitly, get latest Active one)
+    const config = await PaymentGateway.findOne({ provider: 'razorpay', isActive: true })
+      .select('+secretKey')
+      .sort({ _id: -1 });
 
     // If config exists in DB, check if active
     if (config && !config.isActive) {
@@ -2060,7 +2062,9 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, packageId } = req.body;
 
-    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay' }).select('+secretKey');
+    const configWithSecret = await PaymentGateway.findOne({ provider: 'razorpay', isActive: true })
+      .select('+secretKey')
+      .sort({ _id: -1 });
     const key_secret = configWithSecret ? configWithSecret.secretKey : process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_secret) return res.status(500).json({ msg: 'Server config error' });
