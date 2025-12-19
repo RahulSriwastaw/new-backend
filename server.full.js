@@ -1163,6 +1163,36 @@ app.patch('/api/admin/creators/:id/status', async (req, res) => {
 
 // Detailed Creator Profile for Admin
 app.get('/api/admin/creators/:id/profile', async (req, res) => {
+  if (useMemory()) {
+    return res.json({
+      user: {
+        id: req.params.id,
+        name: 'Mock Creator',
+        email: 'creator@example.com',
+        role: 'creator',
+        points: 500,
+        status: 'active',
+        joinedDate: new Date(),
+        avatar: '',
+        followers: 12,
+        likes: 45,
+        uses: 10,
+        isVerified: true
+      },
+      application: {
+        status: 'approved',
+        appliedDate: new Date(),
+        paymentDetails: { bankName: 'Mock Bank', accountNumber: 'XXXX1234' }
+      },
+      templates: [],
+      earnings: [],
+      withdrawals: [],
+      activityLogs: [],
+      stats: { totalEarnings: 1500, totalLikes: 45, totalUses: 10, totalSaves: 5 },
+      growthStats: []
+    });
+  }
+
   try {
     const userId = req.params.id;
     const user = await User.findById(userId);
@@ -1186,18 +1216,21 @@ app.get('/api/admin/creators/:id/profile', async (req, res) => {
       .reduce((sum, w) => sum + w.amount, 0);
 
     // Group earnings by date for growth chart (last 30 days)
-    const stats = await CreatorEarning.aggregate([
-      { $match: { creatorId: new mongoose.Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          amount: { $sum: "$amount" },
-          count: { $sum: "$usageCount" }
-        }
-      },
-      { $sort: { _id: 1 } },
-      { $limit: 30 }
-    ]);
+    let stats = [];
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      stats = await CreatorEarning.aggregate([
+        { $match: { creatorId: new mongoose.Types.ObjectId(userId) } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+            amount: { $sum: "$amount" },
+            count: { $sum: "$usageCount" }
+          }
+        },
+        { $sort: { _id: 1 } },
+        { $limit: 30 }
+      ]);
+    }
 
     res.json({
       user: {
