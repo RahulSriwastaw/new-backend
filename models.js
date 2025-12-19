@@ -13,7 +13,9 @@ const userSchema = new mongoose.Schema({
   likesCount: { type: Number, default: 0 },
   usesCount: { type: Number, default: 0 },
   firebaseUid: { type: String, index: true },
-  photoURL: { type: String }
+  photoURL: { type: String },
+  isVerified: { type: Boolean, default: false },
+  isWalletFrozen: { type: Boolean, default: false }
 });
 
 // 2. Creator Application Schema
@@ -28,7 +30,16 @@ const creatorAppSchema = new mongoose.Schema({
     prompt: { type: String }
   }],
   bio: { type: String },
-  rejectionReason: { type: String }
+  rejectionReason: { type: String },
+  paymentDetails: {
+    accountHolderName: { type: String },
+    bankName: { type: String },
+    accountNumber: { type: String },
+    ifscCode: { type: String },
+    panNumber: { type: String },
+    upiId: { type: String },
+    lastUpdated: { type: Date }
+  }
 });
 
 // 3. Transaction Schema

@@ -1173,6 +1173,8 @@ app.get('/api/admin/creators/:id/profile', async (req, res) => {
     const earnings = await CreatorEarning.find({ creatorId: userId }).sort({ date: -1 }).limit(100);
     const withdrawals = await Withdrawal.find({ creatorId: userId }).sort({ requestedAt: -1 });
 
+    const activityLogs = recentLogs.filter(l => l.path.includes(userId) || (l.method === 'POST' && l.path.includes('create')));
+
     // Calculate Stats
     const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
     const monthlyEarnings = earnings
@@ -1209,22 +1211,28 @@ app.get('/api/admin/creators/:id/profile', async (req, res) => {
         avatar: user.photoURL,
         followers: user.followersCount || 0,
         likes: user.likesCount || 0,
-        uses: user.usesCount || 0
+        uses: user.usesCount || 0,
+        isVerified: user.isVerified || false,
+        isWalletFrozen: user.isWalletFrozen || false
       },
-      application,
+      application: application ? {
+        ...application._doc,
+        paymentDetails: application.paymentDetails || {}
+      } : null,
       templates,
-      earnings: earnings.slice(0, 20), // Return last 20 earnings
+      earnings: earnings.slice(0, 100),
       withdrawals,
-      summary: {
+      activityLogs: activityLogs.slice(0, 20),
+      stats: {
         totalEarnings,
-        monthlyEarnings,
-        totalWithdrawals,
-        pendingWithdrawals: withdrawals
-          .filter(w => w.status === 'pending' || w.status === 'processing')
-          .reduce((sum, w) => sum + w.amount, 0),
-        activeTemplates: templates.filter(t => t.status === 'active').length
+        totalLikes: user.likesCount || 0,
+        totalUses: user.usesCount || 0,
+        totalSaves: templates.reduce((sum, t) => sum + (t.savesCount || 0), 0)
       },
-      growthStats: stats
+      growthStats: stats.map(s => ({
+        date: s._id,
+        earnings: s.amount
+      }))
     });
   } catch (err) {
     console.error('Creator Profile Error:', err);
@@ -1552,8 +1560,41 @@ app.put('/api/admin/users/:id', async (req, res) => {
     points: u.points,
     status: u.status,
     joinedDate: u.joinedDate,
-    avatar: ''
+    avatar: u.photoURL || '',
+    isVerified: u.isVerified || false,
+    isWalletFrozen: u.isWalletFrozen || false
   });
+});
+
+app.post('/api/admin/users/:id/login-as', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const payload = { user: { id: user.id, role: user.role } };
+    const token = jwt.sign(payload, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025', { expiresIn: '7d' });
+
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/notifications/send-to/:id', async (req, res) => {
+  try {
+    const { title, message, type = 'info' } = req.body;
+    await CreatorNotification.create({
+      creatorId: req.params.id,
+      title,
+      message,
+      type,
+      read: false,
+      date: new Date()
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.put('/api/admin/users/:id/status', async (req, res) => {
   const u = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
