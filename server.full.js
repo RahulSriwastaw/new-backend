@@ -833,13 +833,24 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 app.get('/api/admin/creators/:id/profile', authUser, async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id);
+
+    // Resolve userId: Check if ID matches a CreatorApplication first, otherwise assume it's a UserId
+    let userId = id;
+    let application = await CreatorApplication.findById(id);
+
+    if (application) {
+      userId = application.userId;
+    } else {
+      // Fallback: Try to find application by userId
+      application = await CreatorApplication.findOne({ userId: id });
+    }
+
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const application = await CreatorApplication.findOne({ userId: id });
-    const templates = await Template.find({ creatorId: id }).sort({ createdAt: -1 });
-    const earnings = await CreatorEarning.find({ creatorId: id }).sort({ date: 1 });
-    const withdrawals = await Withdrawal.find({ creatorId: id }).sort({ requestedAt: -1 });
+    const templates = await Template.find({ creatorId: userId }).sort({ createdAt: -1 });
+    const earnings = await CreatorEarning.find({ creatorId: userId }).sort({ date: 1 });
+    const withdrawals = await Withdrawal.find({ creatorId: userId }).sort({ requestedAt: -1 });
 
     // Calculate Stats
     const totalEarnings = earnings.reduce((acc, curr) => acc + curr.amount, 0);
