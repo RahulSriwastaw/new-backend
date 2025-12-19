@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, select: false },
   role: { type: String, enum: ['user', 'creator', 'admin'], default: 'user' },
   points: { type: Number, default: 0 },
-  status: { type: String, enum: ['active', 'banned', 'pending'], default: 'active' },
+  status: { type: String, enum: ['active', 'banned', 'pending', 'suspended'], default: 'active' },
   joinedDate: { type: Date, default: Date.now },
   followersCount: { type: Number, default: 0 },
   likesCount: { type: Number, default: 0 },
@@ -15,7 +15,13 @@ const userSchema = new mongoose.Schema({
   firebaseUid: { type: String, index: true },
   photoURL: { type: String },
   isVerified: { type: Boolean, default: false },
-  isWalletFrozen: { type: Boolean, default: false }
+  isWalletFrozen: { type: Boolean, default: false },
+  username: { type: String, unique: true, sparse: true },
+  rank: { type: Number, default: 0 },
+  totalEarnings: { type: Number, default: 0 },
+  pendingEarnings: { type: Number, default: 0 },
+  suspensionReason: { type: String },
+  suspendedUntil: { type: Date }
 });
 
 // 2. Creator Application Schema
@@ -75,14 +81,21 @@ const templateSchema = new mongoose.Schema({
   gender: { type: String, enum: ['Male', 'Female', 'Unisex', ''], default: '' },
   ageGroup: { type: String, default: '' },
   state: { type: String, default: '' }, // For Indian filters
-  status: { type: String, enum: ['active', 'draft'], default: 'active' },
+  status: { type: String, enum: ['active', 'draft', 'paused'], default: 'active' },
   useCount: { type: Number, default: 0 },
   viewCount: { type: Number, default: 0 },
   isPremium: { type: Boolean, default: false },
   source: { type: String, default: 'manual' },
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now },
-  likeCount: { type: Number, default: 0 }
+  likeCount: { type: Number, default: 0 },
+  savesCount: { type: Number, default: 0 },
+  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+  rejectionReason: { type: String },
+  isPaused: { type: Boolean, default: false },
+  earningsGenerated: { type: Number, default: 0 },
+  adminNotes: { type: String },
+  pointsCost: { type: Number, default: 0 }
 });
 
 // 5b. Category Schema (Admin-managed)
@@ -249,7 +262,11 @@ const withdrawalSchema = new mongoose.Schema({
   requestedAt: { type: Date, default: Date.now },
   processedAt: { type: Date },
   transactionId: { type: String },
-  remarks: { type: String }
+  remarks: { type: String },
+  adminNotes: { type: String },
+  proofOfPayment: { type: String },
+  utr: { type: String },
+  processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' }
 });
 
 // 16. Creator Notification Schema
@@ -267,10 +284,61 @@ const creatorNotificationSchema = new mongoose.Schema({
 const creatorEarningSchema = new mongoose.Schema({
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Template', required: true },
+  templateName: { type: String },
   amount: { type: Number, required: true },
+  pointsEarned: { type: Number, default: 0 },
   usageCount: { type: Number, default: 1 },
   date: { type: Date, default: Date.now }
 });
+creatorEarningSchema.index({ creatorId: 1, date: -1 });
+
+// 18. Admin Action Log Schema (NEW)
+const adminActionLogSchema = new mongoose.Schema({
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
+  adminName: { type: String },
+  targetType: { type: String, enum: ['user', 'creator', 'template', 'withdrawal', 'system'], required: true },
+  targetId: { type: mongoose.Schema.Types.ObjectId },
+  action: { type: String, required: true },
+  details: { type: String },
+  metadata: { type: mongoose.Schema.Types.Mixed },
+  timestamp: { type: Date, default: Date.now }
+});
+adminActionLogSchema.index({ targetType: 1, targetId: 1, timestamp: -1 });
+
+// 19. Creator Stats Cache Schema (NEW)
+const creatorStatsCacheSchema = new mongoose.Schema({
+  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  totalTemplates: { type: Number, default: 0 },
+  totalUses: { type: Number, default: 0 },
+  totalFollowers: { type: Number, default: 0 },
+  totalLikes: { type: Number, default: 0 },
+  totalSaves: { type: Number, default: 0 },
+  totalEarnings: { type: Number, default: 0 },
+  totalEarningsINR: { type: Number, default: 0 },
+  thisMonthEarnings: { type: Number, default: 0 },
+  lastMonthEarnings: { type: Number, default: 0 },
+  pendingWithdrawal: { type: Number, default: 0 },
+  rank: { type: Number, default: 0 },
+  lastUpdated: { type: Date, default: Date.now }
+});
+
+// 20. Follower Schema (NEW)
+const followerSchema = new mongoose.Schema({
+  followerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  followingId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  followedAt: { type: Date, default: Date.now }
+});
+followerSchema.index({ followerId: 1, followingId: 1 }, { unique: true });
+followerSchema.index({ followingId: 1 });
+
+// 21. Template Saves Schema (NEW)
+const templateSaveSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Template', required: true },
+  savedAt: { type: Date, default: Date.now }
+});
+templateSaveSchema.index({ userId: 1, templateId: 1 }, { unique: true });
+templateSaveSchema.index({ templateId: 1 });
 
 
 module.exports = {
@@ -291,5 +359,9 @@ module.exports = {
   AdsConfig: mongoose.model('AdsConfig', adsConfigSchema),
   Withdrawal: mongoose.model('Withdrawal', withdrawalSchema),
   CreatorNotification: mongoose.model('CreatorNotification', creatorNotificationSchema),
-  CreatorEarning: mongoose.model('CreatorEarning', creatorEarningSchema)
+  CreatorEarning: mongoose.model('CreatorEarning', creatorEarningSchema),
+  AdminActionLog: mongoose.model('AdminActionLog', adminActionLogSchema),
+  CreatorStatsCache: mongoose.model('CreatorStatsCache', creatorStatsCacheSchema),
+  Follower: mongoose.model('Follower', followerSchema),
+  TemplateSave: mongoose.model('TemplateSave', templateSaveSchema)
 };

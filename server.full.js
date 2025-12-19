@@ -3265,6 +3265,10 @@ app.post('/api/creator/templates', authUser, async (req, res) => {
   }
 });
 
+// Import and mount Creator Profile API routes
+const creatorProfileRoutes = require('./creatorProfileRoutes');
+app.use('/api/admin/creators', authUser, creatorProfileRoutes);
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
