@@ -55,7 +55,7 @@ const allowedOrigins = [
 ];
 // Debugging CORS: Allow all origins
 app.use(cors({
-  origin: true,
+  origin: allowedOrigins,
   credentials: true,
   optionsSuccessStatus: 200
 }));
