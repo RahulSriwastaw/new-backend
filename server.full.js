@@ -1162,7 +1162,7 @@ app.patch('/api/admin/creators/:id/status', async (req, res) => {
 });
 
 // Detailed Creator Profile for Admin
-app.get('/api/admin/creators/:id/profile', async (req, res) => {
+app.get('/api/admin/creators/:id/profile', authUser, async (req, res) => {
   if (useMemory()) {
     return res.json({
       user: {
