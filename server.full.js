@@ -910,6 +910,57 @@ app.get('/api/admin/creators/:id/profile', authUser, async (req, res) => {
   }
 });
 
+app.get('/api/admin/creators/:id/followers', authUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Resolve userId like profile endpoint
+    let userId = id;
+    let application = await CreatorApplication.findById(id);
+    if (application) {
+      userId = application.userId;
+    } else {
+      application = await CreatorApplication.findOne({ userId: id });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Simulate Growth Data (last 30 days)
+    const growthData = [];
+    const today = new Date();
+    let currentFollowers = user.followersCount || 0;
+
+    // Create a smooth-ish curve backward
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      growthData.unshift({
+        date: d.toISOString().split('T')[0],
+        count: Math.max(0, currentFollowers - Math.floor(Math.random() * i * 0.5))
+      });
+    }
+
+    // Simulate Top Followers (Mock data since we don't have a Followers collection)
+    const topFollowers = [
+      { id: '1', name: 'Alice Smith', username: 'alice_s', avatar: '' },
+      { id: '2', name: 'Bob Jones', username: 'bobj', avatar: '' },
+      { id: '3', name: 'Charlie Day', username: 'charlie_d', avatar: '' },
+      { id: '4', name: 'Diana Prince', username: 'wonder_d', avatar: '' },
+      { id: '5', name: 'Evan Wright', username: 'evan_w', avatar: '' }
+    ];
+
+    res.json({
+      totalFollowers: user.followersCount || 0,
+      growthData,
+      topFollowers: user.followersCount > 0 ? topFollowers.slice(0, Math.min(5, user.followersCount)) : []
+    });
+
+  } catch (err) {
+    console.error('Error fetching creator followers:', err);
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
 app.post('/api/generate', authUser, async (req, res) => {
   req.url = '/api/generation/generate';
   app._router.handle(req, res);
