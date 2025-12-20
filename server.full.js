@@ -729,6 +729,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             else if (data.data?.url) imageUrl = data.data.url;
             else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
             else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
+            else providerError = `MiniMax OK but invalid format: ${JSON.stringify(data).substring(0, 150)}`;
           } else {
             const txt = await resp.text();
             console.error("MiniMax Error:", txt);
