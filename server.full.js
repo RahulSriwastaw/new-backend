@@ -691,6 +691,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     if (!finalPrompt) finalPrompt = "high quality, artistic image";
 
     // === AI GUARD SYSTEM LOGIC ===
+    let executionPrompt = finalPrompt;
     try {
       const activeRules = await GenerationGuardRule.find({ enabled: true }).sort({ priority: 1 });
       const isI2I = uploadedImages && uploadedImages.length > 0;
@@ -712,7 +713,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
       // 1. Prepend System Prompts (Priority Ordered)
       if (systemPrompts.length > 0) {
-        finalPrompt = `${systemPrompts.join(' ')} . ${finalPrompt}`;
+        executionPrompt = `${systemPrompts.join(' ')} . ${finalPrompt}`;
       }
 
       // 2. Append Safety Negative Prompts
@@ -745,7 +746,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
+            body: JSON.stringify({ prompt: executionPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
           });
           if (openaiRes.ok) {
             const data = await openaiRes.json();
@@ -760,7 +761,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           let stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
           let stabilityBody = {
             text_prompts: [
-              { text: finalPrompt, weight: 1 },
+              { text: executionPrompt, weight: 1 },
               ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
             ],
             samples: 1,
@@ -768,17 +769,16 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           };
 
           if (uploadedImages && uploadedImages.length > 0) {
-            console.log("Stability: Upgrading to Image-to-Image for Face Preservation");
+            console.log("Stability: Image-to-Image Mode (Face Preservation)");
             stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image';
             try {
               const imgFetch = await fetch(uploadedImages[0]);
               if (imgFetch.ok) {
                 const imgBuf = await imgFetch.arrayBuffer();
                 stabilityBody.init_image = Buffer.from(imgBuf).toString('base64');
-                // image_strength: 0.35 means keep original structure (0.0=exact copy, 1.0=full creative)
-                stabilityBody.image_strength = 0.3;
+                stabilityBody.image_strength = 0.35; // 35% denoising = Strong preservation
               }
-            } catch (e) { console.error("Stability Img Fetch Fail:", e); }
+            } catch (e) { console.error("Stability Img Fetch Error:", e); }
           }
 
           const resp = await fetch(stabilityEndpoint, {
@@ -789,6 +789,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             },
             body: JSON.stringify(stabilityBody)
           });
+
           if (resp.ok) {
             const data = await resp.json();
             if (data.artifacts && data.artifacts[0]) {
@@ -797,7 +798,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           } else {
             const txt = await resp.text();
             console.error("Stability Error:", txt);
-            providerError = `Stability: ${txt}`;
+            providerError = `Stability: ${txt.substring(0, 200)}`;
           }
         } else if (provider.includes('minimax')) {
           const resp = await fetch('https://api.minimax.io/v1/image_generation', {
@@ -808,7 +809,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             },
             // Using updated payload for image_generation endpoint
             body: JSON.stringify({
-              prompt: finalPrompt,
+              prompt: executionPrompt,
               model: activeModel.config?.model || "image-01",
               ...(uploadedImages && uploadedImages.length > 0 ? {
                 subject_reference: [{
@@ -839,7 +840,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           if (!modelId) throw new Error("Replicate model ID not configured.");
 
           let endpoint = 'https://api.replicate.com/v1/predictions';
-          let body = { input: { prompt: finalPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1", image: uploadedImages?.[0] } };
+          let body = { input: { prompt: executionPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1", image: uploadedImages?.[0] } };
 
           // Handle owner/name model ID format for nicer endpoints
           if (modelId.includes('/') && !modelId.includes(':')) {
@@ -847,6 +848,12 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             endpoint = `https://api.replicate.com/v1/models/${owner}/${name}/predictions`;
           } else if (modelId.includes(':')) {
             body['version'] = modelId.split(':')[1];
+          }
+
+          // MiniMax Specific Fixes
+          if (modelId.toLowerCase().includes('minimax')) {
+            delete body.input.negative_prompt;
+            body.input.prompt_optimizer = true;
           }
 
           const startRes = await fetch(endpoint, {
@@ -2430,7 +2437,7 @@ app.post('/api/admin/guard-rules/seed', async (req, res) => {
         ruleType: "face_preserve",
         enabled: true,
         priority: 1,
-        hiddenPrompt: "Always preserve the same facial identity as the reference image. Do not change face shape, eyes, nose, jawline, skin tone, age, or ethnicity. The generated image must clearly represent the same person.",
+        hiddenPrompt: "Always preserve the same facial identity as the reference image. Do not change face shape, eyes, nose, jawline, skin tone, age, or ethnicity. The generated image must represent the exact same person. No face swapping or identity drift.",
         applyTo: ["image_to_image"]
       },
       {
@@ -2439,14 +2446,14 @@ app.post('/api/admin/guard-rules/seed', async (req, res) => {
         enabled: true,
         priority: 0,
         hiddenPrompt: "Do not generate nudity, sexual content, explicit poses, exposed private parts, pornographic or adult material. Clothing must be appropriate.",
-        applyTo: ["image", "image_to_image", "text_to_image"] // 'image' for broad coverage
+        applyTo: ["image", "image_to_image", "text_to_image"]
       },
       {
         ruleName: "Global Negative Prompt",
         ruleType: "negative_prompt",
         enabled: true,
         priority: 2,
-        hiddenPrompt: "face swap, different person, distorted face, nude, sexual, explicit, blurry, bad anatomy, deformed",
+        hiddenPrompt: "face swap, different person, distorted face, deformed anatomy, extra limbs, blurry, low quality, nude, sexual, explicit, bad anatomy, deformed",
         applyTo: ["image_to_image", "text_to_image"]
       }
     ];
