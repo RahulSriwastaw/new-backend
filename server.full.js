@@ -659,6 +659,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     // Try External Providers
     // Try External Providers
     let apiKey = activeModel?.config?.apiKey || activeModel?.apiKey;
+    let providerError = '';
+
     if (activeModel && apiKey) {
       try {
         const provider = (activeModel.provider || '').toLowerCase();
@@ -677,7 +679,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             const b64 = data?.data?.[0]?.b64_json;
             if (b64) imageUrl = `data:image/png;base64,${b64}`;
           } else {
-            console.error("OpenAI Error:", await openaiRes.text());
+            const txt = await openaiRes.text();
+            console.error("OpenAI Error:", txt);
+            providerError = `OpenAI: ${txt}`;
           }
         } else if (provider.includes('stability')) {
           const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
@@ -698,7 +702,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
               imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
             }
           } else {
-            console.error("Stability Error:", await resp.text());
+            const txt = await resp.text();
+            console.error("Stability Error:", txt);
+            providerError = `Stability: ${txt}`;
           }
         } else if (provider.includes('minimax')) {
           const resp = await fetch('https://api.minimax.io/v1/image_generation', {
@@ -707,6 +713,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${apiKey}`
             },
+            // Using updated payload for image_generation endpoint
             body: JSON.stringify({
               prompt: finalPrompt,
               model: activeModel.config?.model || "image-01"
@@ -719,17 +726,22 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
             else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
           } else {
-            console.error("MiniMax Error:", await resp.text());
+            const txt = await resp.text();
+            console.error("MiniMax Error:", txt);
+            providerError = `MiniMax: ${txt}`;
           }
         }
       } catch (e) {
         console.error("AI Generation External API Error:", e);
+        providerError = `Exception: ${e.message}`;
       }
     }
 
     // Check if generation succeeded
     if (!imageUrl) {
-      return res.status(500).json({ error: 'Generation Failed: No specific error returned by provider or provider not active.' });
+      return res.status(500).json({
+        error: `Generation Failed: ${providerError || 'No provider active or unexpected error'}`
+      });
     }
 
     // Handle Uploaded Images safely
