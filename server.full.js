@@ -68,11 +68,21 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
 // Image Proxy for CORS Bypass
 app.get(['/api/proxy', '/api/v1/proxy'], async (req, res) => {
   const { url } = req.query;
+  console.log("Create Proxy Request for:", url);
   if (!url) return res.status(400).send('No URL provided');
   try {
-    const fetch = global.fetch; // Ensure we use global fetch (Node 18+)
-    const resp = await fetch(decodeURIComponent(url));
-    if (!resp.ok) return res.status(404).send('Image fetch failed');
+    const fetch = global.fetch;
+    const targetUrl = decodeURIComponent(url);
+    const resp = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; RupantarAI/1.0)'
+      }
+    });
+
+    if (!resp.ok) {
+      console.error("Proxy Upstream Error:", resp.status, targetUrl);
+      return res.status(404).send(`Image fetch failed: ${resp.status}`);
+    }
 
     const contentType = resp.headers.get('content-type');
     if (contentType) res.setHeader('Content-Type', contentType);
