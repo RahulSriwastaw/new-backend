@@ -64,8 +64,7 @@ const aiModelSchema = new mongoose.Schema({
   key: {
     type: String,
     required: true,
-    unique: true,
-    enum: ['gemini', 'minimax', 'stability']
+    unique: true
   },
   name: { type: String, required: true },
   provider: { type: String, required: true },
