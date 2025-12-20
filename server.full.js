@@ -702,7 +702,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       activeRules.forEach(rule => {
         // Check coverage: 'image' covers all image generations
         if (rule.applyTo.includes(mode) || rule.applyTo.includes('image')) {
-          if (rule.ruleType === 'negative_prompt' || rule.ruleType === 'safety_nsfw') {
+          if (rule.ruleType === 'negative_prompt') {
             if (rule.hiddenPrompt) safetyNegativePrompts.push(rule.hiddenPrompt);
           } else {
             if (rule.hiddenPrompt) systemPrompts.push(rule.hiddenPrompt);
@@ -757,20 +757,37 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             providerError = `OpenAI: ${txt}`;
           }
         } else if (provider.includes('stability')) {
-          const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+          let stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
+          let stabilityBody = {
+            text_prompts: [
+              { text: finalPrompt, weight: 1 },
+              ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
+            ],
+            samples: 1,
+            steps: 30
+          };
+
+          if (uploadedImages && uploadedImages.length > 0) {
+            console.log("Stability: Upgrading to Image-to-Image for Face Preservation");
+            stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image';
+            try {
+              const imgFetch = await fetch(uploadedImages[0]);
+              if (imgFetch.ok) {
+                const imgBuf = await imgFetch.arrayBuffer();
+                stabilityBody.init_image = Buffer.from(imgBuf).toString('base64');
+                // image_strength: 0.35 means keep original structure (0.0=exact copy, 1.0=full creative)
+                stabilityBody.image_strength = 0.3;
+              }
+            } catch (e) { console.error("Stability Img Fetch Fail:", e); }
+          }
+
+          const resp = await fetch(stabilityEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-              text_prompts: [
-                { text: finalPrompt, weight: 1 },
-                ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
-              ],
-              samples: 1,
-              steps: 30
-            })
+            body: JSON.stringify(stabilityBody)
           });
           if (resp.ok) {
             const data = await resp.json();
