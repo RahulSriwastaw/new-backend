@@ -1772,44 +1772,120 @@ app.put('/api/admin/tools/config', async (req, res) => {
   res.json({ ...cfg._doc, id: String(cfg._id) });
 });
 
-app.get('/api/admin/config/ai', async (req, res) => {
-  const modelsList = await AIModel.find().select('+apiKey');
-  const models = modelsList.map(m => ({ ...m._doc, id: m._id }));
-  const finance = await FinanceConfig.findOne() || { coinExchangeRate: 1, pointsExchangeRate: 1, currency: 'USD' };
-  res.json({ models, finance });
+// ==================== AI MODEL MANAGEMENT ENDPOINTS ====================
+
+// Get all AI models
+app.get(['/api/admin/ai-models', '/api/admin/config/ai'], async (req, res) => {
+  try {
+    const models = await AIModel.find({}).select('+config.apiKey +apiKey');
+    // Map response to handle legacy schema props if needed
+    res.json(models.map(m => ({
+      ...m._doc,
+      id: m._id,
+      apiKey: m.config?.apiKey || m.apiKey // Handle both locations
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch AI models' });
+  }
 });
-app.post('/api/admin/config/ai', async (req, res) => {
-  const model = await AIModel.create(req.body);
-  res.json({ ...model._doc, id: model._id });
+
+// Create new AI model
+app.post(['/api/admin/ai-models', '/api/admin/config/ai'], async (req, res) => {
+  try {
+    const { name, provider, costPerImage, key, config } = req.body;
+    if (!name || !provider) return res.status(400).json({ error: 'Name and Provider are required' });
+
+    const modelKey = key || name.toLowerCase().replace(/\s+/g, '-');
+    const existing = await AIModel.findOne({ key: modelKey });
+    if (existing) return res.status(400).json({ error: 'Model with this key/name already exists' });
+
+    const newModel = await AIModel.create({
+      key: modelKey,
+      name,
+      provider,
+      costPerImage: costPerImage || 1,
+      active: false,
+      isActive: false,
+      config: config || { apiKey: req.body.apiKey } // Handle nested or flat apiKey
+    });
+    res.status(201).json({ ...newModel._doc, id: newModel._id, success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
-app.patch('/api/admin/config/ai/:id', async (req, res) => {
-  const updated = await AIModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json({ ...updated._doc, id: updated._id });
+
+// Update AI Model (Combined: Cost, API Key, Details, Status)
+app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/config/ai/:key/cost', '/api/admin/config/ai/:key/apikey', '/api/admin/config/ai/:key/details'], async (req, res) => {
+  try {
+    let model = await AIModel.findOne({ key: req.params.key });
+    if (!model) {
+      try { model = await AIModel.findById(req.params.key); } catch (e) { }
+    }
+    if (!model) return res.status(404).json({ error: 'Model not found' });
+
+    // Update fields
+    if (req.body.cost !== undefined) model.costPerImage = req.body.cost;
+    if (req.body.costPerImage !== undefined) model.costPerImage = req.body.costPerImage;
+
+    // Handle API Key update
+    if (req.body.apiKey || req.body.config?.apiKey) {
+      if (!model.config) model.config = {};
+      model.config.apiKey = req.body.apiKey || req.body.config.apiKey;
+      // Also update legacy top-level apiKey if schema has it
+      if (model.schema && model.schema.path('apiKey')) model.apiKey = model.config.apiKey;
+    }
+
+    if (req.body.active !== undefined) { model.active = req.body.active; model.isActive = req.body.active; }
+    if (req.body.isActive !== undefined) { model.isActive = req.body.isActive; model.active = req.body.isActive; }
+
+    await model.save();
+    res.json({ success: true, ...model._doc, id: model._id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
-app.delete('/api/admin/config/ai/:id', async (req, res) => {
-  await AIModel.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+
+// Activate AI Model
+app.post(['/api/admin/ai-models/:key/activate', '/api/admin/config/ai/:key/activate'], async (req, res) => {
+  try {
+    // Deactivate all
+    await AIModel.updateMany({}, { active: false, isActive: false });
+
+    let model = await AIModel.findOne({ key: req.params.key });
+    if (!model) { try { model = await AIModel.findById(req.params.key); } catch (e) { } }
+
+    if (model) {
+      model.active = true;
+      model.isActive = true;
+      await model.save();
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Model not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
-app.put('/api/admin/config/ai/:id/activate', async (req, res) => {
-  await AIModel.updateMany({}, { isActive: false });
-  await AIModel.findByIdAndUpdate(req.params.id, { isActive: true });
-  res.json({ success: true });
+
+// Delete AI Model
+app.delete(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key'], async (req, res) => {
+  try {
+    let model = await AIModel.findOne({ key: req.params.key });
+    if (!model) { try { model = await AIModel.findById(req.params.key); } catch (e) { } }
+
+    if (!model) return res.status(404).json({ error: 'Not found' });
+    if (model.active || model.isActive) return res.status(400).json({ error: 'Cannot delete active model' });
+
+    await AIModel.deleteOne({ _id: model._id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
-app.put('/api/admin/config/ai/:id/cost', async (req, res) => {
-  await AIModel.findByIdAndUpdate(req.params.id, { costPerImage: req.body.cost });
-  res.json({ success: true });
-});
-app.put('/api/admin/config/ai/:id/apikey', async (req, res) => {
-  await AIModel.findByIdAndUpdate(req.params.id, { apiKey: req.body.apiKey });
-  res.json({ success: true });
-});
-app.put('/api/admin/config/ai/:id/details', async (req, res) => {
-  await AIModel.findByIdAndUpdate(req.params.id, req.body);
-  res.json({ success: true });
-});
-app.post('/api/admin/config/ai/:id/test', async (req, res) => {
-  res.json({ success: true });
-});
+
 app.delete('/api/admin/config/ai/cache', async (req, res) => {
   res.json({ success: true });
 });
