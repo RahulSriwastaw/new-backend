@@ -632,7 +632,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     // Determine Logic/Cost
     // DEBUG: Fetch all to diagnose state in error message
-    const allModelsDebug = await AIModel.find({}, 'key active provider');
+    const allModelsDebug = await AIModel.find({}).select('key active provider isActive +apiKey +config.apiKey');
 
     let activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
     if (!activeModel) activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey +config.apiKey');
@@ -744,7 +744,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     // Check if generation succeeded
     if (!imageUrl) {
       return res.status(500).json({
-        error: `Generation Failed: ${providerError || 'No provider active'}. DB State: [${allModelsDebug.map(m => `${m.provider}(${m.key}):${m.active}`).join('|')}]`
+        error: `Generation Failed: ${providerError || 'No provider active'}. DB State: [${allModelsDebug.map(m => `${m.provider}(${m.key}):${m.active}:Key=${!!(m.config?.apiKey || m.apiKey)}`).join('|')}]`
       });
     }
 
@@ -1871,9 +1871,15 @@ app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/c
 
     // Handle API Key update
     if (req.body.apiKey || req.body.config?.apiKey) {
+      const newCtxKey = req.body.apiKey || req.body.config.apiKey;
+      // Direct DB update to bypass Mongoose tracking issues
+      await AIModel.updateOne(
+        { _id: model._id },
+        { $set: { "config.apiKey": newCtxKey } }
+      );
+      // Update local instance
       if (!model.config) model.config = {};
-      model.config.apiKey = req.body.apiKey || req.body.config.apiKey;
-      model.markModified('config');
+      model.config.apiKey = newCtxKey;
     }
 
     if (req.body.active !== undefined) { model.active = req.body.active; model.isActive = req.body.active; }
