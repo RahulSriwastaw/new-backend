@@ -701,7 +701,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             console.error("Stability Error:", await resp.text());
           }
         } else if (provider.includes('minimax')) {
-          const resp = await fetch('https://api.minimax.chat/v1/text_to_image', {
+          const resp = await fetch('https://api.minimax.io/v1/image_generation', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1921,7 +1921,7 @@ app.get(['/api/admin/ai-models/:key/test', '/api/admin/config/ai/:key/test'], as
     const provider = (model.provider || '').toLowerCase();
 
     if (provider.includes('minimax')) {
-      const resp = await fetch('https://api.minimax.chat/v1/text_to_image', {
+      const resp = await fetch('https://api.minimax.io/v1/image_generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ prompt: "test", model: "image-01" })
