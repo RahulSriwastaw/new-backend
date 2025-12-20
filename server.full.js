@@ -799,7 +799,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           if (!modelId) throw new Error("Replicate model ID not configured.");
 
           let endpoint = 'https://api.replicate.com/v1/predictions';
-          let body = { input: { prompt: finalPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1" } };
+          let body = { input: { prompt: finalPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1", image: uploadedImages?.[0] } };
 
           // Handle owner/name model ID format for nicer endpoints
           if (modelId.includes('/') && !modelId.includes(':')) {
