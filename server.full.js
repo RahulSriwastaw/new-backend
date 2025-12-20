@@ -631,7 +631,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     }
 
     // Determine Logic/Cost
-    const activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey');
+    const activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
     const cost = activeModel?.costPerImage ?? 1;
     if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
 
@@ -657,7 +657,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
 
     // Try External Providers
-    if (activeModel && activeModel.apiKey) {
+    // Try External Providers
+    let apiKey = activeModel?.config?.apiKey || activeModel?.apiKey;
+    if (activeModel && apiKey) {
       try {
         const provider = (activeModel.provider || '').toLowerCase();
 
@@ -666,7 +668,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${activeModel.apiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({ prompt: finalPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
           });
@@ -682,7 +684,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${activeModel.apiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
               text_prompts: [{ text: finalPrompt, weight: 1 }],
@@ -703,22 +705,18 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${activeModel.apiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
               prompt: finalPrompt,
-              model: "image-01"
+              model: activeModel.config?.model || "image-01"
             })
           });
           if (resp.ok) {
             const data = await resp.json();
-            // Note: Adjust parsing based on actual MiniMax API response structure
-            // Assuming standard URL or Base64 return. If URL, we might need to proxy or save it.
-            // For now assuming base64 or direct url in a standard field.
-            // This is a placeholder as MiniMax API specifics vary.
-            // If MiniMax returns a URL, we use it directly.
             if (data.url) imageUrl = data.url;
-            else if (data.data && data.data[0] && data.data[0].url) imageUrl = data.data[0].url;
+            else if (data.data?.url) imageUrl = data.data.url;
+            else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
             else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
           } else {
             console.error("MiniMax Error:", await resp.text());
