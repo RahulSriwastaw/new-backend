@@ -776,6 +776,53 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             console.error("MiniMax Error:", txt);
             providerError = `MiniMax: ${txt}`;
           }
+        } else if (provider.includes('replicate')) {
+          const modelId = activeModel.config?.model;
+          if (!modelId) throw new Error("Replicate model ID not configured.");
+
+          let endpoint = 'https://api.replicate.com/v1/predictions';
+          let body = { input: { prompt: finalPrompt, aspect_ratio: aspectRatio || "1:1" } };
+
+          // Handle owner/name model ID format for nicer endpoints
+          if (modelId.includes('/') && !modelId.includes(':')) {
+            const [owner, name] = modelId.split('/');
+            endpoint = `https://api.replicate.com/v1/models/${owner}/${name}/predictions`;
+          } else if (modelId.includes(':')) {
+            body['version'] = modelId.split(':')[1];
+          }
+
+          const startRes = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+
+          if (!startRes.ok) {
+            const errText = await startRes.text();
+            console.error("Replicate Start Error:", errText);
+            providerError = `Replicate Start: ${errText}`;
+          } else {
+            let prediction = await startRes.json();
+
+            // Poll for completion
+            const maxPolls = 60; // 60 seconds max
+            let polls = 0;
+            while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && prediction.status !== 'canceled' && polls < maxPolls) {
+              await new Promise(r => setTimeout(r, 1000));
+              const pollRes = await fetch(prediction.urls.get, {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+              });
+              if (pollRes.ok) prediction = await pollRes.json();
+              polls++;
+            }
+
+            if (prediction.status === 'succeeded') {
+              if (Array.isArray(prediction.output)) imageUrl = prediction.output[0];
+              else if (typeof prediction.output === 'string') imageUrl = prediction.output;
+            } else {
+              providerError = `Replicate Failed or Timed Out: ${prediction.error || prediction.status}`;
+            }
+          }
         }
       } catch (e) {
         console.error("AI Generation External API Error:", e);
