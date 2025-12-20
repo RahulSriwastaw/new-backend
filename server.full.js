@@ -65,6 +65,27 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
 
 // ... (request logging middleware remains same)
 
+// Image Proxy for CORS Bypass
+app.get(['/api/proxy', '/api/v1/proxy'], async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('No URL provided');
+  try {
+    const fetch = global.fetch; // Ensure we use global fetch (Node 18+)
+    const resp = await fetch(decodeURIComponent(url));
+    if (!resp.ok) return res.status(404).send('Image fetch failed');
+
+    const contentType = resp.headers.get('content-type');
+    if (contentType) res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const arrayBuffer = await resp.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (e) {
+    console.error("Proxy Error:", e);
+    res.status(500).send("Proxy failed");
+  }
+});
+
 // Firebase Google Login - Verify ID Token
 app.post('/api/auth/firebase-login', async (req, res) => {
   console.log('👉 /api/auth/firebase-login called');
