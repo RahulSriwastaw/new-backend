@@ -1904,6 +1904,53 @@ app.delete(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key'], async (re
   }
 });
 
+// Test AI Model Connection
+app.get(['/api/admin/ai-models/:key/test', '/api/admin/config/ai/:key/test'], async (req, res) => {
+  try {
+    let model = await AIModel.findOne({ key: req.params.key }).select('+config.apiKey +apiKey');
+    if (!model) { try { model = await AIModel.findById(req.params.key).select('+config.apiKey +apiKey'); } catch (e) { } }
+
+    if (!model) return res.status(404).json({ error: 'Model not found' });
+
+    const apiKey = model.config?.apiKey || model.apiKey;
+    if (!apiKey) return res.status(400).json({ error: 'No API Key configured' });
+
+    const provider = (model.provider || '').toLowerCase();
+
+    if (provider.includes('minimax')) {
+      const resp = await fetch('https://api.minimax.chat/v1/text_to_image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ prompt: "test", model: "image-01" })
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        return res.status(400).json({ error: `MiniMax Error: ${txt}` });
+      }
+    } else if (provider.includes('stability')) {
+      const resp = await fetch('https://api.stability.ai/v1/user/account', {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        return res.status(400).json({ error: `Stability Error: ${txt}` });
+      }
+    } else if (provider.includes('openai')) {
+      const resp = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        return res.status(400).json({ error: `OpenAI Error: ${txt}` });
+      }
+    }
+
+    res.json({ success: true, message: 'Connection successful' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/admin/config/ai/cache', async (req, res) => {
   res.json({ success: true });
 });
