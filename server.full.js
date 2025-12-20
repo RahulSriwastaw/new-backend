@@ -631,7 +631,11 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     }
 
     // Determine Logic/Cost
-    const activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
+    // DEBUG: Fetch all to diagnose state in error message
+    const allModelsDebug = await AIModel.find({}, 'key active provider');
+
+    let activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
+    if (!activeModel) activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey +config.apiKey');
     const cost = activeModel?.costPerImage ?? 1;
     if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
 
@@ -740,7 +744,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     // Check if generation succeeded
     if (!imageUrl) {
       return res.status(500).json({
-        error: `Generation Failed: ${providerError || 'No provider active or unexpected error'}`
+        error: `Generation Failed: ${providerError || 'No provider active'}. DB State: [${allModelsDebug.map(m => `${m.provider}(${m.key}):${m.active}`).join('|')}]`
       });
     }
 
