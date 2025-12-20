@@ -728,6 +728,10 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             if (data.url) imageUrl = data.url;
             else if (data.data?.url) imageUrl = data.data.url;
             else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
+            // Handle observed format: { data: { image_urls: ["..."] } }
+            else if (data.data?.image_urls?.[0]) imageUrl = data.data.image_urls[0];
+            else if (data.image_urls?.[0]) imageUrl = data.image_urls[0];
+
             else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
             else providerError = `MiniMax OK but invalid format: ${JSON.stringify(data).substring(0, 150)}`;
           } else {
