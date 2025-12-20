@@ -1,0 +1,57 @@
+{
+    "tech_stack": [
+        "javascript",
+        "express",
+        "mongoose",
+        "firebase-admin",
+        "cloudinary"
+    ],
+    "features": [
+        {
+            "name": "Auth API",
+            "description": "Authentication endpoints including login, register, and social login.",
+            "files": [
+                "server.full.js"
+            ],
+            "api_doc": {
+                "openapi": "3.0.0",
+                "info": {
+                    "title": "Rupantar AI Backend API",
+                    "version": "1.0.0"
+                },
+                "paths": {
+                    "/api/auth/login": {
+                        "post": {
+                            "summary": "User Login",
+                            "requestBody": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "email": {
+                                                    "type": "string"
+                                                },
+                                                "password": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "/api/creator/application": {
+                        "get": {
+                            "summary": "Get creator application status"
+                        },
+                        "post": {
+                            "summary": "Submit creator application"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

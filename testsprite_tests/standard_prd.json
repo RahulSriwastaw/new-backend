@@ -1,0 +1,27 @@
+{
+    "product_name": "Rupantar AI Backend",
+    "product_description": "Backend service for Rupantar AI, handling authentication, creator applications, and user data management.",
+    "features": [
+        {
+            "name": "Authentication",
+            "description": "User registration, login, and social authentication.",
+            "user_stories": [
+                "As a user, I want to log in with email and password.",
+                "As a user, I want to log in with social accounts."
+            ]
+        },
+        {
+            "name": "Creator Management",
+            "description": "Manage creator applications and profiles.",
+            "user_stories": [
+                "As a user, I want to apply to become a creator.",
+                "As an admin, I want to view and approve/reject creator applications."
+            ]
+        }
+    ],
+    "technical_requirements": {
+        "auth": "JWT based authentication",
+        "database": "MongoDB",
+        "api_style": "RESTful"
+    }
+}

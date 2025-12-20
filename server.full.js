@@ -1155,7 +1155,7 @@ app.post('/api/auth/admin-login', async (req, res) => {
   }
 });
 
-app.get('/api/admin/creators', async (req, res) => {
+app.get('/api/admin/creators', authUser, async (req, res) => {
   if (useMemory()) return res.json(memoryCreatorApps);
 
   try {
