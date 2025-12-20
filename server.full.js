@@ -14,7 +14,7 @@ const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
-  Withdrawal, CreatorNotification, CreatorEarning, GenerationRulesConfig
+  Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule
 } = require('./models');
 
 
@@ -690,19 +690,42 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     // Fallback if still empty
     if (!finalPrompt) finalPrompt = "high quality, artistic image";
 
-    // Apply Admin Generation Rules
-    const genRules = await GenerationRulesConfig.findOne();
-    const facePrompt = genRules?.facePreservationPrompt || "";
-    const globalNeg = genRules?.globalNegativePrompt || "";
+    // === AI GUARD SYSTEM LOGIC ===
+    try {
+      const activeRules = await GenerationGuardRule.find({ enabled: true }).sort({ priority: 1 });
+      const isI2I = uploadedImages && uploadedImages.length > 0;
+      const mode = isI2I ? 'image_to_image' : 'text_to_image';
 
-    if (uploadedImages && uploadedImages.length > 0 && facePrompt) {
-      finalPrompt += `, ${facePrompt}`;
-    }
+      const systemPrompts = [];
+      const safetyNegativePrompts = [];
 
-    // Combine Negative Prompts
-    let finalNegativePrompt = negativePrompt || "";
-    if (globalNeg) {
-      finalNegativePrompt = finalNegativePrompt ? `${finalNegativePrompt}, ${globalNeg}` : globalNeg;
+      activeRules.forEach(rule => {
+        // Check coverage: 'image' covers all image generations
+        if (rule.applyTo.includes(mode) || rule.applyTo.includes('image')) {
+          if (rule.ruleType === 'negative_prompt' || rule.ruleType === 'safety_nsfw') {
+            if (rule.hiddenPrompt) safetyNegativePrompts.push(rule.hiddenPrompt);
+          } else {
+            if (rule.hiddenPrompt) systemPrompts.push(rule.hiddenPrompt);
+          }
+        }
+      });
+
+      // 1. Prepend System Prompts (Priority Ordered)
+      if (systemPrompts.length > 0) {
+        finalPrompt = `${systemPrompts.join(' ')} . ${finalPrompt}`;
+      }
+
+      // 2. Append Safety Negative Prompts
+      let finalNegativePromptRaw = negativePrompt || "";
+      if (safetyNegativePrompts.length > 0) {
+        const safetyStr = safetyNegativePrompts.join(', ');
+        finalNegativePromptRaw = finalNegativePromptRaw ? `${finalNegativePromptRaw}, ${safetyStr}` : safetyStr;
+      }
+      var finalNegativePrompt = finalNegativePromptRaw; // Ensure var scope
+    } catch (err) {
+      console.error("Guard Rule Error:", err);
+      // Fallback to basic passthrough if Guard DB fails
+      var finalNegativePrompt = negativePrompt || "";
     }
     let imageUrl = '';
 
@@ -2350,24 +2373,69 @@ app.put('/api/admin/finance/config', async (req, res) => {
     : await FinanceConfig.create(req.body);
   res.json({ ...doc._doc, id: String(doc._id) });
 });
-// Generation Rules Config
-app.get('/api/admin/generation-rules', async (req, res) => {
-  const config = await GenerationRulesConfig.findOne() || new GenerationRulesConfig();
-  res.json(config);
+// AI Guard Rules Framework
+app.get('/api/admin/guard-rules', async (req, res) => {
+  try {
+    const rules = await GenerationGuardRule.find().sort({ priority: 1 });
+    res.json(rules);
+  } catch (e) { res.status(500).json({ error: "Failed to fetch rules" }); }
 });
-app.put('/api/admin/generation-rules', async (req, res) => {
-  const { facePreservationPrompt, globalNegativePrompt } = req.body;
-  const config = await GenerationRulesConfig.findOne();
-  if (config) {
-    config.facePreservationPrompt = facePreservationPrompt;
-    config.globalNegativePrompt = globalNegativePrompt;
-    config.updatedAt = new Date();
-    await config.save();
-    return res.json(config);
-  } else {
-    const newConfig = await GenerationRulesConfig.create({ facePreservationPrompt, globalNegativePrompt });
-    return res.json(newConfig);
-  }
+
+app.post('/api/admin/guard-rules', async (req, res) => {
+  try {
+    const count = await GenerationGuardRule.countDocuments();
+    const rule = await GenerationGuardRule.create({ ...req.body, priority: req.body.priority ?? count });
+    res.json(rule);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/guard-rules/:id', async (req, res) => {
+  try {
+    const rule = await GenerationGuardRule.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(rule);
+  } catch (e) { res.status(500).json({ error: "Failed to update rule" }); }
+});
+
+app.delete('/api/admin/guard-rules/:id', async (req, res) => {
+  try {
+    await GenerationGuardRule.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: "Failed to delete rule" }); }
+});
+
+app.post('/api/admin/guard-rules/seed', async (req, res) => {
+  // Reset/Seed Default Rules
+  try {
+    await GenerationGuardRule.deleteMany({});
+    const defaults = [
+      {
+        ruleName: "Face Preservation Protocol",
+        ruleType: "face_preserve",
+        enabled: true,
+        priority: 1,
+        hiddenPrompt: "Always preserve the same facial identity as the reference image. Do not change face shape, eyes, nose, jawline, skin tone, age, or ethnicity. The generated image must clearly represent the same person.",
+        applyTo: ["image_to_image"]
+      },
+      {
+        ruleName: "Global Safety (NSFW Block)",
+        ruleType: "safety_nsfw",
+        enabled: true,
+        priority: 0,
+        hiddenPrompt: "Do not generate nudity, sexual content, explicit poses, exposed private parts, pornographic or adult material. Clothing must be appropriate.",
+        applyTo: ["image", "image_to_image", "text_to_image"] // 'image' for broad coverage
+      },
+      {
+        ruleName: "Global Negative Prompt",
+        ruleType: "negative_prompt",
+        enabled: true,
+        priority: 2,
+        hiddenPrompt: "face swap, different person, distorted face, nude, sexual, explicit, blurry, bad anatomy, deformed",
+        applyTo: ["image_to_image", "text_to_image"]
+      }
+    ];
+    await GenerationGuardRule.insertMany(defaults);
+    res.json({ success: true, message: "Default Security Rules Applied" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/finance/gateways', async (_req, res) => {

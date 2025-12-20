@@ -403,5 +403,13 @@ module.exports = {
   CreatorStatsCache: mongoose.model('CreatorStatsCache', creatorStatsCacheSchema),
   Follower: mongoose.model('Follower', followerSchema),
   TemplateSave: mongoose.model('TemplateSave', templateSaveSchema),
-  GenerationRulesConfig: mongoose.model('GenerationRulesConfig', generationRulesConfigSchema)
+  GenerationGuardRule: mongoose.model('GenerationGuardRule', new mongoose.Schema({
+    ruleName: { type: String, required: true },
+    ruleType: { type: String, enum: ['face_preserve', 'safety_nsfw', 'negative_prompt', 'quality_control', 'custom'], required: true },
+    enabled: { type: Boolean, default: true },
+    priority: { type: Number, default: 0 },
+    hiddenPrompt: { type: String, required: true },
+    applyTo: [{ type: String, enum: ['image', 'image_to_image', 'text_to_image'], default: ['image', 'image_to_image', 'text_to_image'] }],
+    createdAt: { type: Date, default: Date.now }
+  }))
 };
