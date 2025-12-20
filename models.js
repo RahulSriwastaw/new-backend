@@ -175,7 +175,10 @@ const generationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   isFavorite: { type: Boolean, default: false },
   downloadCount: { type: Number, default: 0 },
-  shareCount: { type: Number, default: 0 }
+  shareCount: { type: Number, default: 0 },
+  modelUsed: { type: String }, // Track which AI model was used (e.g., "Pollinations Images", "Minimax I2I")
+  modelProvider: { type: String }, // Track provider (e.g., "Pollinations", "MiniMax")
+  seed: { type: Number } // Random seed for reproducibility and variation
 });
 
 // 12. Quick Tools Config Schema
