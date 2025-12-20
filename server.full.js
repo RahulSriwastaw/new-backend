@@ -776,6 +776,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
               if (imgFetch.ok) {
                 const imgBuf = await imgFetch.arrayBuffer();
                 stabilityBody.init_image = Buffer.from(imgBuf).toString('base64');
+                stabilityBody.init_image_mode = "IMAGE_STRENGTH"; // Required parameter
                 stabilityBody.image_strength = 0.35; // 35% denoising = Strong preservation
               }
             } catch (e) { console.error("Stability Img Fetch Error:", e); }
@@ -798,7 +799,13 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           } else {
             const txt = await resp.text();
             console.error("Stability Error:", txt);
-            providerError = `Stability: ${txt.substring(0, 200)}`;
+            try {
+              const errObj = JSON.parse(txt);
+              const errMsg = errObj.message || errObj.name || txt.substring(0, 150);
+              providerError = `Stability: ${errMsg}`;
+            } catch {
+              providerError = `Stability: ${txt.substring(0, 150)}`;
+            }
           }
         } else if (provider.includes('minimax')) {
           const resp = await fetch('https://api.minimax.io/v1/image_generation', {
