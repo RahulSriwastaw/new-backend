@@ -758,53 +758,85 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             providerError = `OpenAI: ${txt}`;
           }
         } else if (provider.includes('stability')) {
-          let stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image';
-          let stabilityBody = {
-            text_prompts: [
-              { text: executionPrompt, weight: 1 },
-              ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
-            ],
-            samples: 1,
-            steps: 30
-          };
-
           if (uploadedImages && uploadedImages.length > 0) {
-            console.log("Stability: Image-to-Image Mode (Face Preservation)");
-            stabilityEndpoint = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image';
+            // IMAGE-TO-IMAGE: Use multipart/form-data (REQUIRED by Stability)
+            console.log("Stability: Image-to-Image Mode (Multipart)");
+            const formData = new FormData();
+            formData.append('prompt', executionPrompt);
+            if (finalNegativePrompt) formData.append('negative_prompt', finalNegativePrompt);
+            formData.append('strength', '0.35'); // 0-1: how much to transform (0.35 = preserve 65%)
+            formData.append('steps', '30');
+            formData.append('samples', '1');
+            formData.append('output_format', 'png');
+
             try {
               const imgFetch = await fetch(uploadedImages[0]);
               if (imgFetch.ok) {
                 const imgBuf = await imgFetch.arrayBuffer();
-                stabilityBody.init_image = Buffer.from(imgBuf).toString('base64');
-                stabilityBody.init_image_mode = "IMAGE_STRENGTH"; // Required parameter
-                stabilityBody.image_strength = 0.35; // 35% denoising = Strong preservation
+                formData.append('image', new Blob([imgBuf], { type: 'image/png' }), 'input.png');
               }
-            } catch (e) { console.error("Stability Img Fetch Error:", e); }
-          }
+            } catch (e) {
+              console.error("Stability Img Fetch Error:", e);
+              throw new Error("Failed to fetch reference image");
+            }
 
-          const resp = await fetch(stabilityEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(stabilityBody)
-          });
+            const resp = await fetch('https://api.stability.ai/v2beta/stable-image/generate/sd3', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Accept': 'application/json'
+              },
+              body: formData
+            });
 
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.artifacts && data.artifacts[0]) {
-              imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.image) {
+                imageUrl = `data:image/png;base64,${data.image}`;
+              }
+            } else {
+              const txt = await resp.text();
+              console.error("Stability I2I Error:", txt);
+              try {
+                const errObj = JSON.parse(txt);
+                providerError = `Stability I2I: ${errObj.message || errObj.name || txt.substring(0, 100)}`;
+              } catch {
+                providerError = `Stability I2I: ${txt.substring(0, 100)}`;
+              }
             }
           } else {
-            const txt = await resp.text();
-            console.error("Stability Error:", txt);
-            try {
-              const errObj = JSON.parse(txt);
-              const errMsg = errObj.message || errObj.name || txt.substring(0, 150);
-              providerError = `Stability: ${errMsg}`;
-            } catch {
-              providerError = `Stability: ${txt.substring(0, 150)}`;
+            // TEXT-TO-IMAGE: Use JSON (still supported)
+            console.log("Stability: Text-to-Image Mode (JSON)");
+            const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                text_prompts: [
+                  { text: executionPrompt, weight: 1 },
+                  ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
+                ],
+                samples: 1,
+                steps: 30
+              })
+            });
+
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.artifacts && data.artifacts[0]) {
+                imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
+              }
+            } else {
+              const txt = await resp.text();
+              console.error("Stability T2I Error:", txt);
+              try {
+                const errObj = JSON.parse(txt);
+                providerError = `Stability T2I: ${errObj.message || txt.substring(0, 100)}`;
+              } catch {
+                providerError = `Stability T2I: ${txt.substring(0, 100)}`;
+              }
             }
           }
         } else if (provider.includes('minimax')) {
