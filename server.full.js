@@ -654,7 +654,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     // Fallback if still empty
     if (!finalPrompt) finalPrompt = "high quality, artistic image";
-    let imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
+    let imageUrl = '';
 
     // Try External Providers
     // Try External Providers
@@ -725,6 +725,11 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       } catch (e) {
         console.error("AI Generation External API Error:", e);
       }
+    }
+
+    // Check if generation succeeded
+    if (!imageUrl) {
+      return res.status(500).json({ error: 'Generation Failed: No specific error returned by provider or provider not active.' });
     }
 
     // Handle Uploaded Images safely
