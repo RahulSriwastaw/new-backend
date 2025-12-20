@@ -741,7 +741,13 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             // Using updated payload for image_generation endpoint
             body: JSON.stringify({
               prompt: finalPrompt,
-              model: activeModel.config?.model || "image-01"
+              model: activeModel.config?.model || "image-01",
+              ...(uploadedImages && uploadedImages.length > 0 ? {
+                subject_reference: [{
+                  type: 'character',
+                  image_file: uploadedImages[0]
+                }]
+              } : {})
             })
           });
           if (resp.ok) {
