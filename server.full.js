@@ -1886,21 +1886,28 @@ app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/c
 // Activate AI Model
 app.post(['/api/admin/ai-models/:key/activate', '/api/admin/config/ai/:key/activate'], async (req, res) => {
   try {
-    // Deactivate all
-    await AIModel.updateMany({}, { active: false, isActive: false });
+    const key = req.params.key;
+    let model = await AIModel.findOne({ key });
 
-    let model = await AIModel.findOne({ key: req.params.key });
-    if (!model) { try { model = await AIModel.findById(req.params.key); } catch (e) { } }
-
-    if (model) {
-      model.active = true;
-      model.isActive = true;
-      await model.save();
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'Model not found' });
+    if (!model && mongoose.Types.ObjectId.isValid(key)) {
+      model = await AIModel.findById(key);
     }
+
+    if (!model) {
+      return res.status(404).json({ error: 'AI Model not found' });
+    }
+
+    // 1. Deactivate all OTHERS explicitly (Safety against Hook failure or Race)
+    await AIModel.updateMany({ _id: { $ne: model._id } }, { active: false, isActive: false });
+
+    // 2. Activate this model
+    model.active = true;
+    model.isActive = true;
+    await model.save();
+
+    res.json({ success: true, model: { id: model._id, active: true } });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
