@@ -14,7 +14,7 @@ const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
-  Withdrawal, CreatorNotification, CreatorEarning
+  Withdrawal, CreatorNotification, CreatorEarning, GenerationRulesConfig
 } = require('./models');
 
 
@@ -689,6 +689,21 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     // Fallback if still empty
     if (!finalPrompt) finalPrompt = "high quality, artistic image";
+
+    // Apply Admin Generation Rules
+    const genRules = await GenerationRulesConfig.findOne();
+    const facePrompt = genRules?.facePreservationPrompt || "";
+    const globalNeg = genRules?.globalNegativePrompt || "";
+
+    if (uploadedImages && uploadedImages.length > 0 && facePrompt) {
+      finalPrompt += `, ${facePrompt}`;
+    }
+
+    // Combine Negative Prompts
+    let finalNegativePrompt = negativePrompt || "";
+    if (globalNeg) {
+      finalNegativePrompt = finalNegativePrompt ? `${finalNegativePrompt}, ${globalNeg}` : globalNeg;
+    }
     let imageUrl = '';
 
     // Try External Providers
@@ -726,7 +741,10 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
               'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              text_prompts: [{ text: finalPrompt, weight: 1 }],
+              text_prompts: [
+                { text: finalPrompt, weight: 1 },
+                ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
+              ],
               samples: 1,
               steps: 30
             })
@@ -781,7 +799,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           if (!modelId) throw new Error("Replicate model ID not configured.");
 
           let endpoint = 'https://api.replicate.com/v1/predictions';
-          let body = { input: { prompt: finalPrompt, aspect_ratio: aspectRatio || "1:1" } };
+          let body = { input: { prompt: finalPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1" } };
 
           // Handle owner/name model ID format for nicer endpoints
           if (modelId.includes('/') && !modelId.includes(':')) {
@@ -2332,6 +2350,26 @@ app.put('/api/admin/finance/config', async (req, res) => {
     : await FinanceConfig.create(req.body);
   res.json({ ...doc._doc, id: String(doc._id) });
 });
+// Generation Rules Config
+app.get('/api/admin/generation-rules', async (req, res) => {
+  const config = await GenerationRulesConfig.findOne() || new GenerationRulesConfig();
+  res.json(config);
+});
+app.put('/api/admin/generation-rules', async (req, res) => {
+  const { facePreservationPrompt, globalNegativePrompt } = req.body;
+  const config = await GenerationRulesConfig.findOne();
+  if (config) {
+    config.facePreservationPrompt = facePreservationPrompt;
+    config.globalNegativePrompt = globalNegativePrompt;
+    config.updatedAt = new Date();
+    await config.save();
+    return res.json(config);
+  } else {
+    const newConfig = await GenerationRulesConfig.create({ facePreservationPrompt, globalNegativePrompt });
+    return res.json(newConfig);
+  }
+});
+
 app.get('/api/admin/finance/gateways', async (_req, res) => {
   const gateways = await PaymentGateway.find();
   res.json(gateways.map(g => ({ ...g._doc, id: String(g._id) })));

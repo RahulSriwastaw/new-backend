@@ -373,6 +373,13 @@ templateSaveSchema.index({ userId: 1, templateId: 1 }, { unique: true });
 templateSaveSchema.index({ templateId: 1 });
 
 
+// 22. Generation Rules Config (NEW)
+const generationRulesConfigSchema = new mongoose.Schema({
+  facePreservationPrompt: { type: String, default: "ensure strong facial resemblance to the uploaded reference, maintain identity, high fidelity face" },
+  globalNegativePrompt: { type: String, default: "nude, nsfw, naked, porn, distorted features, ugly, bad anatomy" },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 module.exports = {
   User: mongoose.model('User', userSchema),
   CreatorApplication: mongoose.model('CreatorApplication', creatorAppSchema),
@@ -395,5 +402,6 @@ module.exports = {
   AdminActionLog: mongoose.model('AdminActionLog', adminActionLogSchema),
   CreatorStatsCache: mongoose.model('CreatorStatsCache', creatorStatsCacheSchema),
   Follower: mongoose.model('Follower', followerSchema),
-  TemplateSave: mongoose.model('TemplateSave', templateSaveSchema)
+  TemplateSave: mongoose.model('TemplateSave', templateSaveSchema),
+  GenerationRulesConfig: mongoose.model('GenerationRulesConfig', generationRulesConfigSchema)
 };
