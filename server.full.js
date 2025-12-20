@@ -1797,7 +1797,8 @@ app.get(['/api/admin/ai-models', '/api/admin/config/ai'], async (req, res) => {
     res.json(models.map(m => ({
       ...m._doc,
       id: m._id,
-      apiKey: m.config?.apiKey || m.apiKey // Handle both locations
+      apiKey: m.config?.apiKey || m.apiKey,
+      isActive: m.active || m.isActive
     })));
   } catch (err) {
     console.error(err);
@@ -1817,7 +1818,8 @@ app.get(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key'], async (req, 
     res.json({
       ...model._doc,
       id: model._id,
-      apiKey: model.config?.apiKey || model.apiKey
+      apiKey: model.config?.apiKey || model.apiKey,
+      isActive: model.active || model.isActive
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch AI model' });
