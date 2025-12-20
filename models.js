@@ -59,13 +59,43 @@ const transactionSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now }
 });
 
-// 4. AI Model Config Schema
+// 4. AI Model Config Schema (Multi-AI System)
 const aiModelSchema = new mongoose.Schema({
+  key: {
+    type: String,
+    required: true,
+    unique: true,
+    enum: ['gemini', 'minimax', 'stability']
+  },
   name: { type: String, required: true },
   provider: { type: String, required: true },
+  active: { type: Boolean, default: false },
+  priority: { type: Number, default: 1 },
   costPerImage: { type: Number, default: 1.0 },
-  isActive: { type: Boolean, default: false },
-  apiKey: { type: String, select: false } // Hide API Key by default
+  config: {
+    apiKey: { type: String, select: false },
+    model: { type: String },
+    defaultParams: { type: mongoose.Schema.Types.Mixed }
+  },
+  stats: {
+    totalGenerations: { type: Number, default: 0 },
+    successRate: { type: Number, default: 100 },
+    averageTime: { type: Number, default: 0 }
+  },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Ensure only ONE AI can be active at a time
+aiModelSchema.pre('save', async function (next) {
+  if (this.active) {
+    await this.constructor.updateMany(
+      { _id: { $ne: this._id } },
+      { active: false }
+    );
+  }
+  this.updatedAt = new Date();
+  next();
 });
 
 // 5. Template Schema
