@@ -1873,7 +1873,7 @@ app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/c
     if (req.body.apiKey || req.body.config?.apiKey) {
       if (!model.config) model.config = {};
       model.config.apiKey = req.body.apiKey || req.body.config.apiKey;
-
+      model.markModified('config');
     }
 
     if (req.body.active !== undefined) { model.active = req.body.active; model.isActive = req.body.active; }
