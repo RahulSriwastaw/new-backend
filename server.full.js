@@ -746,6 +746,11 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       }
     }
 
+    // Force HTTPS to prevent Mixed Content errors on frontend
+    if (imageUrl && imageUrl.startsWith('http://')) {
+      imageUrl = imageUrl.replace(/^http:\/\//i, 'https://');
+    }
+
     // Check if generation succeeded
     if (!imageUrl) {
       return res.status(500).json({
