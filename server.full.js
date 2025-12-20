@@ -1790,6 +1790,25 @@ app.get(['/api/admin/ai-models', '/api/admin/config/ai'], async (req, res) => {
   }
 });
 
+// Get single AI model
+app.get(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key'], async (req, res) => {
+  try {
+    let model = await AIModel.findOne({ key: req.params.key }).select('+config.apiKey +apiKey');
+    if (!model) {
+      try { model = await AIModel.findById(req.params.key).select('+config.apiKey +apiKey'); } catch (e) { }
+    }
+    if (!model) return res.status(404).json({ error: 'Model not found' });
+
+    res.json({
+      ...model._doc,
+      id: model._id,
+      apiKey: model.config?.apiKey || model.apiKey
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch AI model' });
+  }
+});
+
 // Create new AI model
 app.post(['/api/admin/ai-models', '/api/admin/config/ai'], async (req, res) => {
   try {
