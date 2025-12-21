@@ -831,6 +831,62 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       } catch (e) {
         console.error("AI Generation External API Error:", e);
         providerError = `Exception: ${e.message}`;
+
+        // === FAILOVER LOGIC ===
+        // If I2I and the current provider failed, try to switch to another compatible provider
+        const isI2I = uploadedImages && uploadedImages.length > 0;
+        if (isI2I && !imageUrl) {
+             const currentProvider = (activeModel.provider || '').toLowerCase();
+             let failoverProviderRegex = null;
+
+             // Logic: If Stability failed, try MiniMax. If MiniMax failed, try Stability.
+             if (currentProvider.includes('stability')) {
+                 console.log("⚠️ Stability Failed. Attempting Failover to MiniMax...");
+                 failoverProviderRegex = /minimax/i;
+             } else if (currentProvider.includes('minimax')) {
+                 console.log("⚠️ MiniMax Failed. Attempting Failover to Stability...");
+                 failoverProviderRegex = /stability/i;
+             }
+
+             if (failoverProviderRegex) {
+                 try {
+                     const failoverModel = await AIModel.findOne({ 
+                         provider: { $regex: failoverProviderRegex } 
+                     }).select('+apiKey +config.apiKey');
+
+                     if (failoverModel) {
+                         const failoverApiKey = failoverModel.config?.apiKey || failoverModel.apiKey;
+                         
+                         if (failoverProviderRegex.source.includes('minimax')) {
+                             imageUrl = await generateWithMiniMax({
+                                 prompt: executionPrompt,
+                                 uploadedImages,
+                                 apiKey: failoverApiKey,
+                                 modelConfig: failoverModel.config,
+                                 aspectRatio
+                             });
+                         } else if (failoverProviderRegex.source.includes('stability')) {
+                             imageUrl = await generateWithStability({
+                                 prompt: executionPrompt,
+                                 negativePrompt: finalNegativePrompt,
+                                 uploadedImages,
+                                 aspectRatio,
+                                 apiKey: failoverApiKey,
+                                 modelConfig: failoverModel.config
+                             });
+                         }
+
+                         if (imageUrl) {
+                             console.log("✅ Failover Success!");
+                             providerError = ''; // Clear error
+                         }
+                     }
+                 } catch (failoverErr) {
+                     console.error("❌ Failover Failed:", failoverErr);
+                     providerError += ` | Failover Exception: ${failoverErr.message}`;
+                 }
+             }
+        }
       }
     }
 

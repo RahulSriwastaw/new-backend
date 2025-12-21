@@ -27,12 +27,33 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
 
     // Fetch image
     let imageBuffer;
+    let contentType = 'image/png';
+    let filename = 'input.png';
+
     try {
+        console.log(`⬇️ Fetching image for Stability I2I: ${uploadedImages[0]}`);
         const imgResponse = await fetch(uploadedImages[0]);
         if (!imgResponse.ok) {
             throw new Error(`Image fetch failed: ${imgResponse.status}`);
         }
-        imageBuffer = Buffer.from(await imgResponse.arrayBuffer());
+        
+        // Detect Content-Type from headers
+        const type = imgResponse.headers.get('content-type');
+        if (type) {
+            contentType = type;
+            if (type.includes('jpeg') || type.includes('jpg')) filename = 'input.jpg';
+            else if (type.includes('webp')) filename = 'input.webp';
+        }
+
+        const arrayBuffer = await imgResponse.arrayBuffer();
+        imageBuffer = Buffer.from(arrayBuffer);
+        
+        console.log(`✅ Image fetched: ${imageBuffer.length} bytes, Type: ${contentType}`);
+
+        if (imageBuffer.length < 100) {
+             throw new Error("Fetched image is too small (invalid)");
+        }
+
     } catch (error) {
         console.error("❌ Image fetch error:", error);
         throw new Error(`Failed to fetch image: ${error.message}`);
@@ -43,8 +64,8 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
 
     // Required: Image file
     formData.append('init_image', imageBuffer, {
-        filename: 'input.png',
-        contentType: 'image/png'
+        filename: filename,
+        contentType: contentType
     });
 
     // Required: Image mode
