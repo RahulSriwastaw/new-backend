@@ -86,7 +86,7 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey, modelConfig
         }
 
         const data = await response.json();
-        console.log("📦 Gemini T2I Response:", JSON.stringify(data).substring(0, 500));
+        console.log("📦 Gemini T2I Response Keys:", Object.keys(data));
         return extractImageFromResponse(data, 'T2I');
 
     } catch (error) {
@@ -170,7 +170,7 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
         }
 
         const data = await response.json();
-        console.log("📦 Gemini I2I Response:", JSON.stringify(data).substring(0, 500));
+        console.log("📦 Gemini I2I Response Keys:", Object.keys(data));
         return extractImageFromResponse(data, 'I2I');
 
     } catch (error) {
@@ -181,10 +181,12 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
 
 /**
  * Extract generated image from Gemini API response
- * Response structure: candidates[0].content.parts[].inline_data.data
+ * Handles multiple possible response formats from Gemini
  */
 function extractImageFromResponse(responseData, mode) {
     try {
+        console.log(`🔍 Extracting image from ${mode} response...`);
+
         const candidates = responseData.candidates;
         if (!candidates || candidates.length === 0) {
             throw new Error('No candidates returned in response');
@@ -195,22 +197,59 @@ function extractImageFromResponse(responseData, mode) {
             throw new Error('No parts in response');
         }
 
-        // Find the part with image data
-        for (const part of parts) {
+        console.log(`📊 Found ${parts.length} parts. Checking each part...`);
+
+        // Try multiple extraction methods for different Gemini response formats
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const partKeys = Object.keys(part);
+            console.log(`🔎 Part ${i} keys:`, partKeys.join(', '));
+
+            // Method 1: inline_data.data (standard snake_case format)
             if (part.inline_data && part.inline_data.data) {
                 const base64Image = part.inline_data.data;
                 const mimeType = part.inline_data.mime_type || 'image/png';
-                console.log(`✅ Gemini ${mode}: Image generated successfully`);
+                console.log(`✅ Gemini ${mode}: Image found via inline_data (${base64Image.length} chars)`);
                 return `data:${mimeType};base64,${base64Image}`;
+            }
+
+            // Method 2: inlineData.data (camelCase variant)
+            if (part.inlineData && part.inlineData.data) {
+                const base64Image = part.inlineData.data;
+                const mimeType = part.inlineData.mimeType || part.inlineData.mime_type || 'image/png';
+                console.log(`✅ Gemini ${mode}: Image found via inlineData (${base64Image.length} chars)`);
+                return `data:${mimeType};base64,${base64Image}`;
+            }
+
+            // Method 3: Direct data field
+            if (part.data && typeof part.data === 'string' && part.data.length > 1000) {
+                console.log(`✅ Gemini ${mode}: Image found via direct data field (${part.data.length} chars)`);
+                return `data:image/png;base64,${part.data}`;
+            }
+
+            // Method 4: text field containing base64 (fallback)
+            if (part.text && part.text.length > 1000 && part.text.match(/^[A-Za-z0-9+/=]+$/)) {
+                console.log(`✅ Gemini ${mode}: Image found in text field (base64, ${part.text.length} chars)`);
+                return `data:image/png;base64,${part.text}`;
+            }
+
+            // Log what we found in this part for debugging
+            if (part.text) {
+                console.log(`  → Part ${i} contains text: ${part.text.substring(0, 100)}...`);
             }
         }
 
-        // If no image found, throw error with full response for debugging
-        console.error("Full Gemini Response:", JSON.stringify(responseData, null, 2));
-        throw new Error('No image data found in response (possibly blocked by safety filters)');
+        // If no image found, log full response structure for debugging
+        console.error("❌ Image extraction failed. Full response:");
+        console.error("Response keys:", Object.keys(responseData));
+        console.error("Candidates[0] keys:", Object.keys(candidates[0]));
+        console.error("Parts details:", JSON.stringify(parts, null, 2).substring(0, 3000));
+        console.error("Usage metadata:", JSON.stringify(responseData.usageMetadata, null, 2));
+
+        throw new Error(`No image data found in ${parts.length} part(s). Check logs for response structure.`);
 
     } catch (error) {
-        console.error("Error extracting image from response:", error);
+        console.error("❌ Error extracting image from response:", error.message);
         throw error;
     }
 }
