@@ -50,33 +50,28 @@ module.exports = (authMiddleware) => {
                 });
             }
 
-            // Create new template
+            // Create new template - map fields correctly
             const newTemplate = new Template({
                 title,
                 description,
-                demoImage,
-                exampleImages: exampleImages || [],
+                imageUrl: demoImage, // Schema uses imageUrl, not demoImage
                 category,
                 subCategory: subCategory || '',
                 tags: tags || [],
                 ageGroup: ageGroup || 'All Ages',
-                hiddenPrompt,
-                prompt: hiddenPrompt, // Both fields for compatibility
-                visiblePrompt: visiblePrompt || '',
+                prompt: hiddenPrompt,
                 negativePrompt: negativePrompt || '',
-                isFree: templateType === 'free',
+                isPremium: templateType === 'premium',
                 pointsCost: templateType === 'premium' ? (pointsCost || 25) : 0,
                 creatorId: creator.id || creator._id,
-                creatorName: creator.fullName || creator.username || 'Creator',
-                creatorVerified: true, // Creators are verified by default
-                state: 'active',
-                status: 'pending', // Pending approval by admin
-                isActive: isActive !== undefined ? isActive : false,
-                usageCount: 0,
+                source: 'creator',
+                status: 'active',
+                approvalStatus: 'pending', // Pending approval by admin
+                isPaused: isActive !== undefined ? !isActive : false,
+                useCount: 0,
                 likeCount: 0,
-                saveCount: 0,
-                rating: 0,
-                ratingCount: 0
+                savesCount: 0,
+                earningsGenerated: 0
             });
 
             await newTemplate.save();
