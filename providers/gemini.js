@@ -127,7 +127,19 @@ async function generateImageEdit({ prompt, uploadedImages, apiKey, model }) {
                     }
                 }
             ]
-        }]
+        }],
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+        ],
+        generationConfig: {
+            temperature: 0.9,
+            topK: 32,
+            topP: 0.95,
+            maxOutputTokens: 1024
+        }
     };
 
     const response = await fetch(
@@ -160,7 +172,19 @@ async function generateImageEdit({ prompt, uploadedImages, apiKey, model }) {
     const data = await response.json();
 
     if (data.candidates && data.candidates[0]) {
-        const parts = data.candidates[0].content?.parts || [];
+        // Check for finish reason
+        const candidate = data.candidates[0];
+        if (candidate.finishReason && candidate.finishReason !== "STOP") {
+             console.warn(`⚠️ Gemini I2I Finish Reason: ${candidate.finishReason}`);
+             if (candidate.finishReason === "SAFETY") {
+                 throw new Error("Gemini I2I: Generation blocked by safety settings. Please try a different prompt or image.");
+             }
+             if (candidate.finishReason === "RECITATION") {
+                 throw new Error("Gemini I2I: Generation blocked due to recitation check.");
+             }
+        }
+
+        const parts = candidate.content?.parts || [];
 
         for (const part of parts) {
             if (part.inline_data && part.inline_data.data) {
@@ -171,7 +195,8 @@ async function generateImageEdit({ prompt, uploadedImages, apiKey, model }) {
         }
     }
 
-    throw new Error('Gemini I2I: No image in response');
+    console.error("Gemini I2I Full Response:", JSON.stringify(data, null, 2));
+    throw new Error('Gemini I2I: No image in response (Check server logs for details)');
 }
 
 module.exports = { generateWithGemini };
