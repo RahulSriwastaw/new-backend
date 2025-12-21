@@ -752,17 +752,28 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
         // Gemini DOES NOT support I2I. Switch to Stability/MiniMax if needed.
         if (isI2I && (provider.includes('gemini') || provider.includes('google'))) {
              console.log("⚠️ Routing: Switching from Gemini to Stability for Image-to-Image/Face-Preserve");
-             const fallbackModel = await AIModel.findOne({ 
+             
+             // 1. Try to find an ACTIVE fallback first
+             let fallbackModel = await AIModel.findOne({ 
                  provider: { $regex: /stability|minimax/i }, 
-                 isActive: true 
+                 active: true 
              }).select('+apiKey +config.apiKey');
+
+             // 2. If no active fallback, find ANY configured fallback (even if inactive)
+             if (!fallbackModel) {
+                 console.log("⚠️ No active I2I provider found. Searching for inactive backup...");
+                 fallbackModel = await AIModel.findOne({ 
+                     provider: { $regex: /stability|minimax/i }
+                 }).sort({ priority: -1 }).select('+apiKey +config.apiKey');
+             }
 
              if (fallbackModel) {
                  activeModel = fallbackModel;
                  provider = (activeModel.provider || '').toLowerCase();
                  apiKey = activeModel.config?.apiKey || activeModel.apiKey;
+                 console.log(`✅ Routing Success: Switched to ${activeModel.name} (${provider})`);
              } else {
-                 throw new Error("This template requires Face Preservation (I2I), but no compatible AI (Stability/MiniMax) is active.");
+                 throw new Error("This template requires Face Preservation (I2I), but no compatible AI (Stability/MiniMax) is configured.");
              }
         }
 
@@ -776,7 +787,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             negativePrompt: finalNegativePrompt,
             uploadedImages,
             aspectRatio,
-            apiKey
+            apiKey,
+            modelConfig: activeModel.config
           });
 
         } else if (provider.includes('replicate')) {
@@ -809,7 +821,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             negativePrompt: finalNegativePrompt,
             uploadedImages,
             apiKey,
-            modelConfig: activeModel.config
+            modelConfig: { ...activeModel.config, aspectRatio }
           });
 
         } else {

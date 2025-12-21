@@ -110,13 +110,30 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
  * SDXL Text-to-Image
  * JSON format is fine for T2I
  */
-async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey }) {
+async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey, modelConfig }) {
     console.log("🖼️  Stability SDXL T2I: Text-to-Image Mode");
+
+    // Default to SDXL 1.0 if not specified
+    const modelEngine = modelConfig?.model || 'stable-diffusion-xl-1024-v1-0';
+    const url = `https://api.stability.ai/v1/generation/${modelEngine}/text-to-image`;
+
+    // Map Aspect Ratio to Width/Height (SDXL 1.0 Optimized)
+    let width = 1024;
+    let height = 1024;
+
+    if (aspectRatio === '16:9') { width = 1344; height = 768; }
+    else if (aspectRatio === '9:16') { width = 768; height = 1344; }
+    else if (aspectRatio === '4:3') { width = 1152; height = 896; }
+    else if (aspectRatio === '3:4') { width = 896; height = 1152; }
+    else if (aspectRatio === '21:9') { width = 1536; height = 640; } // Cinematic
+    else if (aspectRatio === '9:21') { width = 640; height = 1536; } // Vertical Cinematic
 
     const body = {
         text_prompts: [
             { text: prompt, weight: 1 }
         ],
+        width,
+        height,
         cfg_scale: 7,
         samples: 1,
         steps: 30
@@ -127,7 +144,7 @@ async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey
     }
 
     const response = await fetch(
-        'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+        url,
         {
             method: 'POST',
             headers: {

@@ -20,7 +20,7 @@ async function generateWithGemini({ prompt, negativePrompt, uploadedImages, apiK
     }
 
     // 2. Perform Text-to-Image Generation
-    return await generateTextToImage({ prompt, negativePrompt, apiKey });
+    return await generateTextToImage({ prompt, negativePrompt, aspectRatio: modelConfig?.aspectRatio || '1:1', apiKey });
 }
 
 /**
@@ -37,12 +37,11 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey }) {
         finalPrompt += ` . Avoid: ${negativePrompt}`;
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImages`; 
-    // Note: User said "imagen-3.0:generateImages". "imagen-3.0-generate-001" is the specific stable version often used.
-    // Let's use the one the user specifically requested if possible, or the standard one.
-    // User wrote: https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0:generateImages
-    // I will use that exact string to be safe.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0:generateImages?key=${apiKey}`;
+    // Use model from config or default to 'imagen-3.0'
+    const modelName = modelConfig?.model || 'imagen-3.0';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateImages?key=${apiKey}`;
+
+    // Map common aspect ratios to Gemini's supported format
 
     const body = {
         prompt: {

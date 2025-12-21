@@ -3,12 +3,20 @@
  * Direct integration with MiniMax API (with async polling)
  */
 
-async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig }) {
+async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig, aspectRatio }) {
     console.log("🚀 MiniMax Official Provider Initialized");
+
+    // MiniMax Aspect Ratio Mapping
+    // Usually supports "1:1", "16:9", "9:16", "4:3", "3:4"
+    let targetAspectRatio = "1:1";
+    if (aspectRatio && ["16:9", "9:16", "4:3", "3:4"].includes(aspectRatio)) {
+        targetAspectRatio = aspectRatio;
+    }
 
     const body = {
         prompt,
         model: modelConfig?.model || "image-01",
+        aspect_ratio: targetAspectRatio, 
         response_format: "url" // Get URLs (valid 24h)
     };
 
