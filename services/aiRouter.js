@@ -22,7 +22,7 @@ class AIRouter {
   async getActiveAI() {
     try {
       const activeAI = await this.AIModel.findOne({ active: true }).select('+config.apiKey');
-      
+
       if (!activeAI) {
         throw new Error('No active AI configured. Please activate an AI in admin panel.');
       }
@@ -40,15 +40,18 @@ class AIRouter {
   async generateImage(payload) {
     const startTime = Date.now();
     let activeAI = null;
-    
+
     try {
-      // 1. Get active AI
+      // 1. Get active AI (all providers support both T2I and I2I)
       activeAI = await this.getActiveAI();
-      
+
+      const hasUploadedImages = payload.referenceImages && payload.referenceImages.length > 0;
+      console.log(`🎯 Using ${activeAI.name} for ${hasUploadedImages ? 'I2I' : 'T2I'} generation`);
+
       // 2. Create appropriate adapter
       let adapter;
       const apiKey = activeAI.config.apiKey;
-      
+
       if (!apiKey) {
         throw new Error(`API key not configured for ${activeAI.name}`);
       }
@@ -57,15 +60,15 @@ class AIRouter {
         case 'gemini':
           adapter = new GeminiAdapter(apiKey, activeAI.config.model);
           break;
-        
+
         case 'minimax':
           adapter = new MiniMaxAdapter(apiKey);
           break;
-        
+
         case 'stability':
           adapter = new StabilityAdapter(apiKey, activeAI.config.model);
           break;
-        
+
         default:
           throw new Error(`Unknown AI key: ${activeAI.key}`);
       }
@@ -141,8 +144,8 @@ class AIRouter {
         key: { $ne: excludeKey },
         active: false  // Get non-active as fallback
       })
-      .sort({ priority: -1 })
-      .select('+config.apiKey');
+        .sort({ priority: -1 })
+        .select('+config.apiKey');
 
       return fallbackAI;
     } catch (error) {
