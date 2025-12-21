@@ -46,9 +46,30 @@ class AIRouter {
       activeAI = await this.getActiveAI();
 
       const hasUploadedImages = payload.referenceImages && payload.referenceImages.length > 0;
-      console.log(`🎯 Using ${activeAI.name} for ${hasUploadedImages ? 'I2I' : 'T2I'} generation`);
+      const generationType = hasUploadedImages ? 'image_to_image' : 'text_to_image';
 
-      // 2. Create appropriate adapter
+      console.log(`🎯 Using ${activeAI.name} for ${generationType} generation`);
+
+      // 2. APPLY AI GUARD SYSTEM - Merge prompts
+      const AIGuardService = require('./aiGuardService');
+      const { GenerationGuardRule } = require('../models');
+      const guardService = new AIGuardService(GenerationGuardRule);
+
+      const { executionPrompt, negativePrompt, userPrompt } = await guardService.buildExecutionPrompt({
+        userPrompt: payload.prompt,
+        templatePrompt: payload.templatePrompt || null,
+        generationType: generationType
+      });
+
+      // Merge with any user-provided negative prompt
+      const finalNegativePrompt = [
+        negativePrompt,
+        payload.negativePrompt || ''
+      ].filter(Boolean).join(', ');
+
+      console.log(`✅ Guard System Applied - Final prompt ready`);
+
+      // 3. Create appropriate adapter
       let adapter;
       const apiKey = activeAI.config.apiKey;
 
@@ -73,17 +94,17 @@ class AIRouter {
           throw new Error(`Unknown AI key: ${activeAI.key}`);
       }
 
-      // 3. Generate image
+      // 4. Generate image with EXECUTION PROMPT (includes guard rules)
       const result = await adapter.generate({
-        prompt: payload.prompt,
+        prompt: executionPrompt,           // Hidden rules merged
         referenceImages: payload.referenceImages || [],
         aspectRatio: payload.aspectRatio || '1:1',
         quality: payload.quality || 'HD',
-        negativePrompt: payload.negativePrompt || '',
+        negativePrompt: finalNegativePrompt,
         strength: payload.strength || 0.35
       });
 
-      // 4. Update success stats
+      // 5. Update success stats
       const generationTime = Date.now() - startTime;
       await this.updateStats(activeAI._id, true, generationTime);
 
@@ -91,7 +112,8 @@ class AIRouter {
         ...result,
         aiUsed: activeAI.name,
         aiKey: activeAI.key,
-        generationTime
+        generationTime,
+        userPrompt: userPrompt  // Return clean prompt for saving to DB
       };
 
     } catch (error) {
