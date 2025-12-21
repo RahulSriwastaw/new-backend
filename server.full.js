@@ -763,10 +763,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             console.log("Stability: Image-to-Image Mode (Multipart)");
             const formData = new FormData();
             formData.append('prompt', executionPrompt);
+            formData.append('mode', 'image-to-image'); // REQUIRED for SD3 I2I
             if (finalNegativePrompt) formData.append('negative_prompt', finalNegativePrompt);
             formData.append('strength', '0.35'); // 0-1: how much to transform (0.35 = preserve 65%)
-            formData.append('steps', '30');
-            formData.append('samples', '1');
             formData.append('output_format', 'png');
 
             try {
