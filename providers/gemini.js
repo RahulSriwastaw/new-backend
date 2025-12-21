@@ -5,10 +5,11 @@
  */
 
 async function generateWithGemini({ prompt, negativePrompt, uploadedImages, apiKey, modelConfig }) {
-    console.log("🤖 Google Gemini Provider Initialized");
-
     // Gemini model for image generation
+    // Default to Nano Banana (gemini-2.5-flash-image) if not specified
     const model = modelConfig?.model || "gemini-2.5-flash-image";
+    
+    console.log(`🤖 Google Gemini Provider Initialized. Model: ${model}`);
 
     if (uploadedImages && uploadedImages.length > 0) {
         // IMAGE-TO-IMAGE: Image editing with Gemini
