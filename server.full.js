@@ -3744,6 +3744,13 @@ app.post('/api/creator/templates', authUser, async (req, res) => {
 const creatorProfileRoutes = require('./creatorProfileRoutes');
 app.use('/api/admin/creators', authUser, creatorProfileRoutes);
 
+// Import and mount Category API routes
+const categoryRoutes = require('./routes/categories')(Category, authUser);
+app.use('/api/v1/categories', categoryRoutes);
+
+// Import and mount Creator Template routes
+const creatorTemplateRoutes = require('./routes/creatorTemplates')(Template, authUser);
+app.use('/api/v1/creator/templates', creatorTemplateRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
