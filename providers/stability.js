@@ -60,12 +60,25 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
         const errorText = await response.text();
         console.error("❌ Stability I2I Error:", errorText);
 
+        let errorMessage = 'API Error';
         try {
             const errorJson = JSON.parse(errorText);
-            throw new Error(`Stability I2I: ${errorJson.message || errorJson.name || 'API Error'}`);
-        } catch {
-            throw new Error(`Stability I2I: ${errorText.substring(0, 150)}`);
+            // Handle different error formats
+            if (errorJson.message) {
+                errorMessage = errorJson.message;
+            } else if (errorJson.name) {
+                errorMessage = errorJson.name;
+            } else if (errorJson.errors && Array.isArray(errorJson.errors)) {
+                errorMessage = errorJson.errors.join(', ');
+            } else {
+                errorMessage = JSON.stringify(errorJson);
+            }
+        } catch (parseError) {
+            // If JSON parsing fails, use raw text
+            errorMessage = errorText.substring(0, 200);
         }
+
+        throw new Error(`Stability I2I: ${errorMessage}`);
     }
 
     const data = await response.json();
@@ -111,12 +124,23 @@ async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey
         const errorText = await response.text();
         console.error("❌ Stability T2I Error:", errorText);
 
+        let errorMessage = 'API Error';
         try {
             const errorJson = JSON.parse(errorText);
-            throw new Error(`Stability T2I: ${errorJson.message || 'API Error'}`);
-        } catch {
-            throw new Error(`Stability T2I: ${errorText.substring(0, 150)}`);
+            if (errorJson.message) {
+                errorMessage = errorJson.message;
+            } else if (errorJson.name) {
+                errorMessage = errorJson.name;
+            } else if (errorJson.errors && Array.isArray(errorJson.errors)) {
+                errorMessage = errorJson.errors.join(', ');
+            } else {
+                errorMessage = JSON.stringify(errorJson);
+            }
+        } catch (parseError) {
+            errorMessage = errorText.substring(0, 200);
         }
+
+        throw new Error(`Stability T2I: ${errorMessage}`);
     }
 
     const data = await response.json();
