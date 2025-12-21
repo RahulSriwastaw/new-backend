@@ -5,8 +5,9 @@
 
 const express = require('express');
 const router = express.Router();
+const { Category } = require('../models');
 
-module.exports = (Category, authMiddleware) => {
+module.exports = (authMiddleware) => {
 
     /**
      * GET /api/categories

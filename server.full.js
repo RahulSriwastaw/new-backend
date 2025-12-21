@@ -3745,11 +3745,11 @@ const creatorProfileRoutes = require('./creatorProfileRoutes');
 app.use('/api/admin/creators', authUser, creatorProfileRoutes);
 
 // Import and mount Category API routes
-const categoryRoutes = require('./routes/categories')(Category, authUser);
+const categoryRoutes = require('./routes/categories')(authUser);
 app.use('/api/v1/categories', categoryRoutes);
 
 // Import and mount Creator Template routes
-const creatorTemplateRoutes = require('./routes/creatorTemplates')(Template, authUser);
+const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
 app.use('/api/v1/creator/templates', creatorTemplateRoutes);
 
 app.listen(PORT, () => {

@@ -5,8 +5,9 @@
 
 const express = require('express');
 const router = express.Router();
+const { Template } = require('../models');
 
-module.exports = (Template, authMiddleware) => {
+module.exports = (authMiddleware) => {
 
     /**
      * POST /api/creator/templates
