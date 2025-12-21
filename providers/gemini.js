@@ -54,12 +54,19 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey, modelConfig
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
     // Construct request payload according to Gemini API
+    // Add safety settings to reduce false safety blocks
     const requestBody = {
         contents: [{
             parts: [{
                 text: finalPrompt
             }]
-        }]
+        }],
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+        ]
     };
 
     try {
@@ -79,6 +86,7 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey, modelConfig
         }
 
         const data = await response.json();
+        console.log("📦 Gemini T2I Response:", JSON.stringify(data).substring(0, 500));
         return extractImageFromResponse(data, 'T2I');
 
     } catch (error) {
@@ -136,7 +144,13 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
     const requestBody = {
         contents: [{
             parts: parts
-        }]
+        }],
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+        ]
     };
 
     try {
@@ -156,6 +170,7 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
         }
 
         const data = await response.json();
+        console.log("📦 Gemini I2I Response:", JSON.stringify(data).substring(0, 500));
         return extractImageFromResponse(data, 'I2I');
 
     } catch (error) {
