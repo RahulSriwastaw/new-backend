@@ -660,7 +660,8 @@ app.get('/api/v1/creator/application', authUser, async (req, res) => {
 app.post('/api/generation/generate', authUser, async (req, res) => {
   try {
 
-    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
+    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages: reqUploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
+    let uploadedImages = reqUploadedImages;
 
     // Validate User
     const user = await User.findById(req.user.id);
@@ -1964,6 +1965,17 @@ app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/c
       // Update local instance
       if (!model.config) model.config = {};
       model.config.apiKey = newCtxKey;
+    }
+
+    // Handle Model ID / Config update (Support for Admin Panel "Add Model" feature)
+    if (req.body.config?.model || req.body.modelId) {
+        const newModelId = req.body.config?.model || req.body.modelId;
+        await AIModel.updateOne(
+            { _id: model._id },
+            { $set: { "config.model": newModelId } }
+        );
+        if (!model.config) model.config = {};
+        model.config.model = newModelId;
     }
 
     if (req.body.active !== undefined) { model.active = req.body.active; model.isActive = req.body.active; }
