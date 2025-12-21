@@ -22,6 +22,7 @@ const { generateWithStability } = require('./providers/stability');
 const { generateWithReplicate } = require('./providers/replicate');
 const { generateWithMiniMax } = require('./providers/minimax');
 const { generateWithOpenAI } = require('./providers/openai');
+const { generateWithGemini } = require('./providers/gemini');
 
 
 const app = express();
@@ -780,6 +781,15 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
           imageUrl = await generateWithOpenAI({
             prompt: executionPrompt,
             apiKey
+          });
+
+        } else if (provider.includes('gemini') || provider.includes('google')) {
+          imageUrl = await generateWithGemini({
+            prompt: executionPrompt,
+            negativePrompt: finalNegativePrompt,
+            uploadedImages,
+            apiKey,
+            modelConfig: activeModel.config
           });
 
         } else {
