@@ -806,7 +806,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             prompt: executionPrompt,
             uploadedImages,
             apiKey,
-            modelConfig: activeModel.config
+            modelConfig: activeModel.config,
+            aspectRatio
           });
 
         } else if (provider.includes('openai')) {
