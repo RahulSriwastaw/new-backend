@@ -17,6 +17,12 @@ const {
   Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule
 } = require('./models');
 
+// AI Providers (Modular System)
+const { generateWithStability } = require('./providers/stability');
+const { generateWithReplicate } = require('./providers/replicate');
+const { generateWithMiniMax } = require('./providers/minimax');
+const { generateWithOpenAI } = require('./providers/openai');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -739,193 +745,45 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       try {
         const provider = (activeModel.provider || '').toLowerCase();
 
-        if (provider.includes('openai')) {
-          const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({ prompt: executionPrompt, size: '1024x1024', model: "dall-e-3", response_format: "b64_json" })
+        // === MODULAR AI PROVIDER SYSTEM ===
+        // Each provider has its own file in /providers/
+        // Easy to debug, maintain, and extend
+
+        if (provider.includes('stability')) {
+          imageUrl = await generateWithStability({
+            prompt: executionPrompt,
+            negativePrompt: finalNegativePrompt,
+            uploadedImages,
+            aspectRatio,
+            apiKey
           });
-          if (openaiRes.ok) {
-            const data = await openaiRes.json();
-            const b64 = data?.data?.[0]?.b64_json;
-            if (b64) imageUrl = `data:image/png;base64,${b64}`;
-          } else {
-            const txt = await openaiRes.text();
-            console.error("OpenAI Error:", txt);
-            providerError = `OpenAI: ${txt}`;
-          }
-        } else if (provider.includes('stability')) {
-          if (uploadedImages && uploadedImages.length > 0) {
-            // IMAGE-TO-IMAGE: Use multipart/form-data (REQUIRED by Stability)
-            console.log("Stability: Image-to-Image Mode (Multipart)");
-            const formData = new FormData();
-            formData.append('prompt', executionPrompt);
-            formData.append('mode', 'image-to-image'); // REQUIRED for SD3 I2I
-            if (finalNegativePrompt) formData.append('negative_prompt', finalNegativePrompt);
-            formData.append('strength', '0.35'); // 0-1: how much to transform (0.35 = preserve 65%)
-            formData.append('output_format', 'png');
 
-            try {
-              const imgFetch = await fetch(uploadedImages[0]);
-              if (imgFetch.ok) {
-                const imgBuf = await imgFetch.arrayBuffer();
-                formData.append('image', new Blob([imgBuf], { type: 'image/png' }), 'input.png');
-              }
-            } catch (e) {
-              console.error("Stability Img Fetch Error:", e);
-              throw new Error("Failed to fetch reference image");
-            }
-
-            const resp = await fetch('https://api.stability.ai/v2beta/stable-image/generate/sd3', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'application/json'
-              },
-              body: formData
-            });
-
-            if (resp.ok) {
-              const data = await resp.json();
-              if (data.image) {
-                imageUrl = `data:image/png;base64,${data.image}`;
-              }
-            } else {
-              const txt = await resp.text();
-              console.error("Stability I2I Error:", txt);
-              try {
-                const errObj = JSON.parse(txt);
-                providerError = `Stability I2I: ${errObj.message || errObj.name || txt.substring(0, 100)}`;
-              } catch {
-                providerError = `Stability I2I: ${txt.substring(0, 100)}`;
-              }
-            }
-          } else {
-            // TEXT-TO-IMAGE: Use JSON (still supported)
-            console.log("Stability: Text-to-Image Mode (JSON)");
-            const resp = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-              },
-              body: JSON.stringify({
-                text_prompts: [
-                  { text: executionPrompt, weight: 1 },
-                  ...(finalNegativePrompt ? [{ text: finalNegativePrompt, weight: -1 }] : [])
-                ],
-                samples: 1,
-                steps: 30
-              })
-            });
-
-            if (resp.ok) {
-              const data = await resp.json();
-              if (data.artifacts && data.artifacts[0]) {
-                imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`;
-              }
-            } else {
-              const txt = await resp.text();
-              console.error("Stability T2I Error:", txt);
-              try {
-                const errObj = JSON.parse(txt);
-                providerError = `Stability T2I: ${errObj.message || txt.substring(0, 100)}`;
-              } catch {
-                providerError = `Stability T2I: ${txt.substring(0, 100)}`;
-              }
-            }
-          }
-        } else if (provider.includes('minimax')) {
-          const resp = await fetch('https://api.minimax.io/v1/image_generation', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            // Using updated payload for image_generation endpoint
-            body: JSON.stringify({
-              prompt: executionPrompt,
-              model: activeModel.config?.model || "image-01",
-              ...(uploadedImages && uploadedImages.length > 0 ? {
-                subject_reference: [{
-                  type: 'character',
-                  image_file: uploadedImages[0]
-                }]
-              } : {})
-            })
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.url) imageUrl = data.url;
-            else if (data.data?.url) imageUrl = data.data.url;
-            else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
-            // Handle observed format: { data: { image_urls: ["..."] } }
-            else if (data.data?.image_urls?.[0]) imageUrl = data.data.image_urls[0];
-            else if (data.image_urls?.[0]) imageUrl = data.image_urls[0];
-
-            else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
-            else providerError = `MiniMax OK but invalid format: ${JSON.stringify(data).substring(0, 150)}`;
-          } else {
-            const txt = await resp.text();
-            console.error("MiniMax Error:", txt);
-            providerError = `MiniMax: ${txt}`;
-          }
         } else if (provider.includes('replicate')) {
-          const modelId = activeModel.config?.model;
-          if (!modelId) throw new Error("Replicate model ID not configured.");
-
-          let endpoint = 'https://api.replicate.com/v1/predictions';
-          let body = { input: { prompt: executionPrompt, negative_prompt: finalNegativePrompt, aspect_ratio: aspectRatio || "1:1", image: uploadedImages?.[0] } };
-
-          // Handle owner/name model ID format for nicer endpoints
-          if (modelId.includes('/') && !modelId.includes(':')) {
-            const [owner, name] = modelId.split('/');
-            endpoint = `https://api.replicate.com/v1/models/${owner}/${name}/predictions`;
-          } else if (modelId.includes(':')) {
-            body['version'] = modelId.split(':')[1];
-          }
-
-          // MiniMax Specific Fixes
-          if (modelId.toLowerCase().includes('minimax')) {
-            delete body.input.negative_prompt;
-            body.input.prompt_optimizer = true;
-          }
-
-          const startRes = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+          imageUrl = await generateWithReplicate({
+            prompt: executionPrompt,
+            negativePrompt: finalNegativePrompt,
+            uploadedImages,
+            aspectRatio,
+            apiKey,
+            modelId: activeModel.config?.model
           });
 
-          if (!startRes.ok) {
-            const errText = await startRes.text();
-            console.error("Replicate Start Error:", errText);
-            providerError = `Replicate Start: ${errText}`;
-          } else {
-            let prediction = await startRes.json();
+        } else if (provider.includes('minimax')) {
+          imageUrl = await generateWithMiniMax({
+            prompt: executionPrompt,
+            uploadedImages,
+            apiKey,
+            modelConfig: activeModel.config
+          });
 
-            // Poll for completion
-            const maxPolls = 60; // 60 seconds max
-            let polls = 0;
-            while (prediction.status !== 'succeeded' && prediction.status !== 'failed' && prediction.status !== 'canceled' && polls < maxPolls) {
-              await new Promise(r => setTimeout(r, 1000));
-              const pollRes = await fetch(prediction.urls.get, {
-                headers: { 'Authorization': `Bearer ${apiKey}` }
-              });
-              if (pollRes.ok) prediction = await pollRes.json();
-              polls++;
-            }
+        } else if (provider.includes('openai')) {
+          imageUrl = await generateWithOpenAI({
+            prompt: executionPrompt,
+            apiKey
+          });
 
-            if (prediction.status === 'succeeded') {
-              if (Array.isArray(prediction.output)) imageUrl = prediction.output[0];
-              else if (typeof prediction.output === 'string') imageUrl = prediction.output;
-            } else {
-              providerError = `Replicate Failed or Timed Out: ${prediction.error || prediction.status}`;
-            }
-          }
+        } else {
+          throw new Error(`Unsupported provider: ${provider}`);
         }
       } catch (e) {
         console.error("AI Generation External API Error:", e);
