@@ -1,6 +1,6 @@
 /**
  * MiniMax Official API Provider
- * Direct integration with MiniMax API
+ * Direct integration with MiniMax API (with async polling)
  */
 
 async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig }) {
@@ -8,7 +8,8 @@ async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig
 
     const body = {
         prompt,
-        model: modelConfig?.model || "image-01"
+        model: modelConfig?.model || "image-01",
+        response_format: "url" // Get URLs (valid 24h)
     };
 
     // Add subject reference for I2I (face preservation)
@@ -20,7 +21,8 @@ async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig
         console.log("📸 MiniMax I2I: Subject reference attached");
     }
 
-    const response = await fetch('https://api.minimax.io/v1/image_generation', {
+    // Step 1: Submit generation task
+    const submitResponse = await fetch('https://api.minimax.io/v1/image_generation', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -29,30 +31,91 @@ async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig
         body: JSON.stringify(body)
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ MiniMax Error:", errorText);
-        throw new Error(`MiniMax: ${errorText.substring(0, 150)}`);
+    if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error("❌ MiniMax Submit Error:", errorText);
+        throw new Error(`MiniMax Submit: ${errorText.substring(0, 150)}`);
     }
 
-    const data = await response.json();
+    const submitData = await submitResponse.json();
+    console.log("📋 MiniMax Task Submitted:", JSON.stringify(submitData).substring(0, 200));
 
-    // Handle various response formats
-    let imageUrl = null;
-
-    if (data.url) imageUrl = data.url;
-    else if (data.data?.url) imageUrl = data.data.url;
-    else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
-    else if (data.data?.image_urls?.[0]) imageUrl = data.data.image_urls[0];
-    else if (data.image_urls?.[0]) imageUrl = data.image_urls[0];
-    else if (data.base64) imageUrl = `data:image/png;base64,${data.base64}`;
-
-    if (imageUrl) {
-        console.log("✅ MiniMax: Image generated successfully");
-        return imageUrl;
+    // Check if response contains immediate result (some endpoints return directly)
+    if (submitData.data?.image_urls?.[0]) {
+        console.log("✅ MiniMax: Image generated immediately");
+        return submitData.data.image_urls[0];
     }
 
-    throw new Error(`MiniMax: Invalid response format - ${JSON.stringify(data).substring(0, 100)}`);
+    // Step 2: Extract task ID for polling
+    const taskId = submitData.id || submitData.task_id || submitData.imageId;
+
+    if (!taskId) {
+        // Try to extract image URL from various response formats
+        let imageUrl = null;
+        if (submitData.url) imageUrl = submitData.url;
+        else if (submitData.data?.url) imageUrl = submitData.data.url;
+        else if (submitData.data?.[0]?.url) imageUrl = submitData.data[0].url;
+        else if (submitData.image_urls?.[0]) imageUrl = submitData.image_urls[0];
+        else if (submitData.base64) imageUrl = `data:image/png;base64,${submitData.base64}`;
+
+        if (imageUrl) {
+            console.log("✅ MiniMax: Image URL found in submit response");
+            return imageUrl;
+        }
+
+        throw new Error(`MiniMax: No task_id or image in response - ${JSON.stringify(submitData).substring(0, 200)}`);
+    }
+
+    // Step 3: Poll for completion
+    console.log(`⏳ MiniMax: Polling for task ${taskId}`);
+    const maxPolls = 60; // 60 seconds max
+    let polls = 0;
+
+    while (polls < maxPolls) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+
+        const pollResponse = await fetch(`https://api.minimax.io/v1/images/${taskId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        if (!pollResponse.ok) {
+            console.warn(`⚠️ MiniMax Poll failed (attempt ${polls + 1})`);
+            polls++;
+            continue;
+        }
+
+        const pollData = await pollResponse.json();
+        const status = pollData.status || pollData.base_resp?.status_msg;
+
+        console.log(`🔄 MiniMax Poll #${polls + 1}: ${status}`);
+
+        if (status === 'success' || status === 'Success' || pollData.base_resp?.status_code === 0) {
+            // Extract image URL
+            let imageUrl = null;
+            if (pollData.data?.image_urls?.[0]) imageUrl = pollData.data.image_urls[0];
+            else if (pollData.image_urls?.[0]) imageUrl = pollData.image_urls[0];
+            else if (pollData.url) imageUrl = pollData.url;
+            else if (pollData.data?.url) imageUrl = pollData.data.url;
+            else if (pollData.base64) imageUrl = `data:image/png;base64,${pollData.base64}`;
+
+            if (imageUrl) {
+                console.log("✅ MiniMax: Image generated successfully");
+                return imageUrl;
+            } else {
+                throw new Error(`MiniMax: Success but no image URL - ${JSON.stringify(pollData).substring(0, 200)}`);
+            }
+        } else if (status === 'failed' || status === 'Failed') {
+            throw new Error(`MiniMax: Generation failed - ${pollData.message || 'Unknown error'}`);
+        }
+
+        polls++;
+    }
+
+    throw new Error(`MiniMax: Timeout after ${maxPolls} seconds`);
 }
 
 module.exports = { generateWithMiniMax };
+
