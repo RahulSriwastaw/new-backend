@@ -1,0 +1,27 @@
+[
+  {
+    "id": "TC001",
+    "title": "user login with email and password",
+    "description": "Test the user login API endpoint to verify that users can successfully log in using their email and password credentials. Validate correct JWT token issuance upon successful login and appropriate error messages for invalid credentials."
+  },
+  {
+    "id": "TC002",
+    "title": "user login with social accounts",
+    "description": "Test the social authentication API endpoint to ensure users can log in using supported social accounts. Verify correct handling of social tokens and issuance of JWT tokens upon successful authentication."
+  },
+  {
+    "id": "TC003",
+    "title": "user apply to become creator",
+    "description": "Test the creator application API endpoint to verify that users can submit applications to become creators. Validate that the application data is correctly stored and appropriate responses are returned."
+  },
+  {
+    "id": "TC004",
+    "title": "admin view creator applications",
+    "description": "Test the API endpoint for admins to view all creator applications. Verify that only authorized admin users can access this endpoint and that the list of applications is correctly retrieved."
+  },
+  {
+    "id": "TC005",
+    "title": "admin approve or reject creator applications",
+    "description": "Test the API endpoint for admins to approve or reject creator applications. Verify that the application status is correctly updated and appropriate notifications or responses are returned."
+  }
+]

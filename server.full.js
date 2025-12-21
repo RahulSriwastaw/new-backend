@@ -744,7 +744,26 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
     if (activeModel && apiKey) {
       try {
-        const provider = (activeModel.provider || '').toLowerCase();
+        let provider = (activeModel.provider || '').toLowerCase();
+        const isI2I = uploadedImages && uploadedImages.length > 0;
+
+        // === INTELLIGENT ROUTING (Gemini Fix) ===
+        // Gemini DOES NOT support I2I. Switch to Stability/MiniMax if needed.
+        if (isI2I && (provider.includes('gemini') || provider.includes('google'))) {
+             console.log("⚠️ Routing: Switching from Gemini to Stability for Image-to-Image/Face-Preserve");
+             const fallbackModel = await AIModel.findOne({ 
+                 provider: { $regex: /stability|minimax/i }, 
+                 isActive: true 
+             }).select('+apiKey +config.apiKey');
+
+             if (fallbackModel) {
+                 activeModel = fallbackModel;
+                 provider = (activeModel.provider || '').toLowerCase();
+                 apiKey = activeModel.config?.apiKey || activeModel.apiKey;
+             } else {
+                 throw new Error("This template requires Face Preservation (I2I), but no compatible AI (Stability/MiniMax) is active.");
+             }
+        }
 
         // === MODULAR AI PROVIDER SYSTEM ===
         // Each provider has its own file in /providers/

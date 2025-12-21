@@ -1,0 +1,3738 @@
+﻿Tab 1
+## 🔧 SECTION 3: ADMIN PANEL
+
+
+**Access:** Separate admin URL (admin.rupantarai.com)  
+**Authentication:** Email + Password + 2FA
+
+
+***
+
+
+### 3.1 ADMIN DASHBOARD HOME
+
+
+**Dashboard Overview:**
+
+
+**Top Stats Cards (Real-time):**
+
+
+**Users Card:**
+- Total registered users
+- Active users (last 7 days)
+- New users today
+- Growth percentage
+- Icon and color coded
+
+
+**Generations Card:**
+- Total images generated
+- Today's generations
+- This week's generations
+- Average per day
+- Processing queue count
+
+
+**Revenue Card:**
+- Total revenue (all time)
+- This month's revenue
+- Today's revenue
+- Growth percentage
+- Average revenue per user
+
+
+**Templates Card:**
+- Total templates
+- Pending review count (with alert if >10)
+- Approved today
+- Total template uses
+
+
+**Quick Actions Panel:**
+- "Review Pending Templates" button (with count badge)
+- "Review Creator Applications" button (with count badge)
+- "Check Support Tickets" button (with count badge)
+- "Moderate Flagged Content" button (with count badge)
+
+
+**Activity Feed:**
+- Real-time activity stream
+- Shows recent:
+  - User registrations
+  - Template submissions
+  - Payments received
+  - Generations completed
+  - Support tickets created
+- Auto-refresh every 30 seconds
+- "View All Activity" link
+
+
+**System Health Status:**
+- Database: Green/Yellow/Red indicator
+- AI API: Status and response time
+- Payment Gateway: Status
+- Storage: Usage percentage
+- Server: CPU, Memory, Disk usage
+- Error rate: Warnings if high
+
+
+**Quick Charts:**
+
+
+**User Growth Chart:**
+- Line graph showing user registrations over time
+- Toggle: 7 days, 30 days, 90 days, 1 year
+
+
+**Revenue Chart:**
+- Bar chart showing daily/weekly/monthly revenue
+- Compare with previous period
+
+
+**Generation Trends:**
+- Line chart showing generations over time
+- Peak usage hours heatmap
+
+
+**Popular Categories:**
+- Pie chart showing template category distribution
+- Most used categories
+
+
+**Notifications Center:**
+- Alert icon with badge count
+- Dropdown showing:
+  - Pending creator applications
+  - Flagged content awaiting review
+  - High-priority support tickets
+  - System warnings
+  - Payment failures
+- Mark all as read option
+
+
+***
+
+
+### 3.2 USER MANAGEMENT
+
+
+**User List View:**
+
+
+**Filters & Search:**
+- Search by: Name, Email, Username, User ID
+- Role filter: All, Regular Users, Creators, Admins
+- Status filter: Active, Inactive, Banned
+- Registration date range
+- Points balance range
+- Activity status: Active last 7 days, Inactive >30 days
+
+
+**Sort Options:**
+- Registration date (newest/oldest)
+- Points balance (high/low)
+- Total generations (high/low)
+- Last activity (recent/old)
+
+
+**User Table Columns:**
+- User ID
+- Profile picture thumbnail
+- Name
+- Email
+- Phone
+- Role (badge colored)
+- Points balance
+- Registration date
+- Last activity
+- Status (Active/Inactive/Banned badge)
+- Actions dropdown
+
+
+**Actions for Each User:**
+- View full profile
+- Edit user details
+- Adjust points balance (add/deduct)
+- View transaction history
+- View generations history
+- Send notification
+- Suspend user
+- Ban user
+- Delete user
+- Login as user (admin takeover for support)
+
+
+**User Detail View (Modal/Page):**
+
+
+**Profile Tab:**
+- All personal information
+- Profile picture
+- Contact details
+- Account creation date
+- Last login date and IP
+- Device information
+- Edit fields inline
+- Save changes button
+
+
+**Activity Tab:**
+- Recent generations (with thumbnails)
+- Templates used most
+- Login history (dates, IPs, devices)
+- Points earning/spending pattern
+- Referral activity
+
+
+**Transactions Tab:**
+- Complete points transaction history
+- Payment history
+- Filter by type
+- Export option
+
+
+**Content Tab:**
+- All generated images (grid view)
+- Flagged content (if any)
+- Violations history
+- Strike count
+- Delete content option
+
+
+**Actions Tab:**
+- Adjust points:
+  - Add points (with reason)
+  - Deduct points (with reason)
+  - Points adjustment history
+- Send notification:
+  - Type message
+  - Subject and body
+  - Send email/in-app/both
+- Account actions:
+  - Reset password
+  - Verify email/phone
+  - Change role
+  - Suspend account (with duration)
+  - Ban account (permanent, with reason)
+  - Delete account (with confirmation)
+
+
+**Bulk Actions:**
+- Select multiple users (checkboxes)
+- Bulk actions dropdown:
+  - Send notification to all
+  - Export selected users data
+  - Change status (activate/deactivate)
+  - Add points to all
+  - Delete selected users
+
+
+**Analytics Section:**
+- Total users count
+- User growth graph
+- User retention rate
+- Churn rate
+- Most active users leaderboard
+- User activity heatmap (by hour/day)
+- Demographics breakdown
+
+
+**Export Options:**
+- Export all users to CSV
+- Export filtered results
+- Export with selected columns
+- Schedule automatic exports (daily/weekly/monthly)
+
+
+***
+
+
+### 3.3 CREATOR MANAGEMENT
+
+
+**Creator Applications Queue:**
+
+
+**Pending Applications Tab:**
+
+
+**Application Cards (List View):**
+- Each application shows:
+  - Application ID
+  - User's profile picture
+  - Name
+  - Email and phone
+  - Requested username
+  - Applied date
+  - Days pending
+  - Priority badge (if >3 days pending)
+  - Quick actions: Approve/Reject
+
+
+**Application Detail View:**
+
+
+**Applicant Information:**
+- Full name
+- Email (clickable to send email)
+- Phone (clickable to call/WhatsApp)
+- Requested username
+- User's current activity:
+  - Total generations
+  - Points balance
+  - Member since
+
+
+**Social Media Links:**
+- Facebook (with link validation badge)
+- YouTube (with link validation badge)
+- Instagram (with link validation badge)
+- Telegram (with link validation badge)
+- WhatsApp number
+- Click to open in new tab
+
+
+**Demo Templates Section:**
+
+
+**Template 1:**
+- Full-size demo image
+- Zoom option
+- Prompt text (full)
+- Image quality assessment
+- Content check status (safe/flagged)
+
+
+**Template 2:**
+- Same as Template 1
+
+
+**AI Quality Check (Auto):**
+- Prompt quality score (0-100)
+- Image quality score
+- Originality check (reverse image search)
+- Content policy compliance
+- Recommendations for improvement
+
+
+**Approval Actions:**
+
+
+**Approve Application:**
+- Click "Approve" button
+- Confirmation modal:
+  - Review applicant info summary
+  - Confirm username is acceptable
+  - Confirm content is appropriate
+  - Optional: Add welcome message
+  - "Confirm Approval" button
+- Post-approval:
+  - Creator account automatically created
+  - Login credentials emailed to creator
+  - In-app notification sent
+  - Moved to "Approved" list
+  - Creator can now login
+
+
+**Reject Application:**
+- Click "Reject" button
+- Rejection form modal:
+  - Reason for rejection (dropdown):
+    - Low quality templates
+    - Inappropriate content
+    - Poor prompt quality
+    - Invalid social links
+    - Username already taken
+    - Policy violation
+    - Other (specify)
+  - Detailed feedback (text area, required)
+  - Suggestions for improvement
+  - Allow reapply after: 3 days (default, changeable)
+  - "Confirm Rejection" button
+- Post-rejection:
+  - Notification sent to user with feedback
+  - Reapply date calculated and set
+  - Moved to "Rejected" list
+
+
+**Approved Creators Tab:**
+
+
+**Creators List:**
+- All approved creators
+- Search by name, username, email
+- Sort by: Join date, Total earnings, Total templates, Rating
+- Filter by: Verified/Not verified, Active/Inactive
+
+
+**Each Creator Card Shows:**
+- Profile picture with verified badge (if verified)
+- Creator name and username
+- Join date
+- Stats:
+  - Total templates (with pending/approved breakdown)
+  - Total uses
+  - Total earnings
+  - Followers
+  - Average rating
+- Status indicator (Active/Inactive)
+- Actions dropdown
+
+
+**Creator Actions:**
+- View full profile and analytics
+- View all templates
+- View earnings details
+- Send notification
+- Verify creator (manual verification badge)
+- Suspend creator account
+- Revoke creator access (revert to user)
+- Delete creator account
+
+
+**Creator Detail View:**
+
+
+**Profile Tab:**
+- All creator information
+- Edit profile details
+- Social media management
+- Bio and description
+
+
+**Templates Tab:**
+- All templates by this creator
+- Status breakdown (pending/approved/rejected)
+- Quick approve/reject options
+- Template performance metrics
+- Bulk actions on templates
+
+
+**Earnings Tab:**
+- Total earnings
+- Earnings graph over time
+- Template-wise earnings breakdown
+- Withdrawal history
+- Pending withdrawals (approve/reject)
+- Payment details verification
+
+
+**Performance Tab:**
+- Total template uses
+- Unique users reached
+- Follower growth chart
+- Average rating trend
+- User feedback and reviews
+- Top performing templates
+
+
+**Actions Tab:**
+- Send message to creator
+- Grant verification badge
+- Feature creator (homepage spotlight)
+- Suspend creator (with reason and duration)
+- Issue warning
+- View violation history
+- Revoke creator status
+
+
+**Rejected Applications Tab:**
+- List of all rejected applications
+- Shows rejection reason and date
+- Reapply date display
+- Option to review again
+- Can manually approve if reconsidered
+
+
+**Creator Analytics:**
+- Total creators count
+- Active creators (uploaded in last 30 days)
+- Top earning creators leaderboard
+- Most followed creators
+- Highest rated creators
+- Creator retention rate
+- Average templates per creator
+- Average earnings per creator
+
+
+**Verification Management:**
+- Verification criteria settings
+- Manual verification queue
+- Verified creators list
+- Revoke verification option
+
+
+***
+
+
+### 3.4 TEMPLATE MANAGEMENT
+
+
+**Templates Overview:**
+
+
+**Status Tabs:**
+- All Templates
+- Pending Review (with count badge)
+- Approved
+- Rejected
+- Featured
+- Trending
+
+
+**Pending Review Tab:**
+
+
+**Filter & Sort:**
+- Sort by: Submission date, Creator rating, Category
+- Filter by: Category, Premium/Free, Creator
+
+
+**Template Review Cards:**
+
+
+**Each Pending Template Shows:**
+- Template thumbnail (large preview)
+- Template title and description
+- Creator name and profile link
+- Submission date and time
+- Category and tags
+- Pricing (free/premium)
+- Auto-check results:
+  - Content safety score
+  - Prompt quality score
+  - Image quality score
+- Quick actions: Approve, Reject, Flag
+
+
+**Template Detail Review Page:**
+
+
+**Visual Section:**
+- Large template demo image
+- Additional example images (if provided)
+- Zoom and inspect option
+- Side-by-side comparison with similar templates
+
+
+**Template Information:**
+- Title
+- Description
+- Category and sub-category
+- Tags
+- Age group and state
+- Pricing details
+
+
+**AI Configuration:**
+- Hidden prompt (full text)
+- Visible prompt (what users see)
+- Negative prompt
+- Recommended settings
+
+
+**Creator Information:**
+- Creator profile card
+- Creator's other templates
+- Creator rating and stats
+- Previous rejections/violations (if any)
+
+
+**Auto Quality Checks:**
+- Content moderation result:
+  - NSFW score: Safe/Warning/Unsafe
+  - Violence score
+  - Hate speech score
+  - Overall safety: Pass/Review/Fail
+- Prompt quality analysis:
+  - Clarity score
+  - Effectiveness prediction
+  - Grammar check
+  - Keyword optimization
+- Image quality analysis:
+  - Resolution check
+  - Clarity/sharpness
+  - Professional quality score
+- Originality check:
+  - Reverse image search results
+  - Plagiarism detection
+  - Stock photo check
+
+
+**Similar Templates:**
+- Shows similar existing templates
+- Check for duplicates
+- Comparison view
+
+
+**Review Actions:**
+
+
+**Approve Template:**
+- Click "Approve" button
+- Optional: Add to featured
+- Optional: Add to trending
+- Optional: Leave approval note for creator
+- Confirm approval
+- Post-approval:
+  - Template goes live immediately
+  - Notification sent to creator
+  - Appears in user app
+  - Analytics tracking starts
+
+
+**Reject Template:**
+- Click "Reject" button
+- Rejection reason (dropdown):
+  - Low quality
+  - Content policy violation
+  - Poor prompt
+  - Duplicate
+  - Misleading information
+  - Inappropriate content
+  - Other (specify)
+- Detailed feedback (required)
+- Suggestions for improvement
+- Allow resubmission: Yes/No
+- Confirm rejection
+- Post-rejection:
+  - Notification to creator with feedback
+  - Creator can edit and resubmit
+
+
+**Flag for Manual Review:**
+- If auto-checks are uncertain
+- Assign to senior moderator
+- Add internal notes
+- Set priority level
+
+
+**Approved Templates Tab:**
+
+
+**Templates Grid/List View:**
+- All live templates
+- Search and filters
+- Sort options
+- Bulk select mode
+
+
+**Template Cards Show:**
+- Thumbnail
+- Title and creator
+- Category
+- Performance stats:
+  - Total uses
+  - Revenue generated
+  - Average rating
+  - Save count
+- Status: Live/Paused
+- Actions dropdown
+
+
+**Template Actions:**
+- View full details and analytics
+- Edit template (admin override)
+- Feature template (homepage highlight)
+- Add to trending (manual)
+- Pause template (temporarily hide)
+- Unpublish template
+- Delete template (with confirmation)
+
+
+**Template Analytics:**
+- Individual template performance
+- Uses over time graph
+- Revenue tracking
+- User demographics
+- Rating distribution
+- Feedback and reviews
+
+
+**Featured Templates Management:**
+- Manually feature templates
+- Featured section on homepage
+- Set featured duration
+- Priority ordering
+- Auto-remove after duration
+
+
+**Trending Templates Management:**
+- Auto-detected trending (algorithm)
+- Manual trending assignment
+- Trending criteria settings:
+  - Minimum uses in X days
+  - Growth rate threshold
+  - Rating threshold
+- Remove from trending option
+
+
+**Category Management:**
+- Add new categories
+- Edit existing categories
+- Category icons and colors
+- Category ordering
+- Enable/disable categories
+
+
+**Bulk Actions:**
+- Select multiple templates
+- Bulk approve/reject
+- Bulk categorize
+- Bulk delete
+- Export selected
+
+
+**Template Reports:**
+- Total templates count
+- Approval rate
+- Average review time
+- Most popular categories
+- Top performing templates
+- Revenue by template
+- User engagement metrics
+
+
+***
+
+
+### 3.5 CONTENT MODERATION
+
+
+**Moderation Dashboard:**
+
+
+**Overview Cards:**
+- Pending Reviews (count with alert if >50)
+- Auto-Blocked Today
+- User Reports (pending)
+- Total Bans This Month
+
+
+**Content Moderation Tabs:**
+- Flagged Content
+- User Reports
+- Banned Keywords
+- User Strikes
+- Moderation Logs
+
+
+**Flagged Content Tab:**
+
+
+**Auto-Flagged Queue:**
+
+
+**Each Flagged Item Shows:**
+- Content type: Prompt/Image/Template
+- Thumbnail/preview
+- User information
+- Flagged reason:
+  - NSFW content detected
+  - Violence detected
+  - Hate speech
+  - Banned keyword found
+  - Suspicious activity
+- AI moderation scores (detailed)
+- Flagged date and time
+- Status: Pending review/Reviewed
+- Actions: Approve, Block, Ban User
+
+
+**Flagged Content Detail View:**
+
+
+**Content Display:**
+- Full image or prompt text
+- User who created it
+- Generation/template context
+- Associated metadata
+
+
+**AI Moderation Report:**
+- Google Vision API results:
+  - Adult content: Very Unlikely/Unlikely/Possible/Likely/Very Likely
+  - Violence: [scores]
+  - Racy: [scores]
+- OpenAI Moderation scores:
+  - Hate: [score]
+  - Self-harm: [score]
+  - Sexual: [score]
+  - Violence: [score]
+- Overall risk level: Low/Medium/High/Critical
+
+
+**User History:**
+- Previous violations
+- Strike count
+- Account status
+- Generation pattern
+
+
+**Review Actions:**
+
+
+**Approve Content:**
+- Mark as false positive
+- Add to whitelist (if pattern)
+- Send to user with "Approved" notification
+- Remove from queue
+
+
+**Block Content:**
+- Remove content from app
+- Refund user points
+- Send notice to user explaining why
+- Add to moderation training data
+- Optional: Issue warning to user
+
+
+**Ban User:**
+- Permanent account ban
+- Reason required
+- Ban all user's content
+- Notification sent
+- Can appeal option
+
+
+**User Reports Tab:**
+
+
+**Reported Content Queue:**
+
+
+**Each Report Shows:**
+- Content preview (image/template)
+- Reported by: User info
+- Report reason (dropdown):
+  - Inappropriate content
+  - Copyright violation
+  - Spam
+  - Misleading
+  - Hate speech
+  - Other
+- Additional comments from reporter
+- Report date
+- Content creator info
+- Status: Pending/Reviewed/Actioned
+- Priority level
+
+
+**Report Detail View:**
+- Full content display
+- Reporter's details and message
+- Content creator details
+- Content analytics (how many views, uses)
+- Previous reports on this content
+- Similar content check
+
+
+**Review Actions:**
+- Dismiss report (false report)
+- Approve content (no violation)
+- Remove content
+- Warn creator
+- Suspend creator
+- Ban creator
+- Send feedback to reporter
+
+
+**Banned Keywords Management:**
+
+
+**Keyword List:**
+- Search keywords
+- Filter by category:
+  - NSFW
+  - Violence
+  - Drugs
+  - Hate Speech
+  - Child Safety
+  - Illegal Activities
+- Severity level indicators
+
+
+**Add Keyword:**
+- Keyword/phrase input
+- Category selection
+- Severity level: Low/Medium/High/Critical
+- Action on detection:
+  - Auto-block
+  - Flag for review
+  - Warning only
+- Add button
+
+
+**Keyword Card:**
+- Keyword text
+- Category badge
+- Severity badge
+- Times detected (counter)
+- Last detected date
+- Actions: Edit, Delete, Disable
+
+
+## 🔧 SECTION 3: ADMIN PANEL (Continued)
+
+
+***
+
+
+### 3.5 CONTENT MODERATION (Continued)
+
+
+**Bulk Keyword Management:**
+- Import keywords from CSV file
+- Export current keyword list
+- Bulk delete selected keywords
+- Bulk enable/disable keywords
+- Default keyword templates by category
+
+
+**Keyword Detection Settings:**
+- Case sensitivity toggle
+- Partial match vs exact match
+- Alternative spellings detection
+- Multi-language support
+- Whitelist exceptions (e.g., "hell" in "hello")
+
+
+**Auto-Moderation Rules:**
+
+
+**Rule Builder:**
+- Create custom moderation rules
+- Conditions:
+  - If keyword category = [X]
+  - And severity = [High/Critical]
+  - And user strike count > [N]
+  - Then action = [Auto-ban/Flag/Block]
+- Multiple conditions support
+- Priority ordering
+
+
+**Active Rules List:**
+- All configured rules
+- Enable/disable toggle
+- Edit rule
+- View triggered count
+- Effectiveness metrics
+
+
+**User Strikes Management:**
+
+
+**Strike System Overview:**
+- Total active strikes
+- Users with 1 strike
+- Users with 2 strikes
+- Users with 3 strikes (ban threshold)
+- Strike expiry settings
+
+
+**Strike Records Table:**
+- User name and profile link
+- Strike number (1/2/3)
+- Violation type
+- Date issued
+- Issued by (admin name)
+- Action taken (Warning/Suspension/Ban)
+- Expiry date (if temporary)
+- User status
+
+
+**Issue Strike:**
+- Select user
+- Violation type dropdown:
+  - Content policy violation
+  - Spam behavior
+  - Inappropriate prompts
+  - Harassment
+  - Multiple violations
+  - Other (specify)
+- Violation description (required)
+- Evidence attachment (screenshots)
+- Strike number auto-calculated
+- Action based on strike:
+  - Strike 1: Warning only
+  - Strike 2: 7-day suspension
+  - Strike 3: Permanent ban
+- Send notification
+- Confirm and issue
+
+
+**Strike Details:**
+- View full violation details
+- Evidence attached
+- User's response (if appealed)
+- Admin notes
+- Action history
+
+
+**Revoke Strike:**
+- Select strike to revoke
+- Reason for revocation
+- Adjust user status accordingly
+- Notification to user
+- Log action
+
+
+**Moderation Logs:**
+
+
+**Activity Log:**
+- All moderation actions recorded
+- Columns:
+  - Date and time
+  - Admin/moderator name
+  - Action type
+  - Content/user affected
+  - Reason
+  - Outcome
+- Filter by:
+  - Date range
+  - Admin/moderator
+  - Action type
+  - Content type
+- Search functionality
+- Export logs to CSV
+
+
+**Moderator Performance:**
+- Each moderator's activity
+- Actions taken count
+- Average review time
+- Accuracy rate (appeals won/lost)
+- Most active moderators leaderboard
+
+
+**Content Safety Settings:**
+
+
+**AI Moderation Configuration:**
+- Enable/disable AI auto-moderation
+- Sensitivity level slider (Low/Medium/High)
+- Which AI to use:
+  - Google Cloud Vision API
+  - AWS Rekognition
+  - Azure Content Moderator
+  - OpenAI Moderation API
+- Threshold scores for each category
+- Auto-action on detection
+
+
+**Age Verification:**
+- Require age verification for sensitive content
+- Minimum age requirement (default 18+)
+- Verification method:
+  - ID upload
+  - Date of birth confirmation
+  - Third-party verification service
+
+
+**Report Settings:**
+- Allow user reporting: Yes/No
+- Anonymous reporting: Yes/No
+- Report reasons customization
+- Auto-close duplicate reports
+- Response time SLA
+
+
+**Moderation Statistics:**
+- Total content reviewed
+- Auto-blocked count
+- Manual reviews count
+- False positive rate
+- Average review time
+- Content removal rate
+- Appeal success rate
+- Moderator efficiency metrics
+
+
+**Appeal Management:**
+
+
+**User Appeals Queue:**
+- List of appeals from banned/suspended users
+- Each appeal shows:
+  - User info
+  - Original violation
+  - Strike/ban details
+  - User's appeal message
+  - Appeal date
+  - Status: Pending/Under Review/Resolved
+- Priority queue (3-strike bans higher priority)
+
+
+**Appeal Review:**
+- Original violation details
+- Evidence review
+- User's appeal argument
+- Previous history
+- Moderator notes
+- Decision options:
+  - Approve appeal: Revoke strike/unban
+  - Reject appeal: Maintain punishment
+  - Reduce punishment: Modify suspension duration
+- Send decision notification to user
+- Log decision
+
+
+***
+
+
+### 3.6 WALLET & TRANSACTIONS MANAGEMENT
+
+
+**Transactions Dashboard:**
+
+
+**Overview Cards:**
+- Total Revenue (All Time)
+- This Month's Revenue
+- Today's Revenue
+- Total Points Sold
+- Average Transaction Value
+- Payment Success Rate
+
+
+**All Transactions Tab:**
+
+
+**Transaction List:**
+- Filter by:
+  - Date range
+  - Transaction type: Purchase/Generation/Refund/Withdrawal
+  - Payment gateway
+  - Status: Success/Failed/Pending/Refunded
+  - Amount range
+  - User search
+- Sort by: Date, Amount, Status
+
+
+**Transaction Table Columns:**
+- Transaction ID (clickable)
+- Date and time
+- User name and ID
+- Transaction type
+- Payment method
+- Points/Amount
+- Gateway (Razorpay/Stripe/PayPal)
+- Status badge
+- Actions
+
+
+**Transaction Detail View:**
+- Full transaction information
+- User details
+- Payment gateway data
+- Gateway transaction ID
+- Points pack purchased
+- Amount paid (₹)
+- Currency
+- Payment method details
+- Gateway response (JSON)
+- Status history timeline
+- Actions:
+  - Issue refund
+  - Resend receipt
+  - Contact user
+  - View user profile
+  - Export details
+
+
+**Points Management:**
+
+
+**Points Configuration:**
+- Generation cost: Default 20 points (editable)
+- Template usage cost:
+  - Free templates: 2 points
+  - Premium templates: Creator-defined
+- Tool costs:
+  - Background remove: Free
+  - Enhancement: 5 points
+  - Face fix: 8 points
+  - Upscale 2x: 10 points
+  - Upscale 4x: 15 points
+  - Colorize: 10 points
+  - Style transfer: 8 points
+- Earning rates:
+  - Daily login: 3 points
+  - Referral bonus: 20 points
+  - Ad watch: 6 points
+  - Max ads per day: 5
+
+
+**Points Packages:**
+
+
+**Package Configuration:**
+- Edit existing packages
+- Create new packages
+
+
+**Mini Pack Settings:**
+- Display name: "Mini Pack"
+- Price: ₹9 (editable)
+- Points: 50 (editable)
+- Bonus points: 0 (editable)
+- Badge text: "Best for Beginners"
+- Enable/disable
+- Sort order
+
+
+**Pro Pack Settings:**
+- Display name: "Pro Pack"
+- Price: ₹49
+- Points: 300
+- Bonus points: 50
+- Badge text: "Most Popular"
+- Popular badge: Yes/No
+- Enable/disable
+- Sort order
+
+
+**Ultimate Pack Settings:**
+- Display name: "Ultimate Pack"
+- Price: ₹199
+- Points: 1500
+- Bonus points: 300
+- Badge text: "Best Value"
+- Premium styling: Yes/No
+- Enable/disable
+- Sort order
+
+
+**Custom Packages:**
+- Create unlimited custom packages
+- Special occasion packages
+- Limited time offers
+- Festival specials
+
+
+**Promo Codes Management:**
+
+
+**Create Promo Code:**
+- Code name (e.g., "DIWALI50")
+- Discount type:
+  - Percentage (e.g., 50% off)
+  - Fixed amount (e.g., ₹20 off)
+  - Bonus points (e.g., +100 points free)
+- Applicable on:
+  - All packages
+  - Specific packages
+  - Minimum purchase amount
+- Usage limits:
+  - Total usage limit
+  - Per user limit (e.g., one time only)
+  - Daily limit
+- Validity:
+  - Start date and time
+  - End date and time
+- Enable/disable
+- Create button
+
+
+**Promo Codes List:**
+- All promo codes table
+- Columns:
+  - Code
+  - Discount details
+  - Valid from/to
+  - Total uses / Limit
+  - Status (Active/Expired/Disabled)
+  - Actions: Edit, Disable, Delete, View Usage
+
+
+**Promo Code Analytics:**
+- Most used codes
+- Revenue with/without promos
+- Code effectiveness
+- User acquisition via codes
+
+
+**Manual Points Adjustment:**
+- Search user by name/email/ID
+- Current balance display
+- Add/Deduct points
+- Amount field
+- Reason (required for audit)
+- Send notification to user
+- Confirm adjustment
+- Transaction logged
+
+
+**Bulk Points Operations:**
+- Upload CSV with user IDs and amounts
+- Bulk add points (e.g., festival bonus to all users)
+- Preview before applying
+- Confirm and execute
+- Progress bar
+- Summary report
+
+
+**Refund Management:**
+
+
+**Refund Requests:**
+- Automatic refunds (failed generations)
+- Manual refund requests from users
+- Each request shows:
+  - User info
+  - Original transaction
+  - Reason for refund
+  - Amount/Points
+  - Request date
+  - Status
+- Actions: Approve, Reject, Contact User
+
+
+**Process Refund:**
+- Select transaction
+- Refund amount (full/partial)
+- Refund points immediately
+- Gateway refund (if money involved):
+  - Process through payment gateway API
+  - Update status
+  - Send confirmation
+- Notification to user
+- Log transaction
+
+
+**Refund History:**
+- All processed refunds
+- Total refunds amount
+- Refund rate
+- Common refund reasons
+- Export reports
+
+
+**Creator Earnings & Withdrawals:**
+
+
+**Creator Earnings Overview:**
+- Total paid to creators (All Time)
+- Pending withdrawals amount
+- This month's creator earnings
+- Average earning per creator
+
+
+**Withdrawal Requests Queue:**
+
+
+**Each Withdrawal Request Shows:**
+- Creator name and profile link
+- Request date
+- Amount requested (₹)
+- Available balance
+- Bank details
+- Status: Pending/Processing/Completed/Rejected
+- Actions
+
+
+**Withdrawal Detail View:**
+- Creator information
+- Request details
+- Amount requested
+- Platform fee (already deducted)
+- TDS calculation (if applicable)
+- Net payable
+- Bank account details:
+  - Account holder name
+  - Bank name
+  - Account number
+  - IFSC code
+  - PAN number
+- Verification status
+- Previous withdrawal history
+
+
+**Withdrawal Actions:**
+
+
+**Approve Withdrawal:**
+- Verify bank details
+- Confirm amount calculation
+- Processing notes
+- Confirm approval
+- Status changes to "Processing"
+- Process payment:
+  - Manual bank transfer, or
+  - Automated payout API (Razorpay Payouts/Stripe Payouts)
+- Upload payment proof (transaction ID/screenshot)
+- Mark as "Completed"
+- Notification to creator
+- Email with payment receipt
+
+
+**Reject Withdrawal:**
+- Select rejection reason:
+  - Insufficient balance
+  - Incorrect bank details
+  - Minimum threshold not met
+  - Account under review
+  - Other (specify)
+- Detailed message to creator
+- Confirm rejection
+- Notification sent
+- Amount remains in creator wallet
+
+
+**Withdrawal History:**
+- All processed withdrawals
+- Filter by status, date, creator
+- Export to CSV
+- Analytics: Total paid, Average amount, Processing time
+
+
+**Payment Gateway Management:**
+
+
+**Gateway Configuration:**
+
+
+**Razorpay Setup:**
+- Enable/Disable toggle
+- API Key input (encrypted storage)
+- Secret Key input (encrypted)
+- Webhook URL (auto-generated)
+- Test mode toggle
+- Supported payment methods:
+  - UPI (checkbox)
+  - Cards (checkbox)
+  - Net Banking (checkbox)
+  - Wallets (checkbox)
+  - EMI (checkbox)
+- Transaction fee: 2% + ₹3 (display only)
+- Test connection button
+- Save configuration
+
+
+**Stripe Setup:**
+- Enable/Disable toggle
+- Publishable Key input
+- Secret Key input
+- Webhook secret
+- Supported currencies
+- Supported payment methods
+- Transaction fee display
+- Test connection
+- Save configuration
+
+
+**PayPal Setup:**
+- Enable/Disable toggle
+- Client ID
+- Secret
+- Environment (Sandbox/Live)
+- Supported currencies
+- Transaction fee display
+- Test connection
+- Save configuration
+
+
+**Other Gateways:**
+- Paytm
+- PhonePe
+- Cashfree
+- Instamojo
+- Similar configuration for each
+
+
+**Gateway Selection:**
+- Set primary gateway
+- Enable multiple gateways:
+  - Users choose at checkout
+  - Auto-fallback if primary fails
+- Gateway priority order (drag to reorder)
+- Per-gateway analytics
+
+
+**Gateway Analytics:**
+- Transactions per gateway
+- Success rate per gateway
+- Average processing time
+- Transaction fees paid
+- Revenue by gateway
+- User preference distribution
+
+
+**Payment Settings:**
+
+
+**General Settings:**
+- Minimum purchase amount: ₹1 (default)
+- Maximum purchase amount: No limit/Custom
+- Auto-refund on failure: Yes/No
+- Refund processing time: 5-7 days
+- Currency: INR (primary)
+- Tax/GST settings:
+  - Include tax: Yes/No
+  - Tax rate: 18% (for digital services in India)
+  - Show tax breakdown
+
+
+**Notifications:**
+- Payment success email
+- Payment failed email
+- Refund processed email
+- Receipt generation
+- Custom email templates
+
+
+**Transaction Reports:**
+
+
+**Revenue Reports:**
+- Daily revenue report
+- Weekly summary
+- Monthly summary
+- Year-to-date
+- Revenue by package
+- Revenue by payment method
+- Revenue growth trends
+
+
+**Export Options:**
+- Date range selector
+- Format: CSV, PDF, Excel
+- Include: All fields / Selected fields
+- Schedule automatic reports (email daily/weekly/monthly)
+
+
+**Analytics Dashboard:**
+- Revenue trends graph (line/bar chart)
+- Top selling packages
+- Payment method distribution (pie chart)
+- Success vs failed ratio
+- Average transaction value
+- Peak transaction hours heatmap
+- Geographic distribution (if available)
+
+
+***
+
+
+### 3.7 AI CONFIGURATION & MANAGEMENT
+
+
+**AI Model Selection:**
+
+
+**Current Active Model Card:**
+- Large display showing currently active AI
+- Model name and logo
+- Status indicator: Active (green dot)
+- Real-time stats:
+  - Today's requests: Count
+  - Success rate: Percentage
+  - Average response time: Seconds
+  - Total cost today: ₹ Amount
+- "Change Model" button
+
+
+**Available AI Models:**
+
+
+**Each Model Card Shows:**
+
+
+**Google Gemini (Imagen 3):**
+- Model logo/icon
+- Description: "Best for photorealistic images, especially Indian faces"
+- Specifications:
+  - Speed: Fast (3-5 seconds avg)
+  - Quality: Excellent
+  - Cost: ₹1.2 per image
+  - Face preservation: Excellent
+  - Content filtering: Built-in strict
+- Pros:
+  - Best for Indian demographics
+  - Fast response time
+  - High quality output
+  - Strong safety features
+- Cons:
+  - Higher cost than some alternatives
+  - Strict content filtering
+- Configuration button
+- "Set as Active" button
+
+
+**MiniMax AI:**
+- Description: "Fast generation, excellent for Asian faces"
+- Specifications:
+  - Speed: Very Fast (2-3 seconds)
+  - Quality: Very Good
+  - Cost: ₹0.8 per image
+  - Face preservation: Excellent for Asian faces
+  - Content filtering: Moderate
+- Pros:
+  - Most cost-effective
+  - Fastest response
+  - Good for Asian demographics
+- Cons:
+  - Less strict content filtering
+  - May need additional moderation
+- Configuration button
+- "Set as Active" button
+
+
+**OpenAI DALL-E 3:**
+- Description: "Creative and artistic images, strict safety"
+- Specifications:
+  - Speed: Medium (5-8 seconds)
+  - Quality: Excellent, artistic
+  - Cost: ₹2.5 per image
+  - Face preservation: Good
+  - Content filtering: Very strict
+- Pros:
+  - Most creative outputs
+  - Strongest content filtering
+  - Best for artistic styles
+- Cons:
+  - Highest cost
+  - Slower than alternatives
+  - Cannot generate real people's faces
+- Configuration button
+- "Set as Active" button
+
+
+**Stability AI (SDXL):**
+- Description: "Detailed high-quality images, flexible"
+- Specifications:
+  - Speed: Slow (8-12 seconds)
+  - Quality: Excellent detail
+  - Cost: ₹0.5 per image
+  - Face preservation: Good
+  - Content filtering: Manual required
+- Pros:
+  - Cheapest option
+  - High detail and quality
+  - Most flexible/customizable
+- Cons:
+  - Slowest generation
+  - Requires manual moderation setup
+  - More complex configuration
+- Configuration button
+- "Set as Active" button
+
+
+**Claude AI (Anthropic):**
+- Description: "Safe, ethical AI generation"
+- Specifications:
+  - Speed: Medium (4-6 seconds)
+  - Quality: Very Good
+  - Cost: ₹1.8 per image
+  - Face preservation: Good
+  - Content filtering: Very strict, ethical
+- Pros:
+  - Strong ethical guidelines
+  - Good balance of speed/quality
+  - Transparent AI behavior
+- Cons:
+  - Higher cost
+  - May refuse some prompts
+- Configuration button
+- "Set as Active" button
+
+
+**Midjourney API:**
+- Description: "Artistic and stylized images"
+- Specifications:
+  - Speed: Slow (10-15 seconds)
+  - Quality: Artistic excellence
+  - Cost: ₹3.0 per image
+  - Face preservation: Stylized
+  - Content filtering: Community moderated
+- Pros:
+  - Best artistic quality
+  - Unique style
+  - Professional outputs
+- Cons:
+  - Most expensive
+  - Slowest generation
+  - Less realistic faces
+- Configuration button
+- "Set as Active" button
+
+
+**Custom API:**
+- Description: "Use your own trained model"
+- Specifications: User-defined
+- Configuration required:
+  - API Endpoint URL
+  - Authentication method
+  - Request/response format
+  - Custom parameters
+- Configuration button
+- "Set as Active" button
+
+
+**AI Model Configuration:**
+
+
+**Configuration Modal (for any selected model):**
+
+
+**API Credentials:**
+- API Key input field (masked, encrypted)
+- API Secret (if required)
+- API Endpoint (pre-filled, editable for custom)
+- Organization ID (if required, e.g., OpenAI)
+- Project ID (if required, e.g., Google Cloud)
+
+
+**Test Connection:**
+- "Test API" button
+- Test process:
+  - Sends sample generation request
+  - Shows real-time progress
+  - Displays response time
+  - Shows sample generated image
+  - Validates API key
+  - Checks rate limits
+- Test results:
+  - Success: Green checkmark, "API working correctly"
+  - Failed: Red X, error message displayed
+  - Response time shown
+  - Suggested action if failed
+
+
+**Model-Specific Settings:**
+
+
+**For Gemini:**
+- Model version: imagen-3-0, imagen-3-1, etc.
+- Safety settings:
+  - Block threshold for adult content
+  - Block threshold for violence
+  - Block threshold for hate speech
+- Language preference
+- Person generation: Allow/Block
+
+
+**For DALL-E 3:**
+- Quality: Standard/HD
+- Style: Natural/Vivid
+- Response format: URL/B64 JSON
+- Size options: 1024x1024, 1024x1792, 1792x1024
+
+
+**For Stability AI:**
+- Engine: stable-diffusion-xl-1024-v1-0, etc.
+- Sampler: DDIM, K_EULER, etc.
+- Steps: 30-50 (quality vs speed)
+- CFG Scale: 7-15 (prompt adherence)
+- Negative prompt global default
+
+
+**Advanced Configuration:**
+- Rate limiting:
+  - Requests per minute: Default 60
+  - Daily request limit: 10,000
+  - Queue management
+- Timeout settings:
+  - Connection timeout: 30 seconds
+  - Request timeout: 120 seconds
+- Retry logic:
+  - Max retries: 3
+  - Retry delay: 5 seconds
+- Error handling:
+  - Auto-refund on error: Yes/No
+  - Notify user: Yes/No
+  - Fallback behavior: Queue for manual check
+
+
+**Cost Settings:**
+- Cost per image: ₹X.XX (auto-filled, editable)
+- Daily budget limit: ₹XXXX (optional)
+- Alert threshold: Notify when 80% budget used
+- Cost tracking per user (optional)
+
+
+**Save Configuration Button:**
+- Saves all settings
+- Encrypts sensitive data
+- Logs configuration change
+- Tests API before saving
+- Confirmation message
+
+
+**Set as Active:**
+- Confirmation modal:
+  - "This will switch ALL users to [Model Name]"
+  - "Current model: [Current] → New model: [Selected]"
+  - Warning: "Ensure you've tested the API"
+  - Impact: Shows estimated daily cost change
+  - Checkbox: "I have tested and confirmed this API works"
+  - "Confirm Switch" button
+- Post-activation:
+  - All new generations use new model
+  - Admin notification sent
+  - Logs change
+  - Updates model display throughout app
+  - "Powered by [New Model]" updates in user app
+
+
+**AI Performance Monitoring:**
+
+
+**Real-Time Dashboard:**
+- Current queue length
+- Average wait time
+- Generations in progress
+- Successful generations today
+- Failed generations today
+- Current response time
+
+
+**Performance Graphs:**
+
+
+**Response Time Chart:**
+- Line graph showing average response time over 24 hours
+- Hover to see exact values
+- Annotations for peak hours
+- Trend line
+
+
+**Success Rate Chart:**
+- Success vs failed ratio
+- Daily/weekly/monthly view toggle
+- Target: 95%+ success rate
+- Alerts if below threshold
+
+
+**Cost Analysis:**
+- Daily cost graph
+- Cost per successful generation
+- Budget usage percentage
+- Projected monthly cost
+- Cost comparison between models (historical)
+
+
+**Usage Patterns:**
+- Generations per hour heatmap
+- Peak usage times
+- Day-of-week patterns
+- Predict busy periods
+
+
+**AI Analytics:**
+- Total generations (all time)
+- Average generations per day
+- Most common quality settings
+- Most common aspect ratios
+- Average prompt length
+- Failed generation reasons breakdown
+
+
+**AI Health Monitoring:**
+- API status: Operational/Degraded/Down
+- Last successful request: Timestamp
+- Current error rate
+- Rate limit status: X/60 per minute
+- Daily quota used: X/10,000
+- Alerts for issues:
+  - API down
+  - High error rate (>5%)
+  - Rate limit approaching
+  - Budget threshold reached
+
+
+**Error Log:**
+- Recent errors list
+- Error type
+- Error message
+- Affected user
+- Timestamp
+- Prompt that caused error (if available)
+- Resolution status
+- Actions: Retry, Refund, Contact user
+
+
+**Model Comparison Tool:**
+
+
+**Compare Models (Historical):**
+- Select date range
+- Compare metrics:
+  - Total requests
+  - Success rate
+  - Average response time
+  - Total cost
+  - Cost per image
+  - User satisfaction (ratings)
+- Side-by-side comparison table
+- Visualization: Bar charts for each metric
+- Recommendation based on data
+
+
+**A/B Testing (Future Feature):**
+- Split traffic between two models
+- Percentage allocation
+- Track comparative performance
+- Auto-select winner after test period
+
+
+***
+
+
+### 3.8 ADMIN & SYSTEM SETTINGS
+
+
+**Admin Users Management:**
+
+
+**Admin List:**
+- All admin and super admin users
+- Columns:
+  - Profile picture
+  - Name
+  - Email
+  - Role (Super Admin/Admin/Moderator)
+  - Permissions
+  - Last active
+  - Status (Active/Inactive)
+  - Actions
+
+
+**Add New Admin:**
+- Name
+- Email
+- Role selection:
+  - Super Admin (full access)
+  - Admin (most features)
+  - Moderator (content moderation only)
+  - Support (support tickets only)
+- Permissions customization:
+  - User management: View/Edit
+  - Creator management: View/Edit/Approve
+  - Template management: View/Edit/Approve
+  - Wallet & transactions: View/Edit
+  - AI configuration: View/Edit
+  - System settings: View/Edit
+  - Reports: View/Export
+- Generate temporary password
+- Send invitation email
+- Create admin button
+
+
+**Admin Detail View:**
+- Profile information
+- Activity log (what actions taken)
+- Login history
+- Permissions management
+- Edit role
+- Suspend admin
+- Delete admin
+
+
+**Two-Factor Authentication:**
+- Require 2FA for all admins: Yes/No
+- 2FA method: App-based (Google Authenticator) / SMS
+- Enforce 2FA setup on first login
+
+
+**Activity Audit Log:**
+- All admin actions logged
+- Columns:
+  - Timestamp
+  - Admin name
+  - Action type
+  - Module (Users/Templates/Transactions/etc.)
+  - Details
+  - IP address
+  - Status
+- Filter by admin, date range, action type
+- Search functionality
+- Export to CSV
+- Retention period: 90 days (configurable)
+
+
+**System Configuration:**
+
+
+**App Settings:**
+
+
+**General:**
+- App name: "Rupantar AI" (editable)
+- Tagline: "Transform your imagination into reality"
+- Logo upload (multiple sizes)
+- Favicon upload
+- Brand colors:
+  - Primary color
+  - Secondary color
+  - Accent color
+- Save changes
+
+
+**Features Toggle:**
+- Enable/Disable features globally:
+  - User registration: On/Off
+  - Template creation: On/Off
+  - Points purchase: On/Off
+  - AI generation: On/Off
+  - Creator applications: On/Off
+  - Referral program: On/Off
+  - Ad rewards: On/Off
+  - Social sharing: On/Off
+- Maintenance mode:
+  - Enable maintenance mode
+  - Custom maintenance message
+  - Estimated downtime
+  - Allow admin access during maintenance
+
+
+**Content Policy:**
+- Community guidelines text (rich text editor)
+- Terms of Service document upload
+- Privacy Policy document upload
+- Creator agreement document upload
+- Minimum age requirement: 13/16/18
+- Age verification required: Yes/No
+
+
+**Email Configuration:**
+
+
+**SMTP Settings:**
+- SMTP server hostname
+- SMTP port (465/587)
+- Username
+- Password (encrypted)
+- From email address
+- From name
+- Test email button
+
+
+**Email Service Provider:**
+- Select provider: SMTP/SendGrid/AWS SES/Mailgun
+- API Key (if using service)
+- Domain verification status
+- Test connection
+
+
+**Email Templates:**
+- Welcome email template
+- Email verification template
+- Password reset template
+- Payment confirmation template
+- Generation complete template
+- Creator approval template
+- Support response template
+- Each template:
+  - Subject line editor
+  - Body editor (HTML + plain text)
+  - Variables: {{user_name}}, {{amount}}, etc.
+  - Preview button
+  - Test send
+
+
+**Notification Settings:**
+
+
+**Push Notifications:**
+- Enable push notifications: Yes/No
+- Firebase Cloud Messaging:
+  - Server key
+  - Sender ID
+  - Configuration file upload
+- Notification triggers:
+  - Generation complete
+  - Points earned
+  - Payment success
+  - Template approved
+  - New follower
+  - Support reply
+- Default notification sound
+- Test notification button
+
+
+**In-App Notifications:**
+- Enable in-app alerts: Yes/No
+- Notification retention: 30 days
+- Mark as read behavior
+- Notification preferences default
+
+
+**SMS Configuration:**
+- SMS provider: Twilio/MSG91/AWS SNS
+- API credentials
+- Sender ID/Number
+- SMS templates:
+  - OTP verification
+  - Payment confirmation
+  - Account alerts
+- SMS cost per message
+- Test SMS button
+
+
+**Storage Configuration:**
+
+
+**File Storage:**
+- Storage provider: AWS S3/Google Cloud Storage/Azure Blob
+- Bucket name
+- Region
+- Access key ID (encrypted)
+- Secret access key (encrypted)
+- CDN URL
+- Test connection
+
+
+**Upload Limits:**
+- Max file size per upload: 10MB
+- Allowed image formats: JPG, PNG, WEBP
+- Max images per generation: 5
+- Compression settings:
+  - Auto-compress: Yes/No
+  - Quality: 85%
+  - Max dimensions: 2048x2048
+
+
+**Storage Management:**
+- Total storage used
+- Storage limit
+- Files uploaded today
+- Large files report (>5MB)
+- Cleanup old files:
+  - Delete files older than X days
+  - Exclude favorited content
+  - Run cleanup
+
+
+**Analytics & Tracking:**
+
+
+**Google Analytics:**
+- Measurement ID
+- Enable Google Analytics: Yes/No
+- Track events:
+  - Page views
+  - Generations
+  - Purchases
+  - Template usage
+  - Custom events
+- Privacy: Anonymize IP addresses
+
+
+**Facebook Pixel:**
+- Pixel ID
+- Enable tracking: Yes/No
+- Track events:
+  - Purchase
+  - Generate
+  - Sign up
+
+
+**Custom Analytics:**
+- Custom script injection (header/footer)
+- Event tracking API endpoint
+
+
+**SEO Settings:**
+
+
+**Meta Information:**
+- Default page title
+- Default meta description
+- Meta keywords
+- Open Graph image
+- Twitter card settings
+- Favicon
+
+
+**Sitemap:**
+- Auto-generate sitemap: Yes/No
+- Sitemap URL
+- Submit to search engines
+- Last updated
+
+
+**Robots.txt:**
+- Edit robots.txt
+- Allow/disallow paths
+- Sitemap reference
+
+
+**Database Management:**
+
+
+**Backup Configuration:**
+- Automatic backups: Yes/No
+- Backup frequency: Daily/Weekly
+- Backup time: 02:00 AM
+- Backup retention: 30 days
+- Backup storage location
+- Manual backup now button
+- Restore from backup:
+  - List of available backups
+  - Backup date and size
+  - Restore button (with confirmation)
+
+
+**Database Maintenance:**
+- Optimize database button
+- Clean up temporary data
+- Rebuild indexes
+- Database size: XX GB
+- Table size breakdown
+
+
+**API Settings:**
+
+
+**API Keys (for third-party integrations):**
+- Generate API key for external access
+- API key list:
+  - Key name
+  - Key (masked)
+  - Created date
+  - Last used
+  - Revoke button
+- Rate limiting per key
+- Allowed endpoints
+
+
+**Webhooks:**
+- Configure webhooks for events:
+  - New user registered
+  - Payment completed
+  - Generation completed
+  - Template approved
+- Webhook URL
+- Authentication
+- Retry logic
+- Test webhook
+
+
+**Security Settings:**
+
+
+**General Security:**
+- Force HTTPS: Yes/No
+- Session timeout: 30 minutes
+- Password policy:
+  - Minimum length: 8 characters
+  - Require uppercase: Yes/No
+  - Require numbers: Yes/No
+  - Require special characters: Yes/No
+- Password expiry: Never/90 days/180 days
+- Login attempt limit: 5 attempts
+- Lockout duration: 15 minutes
+
+
+**IP Restrictions:**
+- IP whitelist for admin panel
+- Add IP address
+- IP blacklist (ban specific IPs)
+- Country blocking (if needed)
+
+
+**Rate Limiting:**
+- API rate limits:
+  - Per user: 100 requests/minute
+  - Per IP: 200 requests/minute
+- Generation rate limits:
+  - Per user: 10 generations/hour
+- Adjust limits dynamically
+
+
+**SSL Certificate:**
+- Certificate status
+- Expiry date
+- Auto-renewal: Yes/No
+- Certificate details
+
+
+**Legal & Compliance:**
+
+
+**GDPR Compliance:**
+- Data retention policy
+- Right to deletion: Enabled
+- Data export format: JSON/CSV
+- Cookie consent banner: Enabled
+- Privacy policy link
+
+
+**Terms Updates:**
+- Terms version history
+- Notify users on terms change
+- Require re-acceptance
+
+
+**Data Protection:**
+- Encryption at rest: Enabled
+- Encryption in transit: Enabled
+- PCI DSS compliance (for payments)
+- Regular security audits
+
+
+**System Status:**
+
+
+**Health Check:**
+- API status: Operational
+- Database status: Operational
+- Storage status: Operational
+- Payment gateway status: Operational
+- AI service status: Operational
+- Overall status: All systems operational
+
+
+**System Information:**
+- App version: v1.0.0
+- Last deployment: Date/time
+- Server uptime
+- Total users
+- Total generations
+- Total revenue
+- Database size
+- Storage used
+
+
+**Logs:**
+- Application logs (errors, warnings, info)
+- Filter by level, date
+- Search logs
+- Export logs
+- Clear logs
+
+
+***
+
+
+### 3.9 REPORTS & ANALYTICS
+
+
+**Analytics Dashboard:**
+
+
+**Time Period Selector:**
+- Today
+- Yesterday
+- Last 7 days
+- Last 30 days
+- This month
+- Last month
+- Custom date range
+
+
+**Key Performance Indicators (KPIs):**
+
+
+**User Metrics:**
+- Total registered users
+- New users (in period)
+- Active users (in period)
+- User retention rate
+- Churn rate
+- Average session duration
+- Daily active users (DAU)
+- Monthly active users (MAU)
+- DAU/MAU ratio
+
+
+**Generation Metrics:**
+- Total generations (all time)
+- Generations in period
+- Average per user
+- Success rate
+- Failed generations
+- Average generation time
+- Most popular quality settings
+- Most popular templates used
+
+
+**Revenue Metrics:**
+- Total revenue
+- Revenue in period
+- Revenue growth rate
+- Average revenue per user (ARPU)
+- Average transaction value
+- Revenue by package
+- Revenue by payment method
+- Conversion rate (visitor to purchaser)
+
+
+**Creator Metrics:**
+- Total creators
+- Active creators (uploaded in period)
+- Total templates
+- Templates pending review
+- Average templates per creator
+- Total creator earnings
+- Platform revenue share
+
+
+**Engagement Metrics:**
+- Template views
+- Template uses
+- Likes and saves
+- Shares
+- Average rating
+- Comments/feedback
+
+
+**Detailed Reports:**
+
+
+**User Report:**
+- User growth over time (graph)
+- User acquisition sources
+- User demographics (if available)
+- User behavior patterns
+- Top users by generations
+- Top users by spending
+- Inactive users list
+- Export user data
+
+
+**Generation Report:**
+- Generations over time (graph)
+- Peak usage hours/days
+- Quality settings distribution (pie chart)
+- Aspect ratio preferences
+- Average points spent per generation
+- Failed generations analysis
+- Export generation data
+
+
+**Revenue Report:**
+- Revenue over time (line/bar chart)
+- Revenue by package (pie chart)
+- Revenue by payment method
+- Top purchasing users
+- Revenue forecast (based on trends)
+- Refunds issued
+- Net revenue
+- Export financial report
+
+
+**Template Report:**
+- Most used templates (top 50)
+- Trending templates
+- Template performance comparison
+- Category-wise usage
+- Free vs premium usage
+- Template approval time (average)
+- Rejected templates analysis
+- Export template data
+
+
+**Creator Report:**
+- Top earning creators
+- Most followed creators
+- Most prolific creators (by uploads)
+- Creator retention rate
+- Average earnings per creator
+- Creator satisfaction scores
+- Export creator data
+
+
+**Content Moderation Report:**
+- Total flags raised
+- Flags by type (NSFW, violence, etc.)
+- Auto-blocked content
+- Manually reviewed content
+- False positive rate
+- Ban/suspension statistics
+- Moderation efficiency metrics
+- Export moderation log
+
+
+**Comparison Reports:**
+
+
+**Period Comparison:**
+- Select two time periods
+- Compare all metrics side-by-side
+- Growth/decline percentages
+- Visual charts showing differences
+- Export comparison report
+
+
+**Model Comparison:**
+- Compare different AI models (if switched)
+- Metrics: Cost, speed, success rate, user satisfaction
+- Recommendation for optimal model
+- Export comparison
+
+
+**Custom Reports:**
+
+
+**Report Builder:**
+- Select metrics to include
+- Apply filters (user role, date range, etc.)
+- Choose visualization (table, chart, graph)
+- Save report template
+- Schedule automatic generation
+- Email report recipients
+- Generate report button
+
+
+**Saved Reports:**
+- List of saved custom reports
+- Run saved report
+- Edit report
+- Delete report
+- Schedule report
+
+
+**Export Options:**
+- Export format: CSV, Excel, PDF
+- Include charts: Yes/No
+- Email export
+- Download export
+- Schedule exports (daily/weekly/monthly email)
+
+
+**Visualizations:**
+
+
+**Interactive Dashboards:**
+- Drag and drop widgets
+- Resize widgets
+- Add/remove widgets
+- Available widgets:
+  - KPI cards
+  - Line charts
+  - Bar charts
+  - Pie charts
+  - Area charts
+  - Heatmaps
+  - Tables
+  - Counters
+- Save dashboard layout
+- Multiple dashboard templates
+
+
+**Real-Time Data:**
+- Live updating dashboards
+- Refresh interval: 30 seconds
+- Manual refresh button
+- Last updated timestamp
+
+
+***
+
+
+### 3.10 SUPPORT & TICKETS
+
+
+**Support Ticket Dashboard:**
+
+
+**Overview:**
+- Open tickets count
+- Pending response count
+- Resolved today count
+- Average response time
+- Average resolution time
+- Customer satisfaction score
+
+
+**Ticket List:**
+
+
+**Filter & Sort:**
+- Status: Open/In Progress/Resolved/Closed
+- Priority: Low/Medium/High/Urgent
+- Category: Technical/Payment/Content/Account/Other
+- Date range
+- Assigned to: Admin name
+- Sort by: Date, Priority, Status
+
+
+**Ticket Table:**
+- Ticket ID
+- Subject
+- User name and email
+- Category badge
+- Priority badge
+- Status badge
+- Created date
+- Last updated
+- Assigned to
+- Actions: View/Reply/Close
+
+
+**Ticket Detail View:**
+
+
+**Ticket Information:**
+- Ticket ID
+- Status
+- Priority
+- Category
+- Created date
+- User details:
+  - Name
+  - Email
+  - Phone
+  - User ID
+  - Account status
+  - Link to user profile
+
+
+**Conversation Thread:**
+- Initial message from user
+- All replies chronologically
+- Admin responses highlighted
+- Timestamps
+- Attachments (if any)
+- Internal notes (not visible to user)
+
+
+**Reply to Ticket:**
+- Rich text editor
+- Attach files option
+- Canned responses (templates):
+  - Common solutions
+  - Troubleshooting steps
+  - Apology templates
+- Mark as resolved checkbox
+- Send reply button
+
+
+**Ticket Actions:**
+- Change status
+- Change priority
+- Assign to admin
+- Add internal note
+- Escalate ticket
+- Merge with another ticket
+- Close ticket
+- Reopen ticket
+
+
+**User Ticket History:**
+- All previous tickets from this user
+- Resolution patterns
+- Frequent issues
+
+
+**Canned Responses:**
+
+
+**Response Templates:**
+- Category-wise templates
+- Example templates:
+  - "Thanks for contacting us..."
+  - "Your issue has been resolved..."
+  - "We're working on it..."
+  - Payment issue resolution
+  - Technical troubleshooting
+  - Account recovery steps
+- Add new template
+- Edit existing template
+- Delete template
+
+
+**Template Variables:**
+- {{user_name}}
+- {{ticket_id}}
+- {{admin_name}}
+- Auto-replace on send
+
+
+**Support Analytics:**
+- Total tickets created
+- Resolution rate
+- Average first response time
+- Average resolution time
+- Tickets by category
+- Tickets by priority
+- Most common issues
+- Admin performance:
+  - Tickets assigned
+  - Tickets resolved
+  - Average response time per admin
+
+
+**Customer Satisfaction:**
+- Rating request sent after resolution
+- Satisfaction scores (1-5 stars)
+- User feedback on resolution
+- Improvement areas
+
+
+**Support Settings:**
+- Auto-assign tickets: Yes/No
+- Assignment logic: Round robin/Random/By category
+- Auto-close after: 7 days of inactivity
+- Email notifications: On new ticket/reply
+- Support hours display
+- Expected response time: 24-48 hours
+- Ticket priority rules
+
+
+***
+
+
+## 🎉 FINAL NOTES
+
+
+यह पूरा documentation Rupantar AI app के हर feature को text format में detail से explain करता है। इसमें शामिल हैं:
+
+
+**✅ Covered Sections:**
+1. User App - All 5 tabs with complete features
+2. Creator Dashboard - Complete creator workflow
+3. Admin Panel - All management features
+4. Content Moderation - Safety systems
+5. Payment & Wallet - Complete transaction management
+6. AI Configuration - Model selection and management
+7. Settings & Configuration - System-wide settings
+8. Reports & Analytics - Comprehensive reporting
+9. Support System - Ticket management
+
+
+**Key Takeaways:**
+- Single AI model selection by admin
+- No user-facing AI choice
+- Cost-optimized approach
+- Complete safety and moderation
+- Comprehensive admin control
+- Creator monetization system
+- Points-based economy
+- Multi-payment gateway support
+- Real-time analytics
+- Full audit trails
+
+
+यह documentation किसी भी AI IDE (Cursor, Bolt.new, Lovable.dev, Replit, etc.) को दे सकते हो और वो इसे समझकर develop कर सकता है। 
+
+
+**Development Ready! 🚀**
+
+
+
+
+
+
+
+
+Tab 3
+________________
+
+
+💳 Rupantar AI – Full Payment & Revenue Control System (Admin Panel Final Update)
+(User Payments + Creator Withdrawals + Gateway Integration + Reports)
+________________
+
+
+🪙 1. User Payments (App में Payment Receive करने का System)
+ये सिस्टम Users से पैसे लेकर उन्हें Points देने के लिए रहेगा।
+हर Transaction पूरी तरह Trackable होगा।
+________________
+
+
+⚙️ Main Features (User Payment System):
+🧾 A. Points Packages (Recharge System)
+* 💎 Mini Pack → ₹9 = 50 Points
+
+* 💰 Pro Pack → ₹49 = 300 Points (+50 Bonus)
+
+* 🚀 Ultimate Pack → ₹199 = 1500 Points (+300 Bonus)
+
+* 🎁 Custom Offers (Festivals, Sales, Coupons)
+
+👉 Admin Panel में Option रहेगा:
+   * Edit, Delete, Add new package
+
+   * Set custom pricing
+
+   * “Most Popular” / “Best Value” tags जोड़ सकते हैं
+
+________________
+
+
+💳 B. Payment Gateway Setup (Admin Control Panel)
+Admin “Payment Gateways” Section से App में कौन-सा Gateway चालू है, वो Control करेगा 👇
+Gateway
+	Support
+	Setup Options
+	🟢 Razorpay
+	India (UPI, Card, Netbanking)
+	Key ID, Secret, Webhook URL
+	🟣 Stripe
+	International
+	Publishable Key, Secret Key
+	🟠 PayPal
+	Global
+	Client ID, Secret
+	🟡 PhonePe / Paytm
+	India
+	Merchant ID, Secret Key
+	🔵 Cashfree / Instamojo
+	Backup
+	Key + Secret
+	👉 Features:
+      * Enable/Disable any gateway
+
+      * Test Mode ON/OFF
+
+      * Set Primary & Backup Gateway
+
+      * Auto Switch if Primary Fails
+
+      * Transaction Fee Display
+
+________________
+
+
+🧾 C. Auto Points Credit System
+         * Payment Success → Points Auto Add
+
+         * Failed → No Deduction
+
+         * Cancelled → Auto Refund
+
+         * Transaction Save in Database with:
+
+            * Transaction ID
+
+            * User ID
+
+            * Gateway
+
+            * Amount
+
+            * Points Credited
+
+            * Status
+
+________________
+
+
+🪙 D. Promo Code Management
+               * Create new Promo Codes
+
+               * Example:
+
+                  * DIWALI50 → +50% Bonus Points
+
+                  * NEWUSER10 → ₹10 Discount
+
+                     * Add usage limit & expiry
+
+                     * Enable/Disable any code
+
+________________
+
+
+📊 E. User Payments Analytics
+                        * Total Revenue (Today / Month / Lifetime)
+
+                        * Payment Success Rate
+
+                        * Revenue by Gateway
+
+                        * Top Spending Users
+
+                        * Average Order Value
+
+                        * Conversion Rate (Visitors → Buyers)
+
+________________
+
+
+💸 2. Creator Payments (App से Payment भेजने का System)
+यह सेक्शन Creators की कमाई को Withdraw करने के लिए रहेगा।
+Creators अपने Wallet से Withdrawal Request डालेंगे और Admin यहाँ से Process करेगा 👇
+________________
+
+
+⚙️ A. Creator Wallet Overview
+Field
+	Description
+	💵 Total Earnings
+	Creator के अब तक के Points
+	🪙 Available Balance
+	Withdraw के लिए Ready Points
+	🕓 Pending Withdrawal
+	Requests waiting for approval
+	📅 Lifetime Withdrawn
+	अब तक दिए गए Payment
+	________________
+
+
+🧾 B. Withdrawal Requests (Main Table)
+Column
+	Description
+	Creator Name
+	Profile Picture + Username
+	Amount (₹)
+	Requested amount
+	Points Balance
+	Current wallet points
+	Date
+	Request date
+	Bank Info
+	Account + IFSC
+	Status
+	Pending / Processing / Completed / Rejected
+	Actions
+	Approve / Reject / View Details
+	________________
+
+
+💰 C. Admin Actions
+✅ Approve Payment:
+                           * Verify Bank Details
+
+                           * Enter Transaction ID / UTR
+
+                           * Upload Screenshot (optional)
+
+                           * Auto Email & In-App Notification:
+“Payment ₹XXX sent to your bank account successfully.”
+
+❌ Reject Payment:
+                              * Select Reason:
+
+                                 * Invalid Bank Details
+
+                                 * Minimum Limit Not Met
+
+                                 * Account Under Review
+
+                                    * Enter Message (auto-sent to creator)
+
+                                    * Amount remains in wallet
+
+________________
+
+
+🏦 D. Bank & Tax Configuration
+Option
+	Description
+	Minimum Withdraw
+	₹100 or 1000 Points
+	Platform Fee
+	Default 10% (Admin commission)
+	TDS (India)
+	Optional 1%–5%
+	Auto Tax Calculation
+	Enabled
+	Payout Mode
+	Manual / RazorpayX / Stripe Payout
+	________________
+
+
+⚙️ E. Auto Payment (Optional Future Feature)
+अगर Admin चाहे तो “Auto Payout Mode” ON कर सकता है,
+जिससे ₹500+ Withdraw Requests auto-process होंगी RazorpayX या Stripe के जरिए।
+________________
+
+
+📊 F. Creator Earnings Analytics
+                                       * Total Creator Payout (All Time)
+
+                                       * Earnings per Creator
+
+                                       * Top 10 Earning Creators
+
+                                       * Pending vs Completed Withdrawals
+
+                                       * Average Payment Processing Time
+
+                                       * Monthly Creator Income Trend Graph
+
+________________
+
+
+💹 3. Combined Revenue Dashboard (Admin View)
+यह Admin Panel में एक अलग Section रहेगा: 💵 “Revenue & Finance”
+📈 Sub-sections:
+                                          1. Total Revenue Overview
+
+                                             * Users से आने वाला पैसा
+
+                                             * Creators को गया पैसा
+
+                                             * Net Profit (Revenue - Payouts)
+
+                                                2. Daily / Monthly Graph
+
+                                                   * Green = Income
+
+                                                   * Red = Creator Payments
+
+                                                   * Yellow = Ads Revenue
+
+                                                      3. Breakdown Table
+
+Source
+	Amount
+	Growth %
+	User Payments
+	₹45,000
+	+8%
+	Ads Revenue
+	₹6,000
+	+2%
+	Creator Payouts
+	₹15,000
+	-3%
+	Net Profit
+	₹36,000
+	+5%
+	                                                         4. 
+Export Finance Reports
+
+                                                            * CSV / Excel / PDF
+
+                                                            * Auto Email Monthly Finance Report
+
+________________
+
+
+🧩 4. Admin Control Settings (Finance Section)
+Setting
+	Description
+	Currency
+	Default: INR (₹)
+	GST / Tax Rate
+	Default 18% (editable)
+	Platform Commission
+	Example: 10% on every creator sale
+	Refund Time
+	5–7 Days (editable)
+	Payment Retry
+	Enable/Disable for Failed Payments
+	Auto Report
+	Send Finance Summary to Admin Email Daily
+	________________
+
+
+🔐 5. Security & Audit (Finance Safety)
+                                                               * All Transactions Logged with Timestamp
+
+                                                               * Refund & Payout Approvals Logged Separately
+
+                                                               * Permission-Based Access (Only Finance Admins can handle)
+
+                                                               * IP Lock for Payment Settings
+
+                                                               * Manual Audit Trail Export
+
+________________
+
+
+📢 6. Notifications & Alerts
+                                                                  * 🟢 Payment Received → User gets success email
+
+                                                                  * 🟡 Withdrawal Approved → Creator gets notification
+
+                                                                  * 🔴 Payment Gateway Error → Alert in Admin Dashboard
+
+                                                                  * 📬 Daily Summary → Sent to Admin Email (Total income + payouts)
+
+________________
+
+
+✅ Final Summary – Full Payment System Overview
+Type
+	Feature
+	Description
+	💰 User Payments
+	Points Packages
+	Users buy points via multiple gateways
+	🧾 Gateway Setup
+	Razorpay, Stripe, PayPal, etc.
+	Full control + test mode
+	🏷️ Promo Codes
+	Discounts & Bonus Offers
+	Admin managed
+	🪙 Points Auto Credit
+	On success
+	Auto adds points
+	📊 Reports
+	Revenue, Transactions
+	Exportable graphs
+	💸 Creator Earnings
+	Auto point income per use
+	Based on Template Usage
+	🏦 Withdrawals
+	Approve/Reject
+	Full bank verification system
+	⚙️ Payout Control
+	Manual / Auto
+	via RazorpayX / Stripe
+	📈 Analytics
+	Profit, Trends
+	Total Income vs Payout
+	🔐 Security
+	Role-based
+	Logs + IP restrictions
+	________________
+
+
+
+
+Tab 4
+
+
+________________
+
+
+🧠 RUPANTAR AI – ADMIN PANEL (FINAL DETAILED FEATURES GUIDE)
+(For Developers & Founders – 2025 Edition)
+________________
+
+
+🏠 1️⃣ Dashboard – Main Control Center
+👉 Purpose:
+ Admin को पूरे App का एक नज़र में Overview देने वाला Page।
+🔹 Features:
+                                                                     * Total Users Count:
+ कितने Users Registered हैं (All time)।
+
+                                                                     * Active Users:
+ पिछले 7 दिनों में App खोलने वाले Users।
+
+                                                                     * New Users Today:
+ आज Join करने वाले Users।
+
+                                                                     * Total Creators:
+ कितने Approved Creators हैं।
+
+                                                                     * Pending Creator Requests:
+ कितने Users “Apply as Creator” किए हैं लेकिन अभी तक Approve नहीं हुए।
+
+                                                                     * Total Templates:
+ Creators के द्वारा Uploaded Templates की संख्या।
+
+                                                                     * Pending Templates:
+ Review के लिए Waiting Templates।
+
+                                                                     * Total AI Generations:
+ कितनी Images Generate हुई हैं Total।
+
+                                                                     * Revenue Summary:
+ Total Income + Today’s Income + Growth %।
+
+                                                                     * System Health:
+
+                                                                        * Server Status 🟢
+
+                                                                        * Database Load %
+
+                                                                        * AI API Response Time
+
+                                                                        * Payment Gateway Active/Down
+
+                                                                        * Storage Used %
+
+                                                                           * Quick Buttons:
+
+                                                                              * Review Creator Applications
+
+                                                                              * Review Templates
+
+                                                                              * View Withdraw Requests
+
+                                                                              * Check Support Tickets
+
+________________
+
+
+👥 2️⃣ User Management – All Users Control
+👉 Purpose:
+ Users को Manage करना, Edit करना, Points देना या Block करना।
+🔹 Main Features:
+                                                                                 * User List:
+
+                                                                                    * Profile Picture
+
+                                                                                    * Name
+
+                                                                                    * Email & Phone
+
+                                                                                    * Role (User / Creator / Admin)
+
+                                                                                    * Points Balance
+
+                                                                                    * Last Login
+
+                                                                                    * Status (Active / Suspended / Banned)
+
+                                                                                       * Filters:
+ Search by Name, Email, ID
+Filter by: Role, Status, Activity
+
+                                                                                       * Actions (For Each User):
+
+                                                                                          * 👁️ View Full Profile
+
+                                                                                          * ✏️ Edit User Info
+
+                                                                                          * 💰 Add / Deduct Points
+
+                                                                                          * 🧾 View Transactions History
+
+                                                                                          * 🖼️ View Generated Images
+
+                                                                                          * 🚫 Ban / Suspend / Delete
+
+                                                                                          * 🔄 Change Role (User ⇄ Creator)
+
+                                                                                          * 📨 Send Notification
+
+                                                                                             * Bulk Actions:
+ Multiple Users Select करके –
+Points Add, Ban, Delete, Export Data
+
+                                                                                             * User Analytics:
+
+                                                                                                * Most Active Users
+
+                                                                                                * Most Paying Users
+
+                                                                                                * Inactive Since 30 Days List
+
+________________
+
+
+🧑‍🎨 3️⃣ Creator Management – Professional Creators Section
+👉 Purpose:
+ Creators को Approve करना, उनकी Templates देखना, Earnings Control करना।
+🔹 Sub Sections:
+(A) Creator Applications
+                                                                                                   * Pending List में:
+Name, Email, Social Links, Sample Templates, Date Applied।
+
+                                                                                                   * Review करने के बाद:
+
+                                                                                                      * ✅ Approve → Creator Role Update + Welcome Mail
+
+                                                                                                      * ❌ Reject → Reason & Feedback भेजना
+
+                                                                                                      * ⏰ Reapply After X Days Option
+
+________________
+
+
+(B) Approved Creators
+                                                                                                         * Creator Name + Profile
+
+                                                                                                         * Join Date
+
+                                                                                                         * Total Templates Uploaded
+
+                                                                                                         * Followers Count
+
+                                                                                                         * Earnings Summary
+
+                                                                                                         * Actions:
+
+                                                                                                            * View Profile
+
+                                                                                                            * Verify Creator
+
+                                                                                                            * Suspend / Delete
+
+                                                                                                            * Feature on Home Page
+
+________________
+
+
+(C) Creator Income Control
+Setting
+	Description
+	🪙 Per Template Reward
+	1 Use = X Points (e.g. 1 Point per use)
+	💎 Premium Template Reward
+	Premium पर ज्यादा Points
+	🏷️ Free Template Reward
+	Free पर कम Points
+	💰 Admin Commission %
+	e.g. 10% Platform Cut
+	🔁 Conversion Rate
+	₹1 = X Points (Creators के लिए अलग Rate)
+	🧾 Minimum Withdrawal Limit
+	e.g. ₹100 या 1000 Points
+	🎁 Bonus Milestone
+	Template 10,000+ Uses = Extra Bonus
+	⛔ Income Lock Option
+	अगर Creator Policy तोड़े तो Income Freeze
+	________________
+
+
+(D) Withdrawals Management
+                                                                                                               * List of All Requests:
+
+                                                                                                                  * Creator Name
+
+                                                                                                                  * Amount
+
+                                                                                                                  * Bank Info
+
+                                                                                                                  * Date
+
+                                                                                                                  * Status (Pending/Approved/Rejected)
+
+                                                                                                                     * Approve:
+
+                                                                                                                        * Enter Transaction ID
+
+                                                                                                                        * Upload Proof
+
+                                                                                                                        * Auto Notification Sent
+
+                                                                                                                           * Reject:
+
+                                                                                                                              * Enter Reason
+
+                                                                                                                              * Auto Refund to Wallet
+
+________________
+
+
+(E) Creator Analytics
+                                                                                                                                 * Total Earnings
+
+                                                                                                                                 * Top 10 Earning Creators
+
+                                                                                                                                 * Pending vs Completed Withdrawals
+
+                                                                                                                                 * Monthly Income Chart
+
+                                                                                                                                 * Creator Rating Overview
+
+________________
+
+
+🖼️ 4️⃣ Template Management – Review & Approval System
+👉 Purpose:
+ Creators द्वारा बनाई गई Templates को Manage करना।
+🔹 Tabs:
+                                                                                                                                    * All Templates
+
+                                                                                                                                    * Pending Review
+
+                                                                                                                                    * Approved
+
+                                                                                                                                    * Rejected
+
+                                                                                                                                    * Featured
+
+                                                                                                                                    * Trending
+
+🔹 Review Features:
+                                                                                                                                       * Template Thumbnail + Title
+
+                                                                                                                                       * Category + Price (Free / Premium)
+
+                                                                                                                                       * Creator Info
+
+                                                                                                                                       * AI Safety Score
+
+                                                                                                                                       * Actions:
+✅ Approve
+❌ Reject
+🚩 Flag (Unsafe Content)
+
+🔹 After Approval:
+                                                                                                                                          * Template App में Publish हो जाता है।
+
+                                                                                                                                          * Creator को Notification जाता है।
+
+                                                                                                                                          * Performance Tracking Start।
+
+🔹 Category Control:
+                                                                                                                                             * Add / Edit / Delete Categories
+
+                                                                                                                                             * Add Icon & Color
+
+                                                                                                                                             * Set Display Order
+
+________________
+
+
+🪙 5️⃣ Points & Rewards System
+👉 Purpose:
+ App में Coins/Points का पूरा Control।
+Feature
+	Description
+	₹1 = X Points (User)
+	Example: ₹1 = 10 Points
+	₹1 = X Points (Creator)
+	Example: ₹1 = 12 Points
+	Image Generate Cost
+	1 Image = 20 Points
+	Daily Login Reward
+	Example: 3 Points
+	Referral Bonus
+	Example: 25 Points
+	Watch Ad Reward
+	Example: 5 Points per Ad
+	Max Ads per Day
+	Example: 5 Ads
+	Manual Points Add
+	Admin किसी भी User को Points दे सकता है
+	Point Deduct
+	गलत Activity पर कटौती
+	🔹 Analytics:
+                                                                                                                                                * Total Points Given
+
+                                                                                                                                                * Total Used
+
+                                                                                                                                                * Reward Points Summary
+
+________________
+
+
+📺 6️⃣ Ads Control – Rewarded Ad System
+👉 Purpose:
+ Users को Ads देखने पर Points देना।
+🔹 Features:
+                                                                                                                                                   * Setup AdMob / Unity Ads / Facebook Audience
+
+                                                                                                                                                   * Add App ID + Reward ID
+
+                                                                                                                                                   * 1 Ad = X Points (e.g. 5 Points)
+
+                                                                                                                                                   * Max 5 Ads per day
+
+                                                                                                                                                   * Fraud Detection (Skip करने पर Reward Cancel)
+
+                                                                                                                                                   * Enable/Disable Ad Rewards
+
+🔹 Analytics:
+                                                                                                                                                      * Total Ads Watched
+
+                                                                                                                                                      * Points Given via Ads
+
+                                                                                                                                                      * Top Ad Watchers
+
+                                                                                                                                                      * Daily Ad Revenue Report
+
+________________
+
+
+💳 7️⃣ Wallet & Transactions – Money & Points System
+👉 Purpose:
+ Users से Payment लेना और Track करना।
+🔹 Payment Gateways:
+                                                                                                                                                         * Razorpay (India)
+
+                                                                                                                                                         * Stripe (Global)
+
+                                                                                                                                                         * PayPal
+
+                                                                                                                                                         * Paytm / PhonePe
+
+                                                                                                                                                         * Cashfree / Instamojo
+
+👉 All Configurable from Admin Panel:
+                                                                                                                                                            * Key ID, Secret, Webhook URL
+
+                                                                                                                                                            * Test Mode ON/OFF
+
+                                                                                                                                                            * Enable / Disable Gateway
+
+🔹 Points Packages:
+                                                                                                                                                               * Mini Pack (₹9 = 50 Points)
+
+                                                                                                                                                               * Pro Pack (₹49 = 300 Points)
+
+                                                                                                                                                               * Ultimate Pack (₹199 = 1500 Points)
+
+                                                                                                                                                               * Custom Offers (Festivals)
+
+🔹 Promo Codes:
+                                                                                                                                                                  * Create & Edit Codes
+
+                                                                                                                                                                  * Set Validity, Discount, Bonus
+
+                                                                                                                                                                  * View Usage Count
+
+🔹 Refund Management:
+                                                                                                                                                                     * Auto Refund for Failed Generations
+
+                                                                                                                                                                     * Manual Refund Option
+
+                                                                                                                                                                     * Refund History Report
+
+________________
+
+
+🤖 8️⃣ AI Configuration & Management
+👉 Purpose:
+ कौन सा AI Model App में Active रहेगा — इसे Control करना।
+🔹 Available Models:
+                                                                                                                                                                        * Google Gemini
+
+                                                                                                                                                                        * DALL·E 3
+
+                                                                                                                                                                        * Stability AI (SDXL)
+
+                                                                                                                                                                        * MiniMax
+
+                                                                                                                                                                        * Midjourney
+
+                                                                                                                                                                        * Custom API
+
+🔹 Features:
+                                                                                                                                                                           * Add API Key, Secret, Endpoint
+
+                                                                                                                                                                           * Test API Button
+
+                                                                                                                                                                           * Cost per Image (₹0.5 – ₹3)
+
+                                                                                                                                                                           * Daily Budget Limit
+
+                                                                                                                                                                           * Auto Fallback
+
+                                                                                                                                                                           * API Health Monitor
+
+🔹 Analytics:
+                                                                                                                                                                              * Total Generations
+
+                                                                                                                                                                              * Success vs Fail Ratio
+
+                                                                                                                                                                              * Avg Response Time
+
+                                                                                                                                                                              * Cost per Image
+
+                                                                                                                                                                              * Daily Spend Report
+
+________________
+
+
+🧑‍💼 9️⃣ Sub Admin Management
+👉 Purpose:
+ Team Members को Limited Permission के साथ Add करना।
+🔹 Features:
+                                                                                                                                                                                 * Add New Sub Admin (Name, Email, Password)
+
+                                                                                                                                                                                 * Assign Permissions (Checkbox Based)
+
+                                                                                                                                                                                    * User Control
+
+                                                                                                                                                                                    * Template Review
+
+                                                                                                                                                                                    * Creator Approve
+
+                                                                                                                                                                                    * Payment Manage
+
+                                                                                                                                                                                    * AI Settings
+
+                                                                                                                                                                                    * Ads & Points
+
+                                                                                                                                                                                    * Reports Only
+
+                                                                                                                                                                                       * Edit / Suspend / Delete Sub Admin
+
+🔹 Activity Log:
+                                                                                                                                                                                          * कौन Sub Admin क्या Action ले रहा है – Live Log
+
+________________
+
+
+⚙️ 🔟 App & System Settings
+👉 Purpose:
+ पूरे App की Basic Settings और Branding Control।
+🔹 Features:
+                                                                                                                                                                                             * Change App Name, Logo, Tagline
+
+                                                                                                                                                                                             * Enable/Disable Features:
+
+                                                                                                                                                                                                * User Registration
+
+                                                                                                                                                                                                * Creator Applications
+
+                                                                                                                                                                                                * Ads Reward
+
+                                                                                                                                                                                                * AI Generation
+
+                                                                                                                                                                                                   * Maintenance Mode ON/OFF
+
+                                                                                                                                                                                                   * SMTP Email Setup
+
+                                                                                                                                                                                                   * Firebase Push Notifications
+
+                                                                                                                                                                                                   * Twilio SMS Alerts
+
+                                                                                                                                                                                                   * AWS / GCS Storage Config
+
+                                                                                                                                                                                                   * Auto File Cleanup Option
+
+________________
+
+
+📊 11️⃣ Reports & Analytics
+👉 Purpose:
+ App के सभी Metrics को Data के रूप में देखना।
+🔹 Report Types:
+                                                                                                                                                                                                      * User Growth
+
+                                                                                                                                                                                                      * Template Usage
+
+                                                                                                                                                                                                      * Revenue & Profit
+
+                                                                                                                                                                                                      * Creator Income
+
+                                                                                                                                                                                                      * Ads Performance
+
+                                                                                                                                                                                                      * AI Cost per Day
+
+                                                                                                                                                                                                      * Support Tickets Summary
+
+🔹 Export Options:
+                                                                                                                                                                                                         * CSV, Excel, PDF
+
+                                                                                                                                                                                                         * Auto Email Daily / Weekly Report
+
+________________
+
+
+🎫 12️⃣ Support Tickets System
+👉 Purpose:
+ Users की Complaints & Queries Handle करना।
+🔹 Features:
+                                                                                                                                                                                                            * Ticket Table: Subject, User, Date, Priority
+
+                                                                                                                                                                                                            * Reply System (Rich Text Editor)
+
+                                                                                                                                                                                                            * Attach Screenshot
+
+                                                                                                                                                                                                            * Assign to Another Admin
+
+                                                                                                                                                                                                            * Close / Reopen Ticket
+
+                                                                                                                                                                                                            * Canned Responses Templates
+
+🔹 Analytics:
+                                                                                                                                                                                                               * Total Open Tickets
+
+                                                                                                                                                                                                               * Average Reply Time
+
+                                                                                                                                                                                                               * Resolution Rate
+
+                                                                                                                                                                                                               * Satisfaction Rating
+
+________________
+
+
+🛡️ 13️⃣ Content Moderation
+👉 Purpose:
+ Unsafe / Violent / NSFW Content Filter करना।
+🔹 Features:
+                                                                                                                                                                                                                  * Auto AI Moderation (Google / OpenAI)
+
+                                                                                                                                                                                                                  * Manual Review Queue
+
+                                                                                                                                                                                                                  * Flagged Content Tab
+
+                                                                                                                                                                                                                  * Approve / Block / Ban User
+
+                                                                                                                                                                                                                  * Banned Keywords List
+
+                                                                                                                                                                                                                  * Strike System (3 Strikes = Ban)
+
+                                                                                                                                                                                                                  * Reported Content Management
+
+________________
+
+
+🔒 14️⃣ Security & Logs
+👉 Purpose:
+ App और Admin Account की Safety।
+🔹 Features:
+                                                                                                                                                                                                                     * 2FA Login (Google Authenticator)
+
+                                                                                                                                                                                                                     * Password Policy (Strong Required)
+
+                                                                                                                                                                                                                     * IP Whitelist / Blacklist
+
+                                                                                                                                                                                                                     * Session Timeout: 30 min
+
+                                                                                                                                                                                                                     * Auto Backup Daily
+
+                                                                                                                                                                                                                     * Activity Logs of All Admins
+
+                                                                                                                                                                                                                     * SSL Certificate Status
+
+________________
+
+
+📢 15️⃣ Notification Center
+👉 Purpose:
+ सब Alert एक जगह दिखेंगे।
+                                                                                                                                                                                                                        * Creator Applications Pending
+
+                                                                                                                                                                                                                        * Withdraw Requests
+
+                                                                                                                                                                                                                        * Support Tickets
+
+                                                                                                                                                                                                                        * System Alerts (Server Down, API Fail)
+
+                                                                                                                                                                                                                        * “Mark All as Read” Option
+
+________________
+
+
+💵 16️⃣ Finance Dashboard (New)
+👉 Purpose:
+ Full App की Income & Expense Summary
+🔹 Features:
+                                                                                                                                                                                                                           * Total User Payments
+
+                                                                                                                                                                                                                           * Creator Payouts
+
+                                                                                                                                                                                                                           * Ad Revenue
+
+                                                                                                                                                                                                                           * Net Profit Calculation
+
+                                                                                                                                                                                                                           * Monthly Chart (Income vs Expense)
+
+                                                                                                                                                                                                                           * Export Finance Report
+
+________________
+
+
+✅ FINAL NOTE
+Category
+	Summary
+	Dashboard
+	App Overview + System Health
+	Users
+	Manage + Points + Roles
+	Creators
+	Approve + Income + Withdraw
+	Templates
+	Review + Categories + Analytics
+	Points
+	Login, Ads, Referral, Generate Cost
+	Ads
+	Reward Setup + Fraud Check
+	Wallet
+	Payment Gateways + Packages + Refunds
+	AI
+	Model Control + Cost + API
+	Sub Admins
+	Permission-Based Team
+	Settings
+	Branding, Mail, Notifications
+	Reports
+	Full Analytics + Export
+	Support
+	User Queries
+	Moderation
+	Safety & Banned Content
+	Security
+	Logs, 2FA, Backup
+	Finance
+	Income vs Expense Summary
+	________________

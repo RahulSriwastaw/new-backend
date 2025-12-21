@@ -1,0 +1,2333 @@
+﻿# Rupantar AI - Complete Feature Documentation
+
+
+***
+
+
+## 📱 SECTION 1: USER APP - MAIN FEATURES
+
+
+***
+
+
+### 1.1 USER REGISTRATION & LOGIN
+
+
+**Registration Process:**
+- User app खोलने पर welcome screen दिखेगी
+- "Sign Up" button पर click करने पर registration form खुलेगा
+- Required fields: Full Name, Email, Phone Number, Password, Confirm Password
+- Terms & Conditions checkbox mandatory
+- Submit करने पर email verification link भेजा जाएगा
+- Email verify करने के बाद account activate होगा
+- Auto-login और main app screen पर redirect
+
+
+**Login Process:**
+- Email/Phone और Password से login
+- "Remember Me" option
+- "Forgot Password" link - email पर reset link भेजेगा
+- Failed login attempts track होंगे - 5 failed attempts के बाद 15 minute lock
+- Login होने पर 3 points का daily login bonus (first login of the day)
+
+
+**Social Login (Optional):**
+- Google login integration
+- Facebook login integration
+- Auto-create account और profile import
+
+
+***
+
+
+### 1.2 BOTTOM NAVIGATION (5 TABS)
+
+
+**Navigation Bar Fixed Bottom Position:**
+
+
+**Tab 1: TEMPLATE**
+- Left-most icon
+- Template gallery का main access
+- Unselected state: grey icon
+- Selected state: primary color icon with label
+
+
+**Tab 2: WALLET**
+- Second from left
+- Points balance quick view badge
+- Unselected: wallet icon grey
+- Selected: wallet icon primary color
+
+
+**Tab 3: GENERATE (CENTER)**
+- Center position with elevated/larger icon
+- Plus (+) icon inside circle
+- Primary color background
+- Main action button
+- Tapping opens Generate page
+
+
+**Tab 4: HISTORY**
+- Second from right
+- Clock/history icon
+- Badge showing unviewed generations count
+- Unselected: grey
+- Selected: primary color
+
+
+**Tab 5: PRO**
+- Right-most icon
+- Crown/star icon for premium
+- Golden/premium color tint
+- Access to points purchase
+
+
+***
+
+
+### 1.3 TEMPLATE TAB - DETAILED FEATURES
+
+
+**Top Section:**
+- Search bar with placeholder "Search templates..."
+- Filter icon (right side) - opens filter drawer
+- Trending badge animation on top
+
+
+**Category Bar (Horizontal Scroll):**
+- Horizontally scrolling chips below search
+- Categories: All, Trending, Cartoon, Wedding, Fashion, Business, Cinematic, Festival, Portrait, Couple, Traditional, Modern
+- Selected category: highlighted with primary color
+- Smooth scroll with momentum
+- Auto-scroll on category selection to center selected
+
+
+**Template Feed (Single Column Infinite Scroll):**
+
+
+**Each Template Card Contains:**
+
+
+**Image Section:**
+- Full-width square demo image (1:1 ratio)
+- Loading shimmer effect while loading
+- On hover/tap: subtle zoom animation
+- Bottom overlay gradient with template info
+
+
+**Creator Info Bar:**
+- Creator profile picture (small circle, top-left overlay)
+- Creator name with verified badge (blue checkmark) if verified
+- "Follow" button (only if not followed)
+- Follower count display
+
+
+**Engagement Bar (Below Image):**
+- Like button with count - heart icon, fill animation on tap
+- Save button with count - bookmark icon
+- Use count - shows how many people used this template
+- Share button - opens share sheet
+
+
+**Template Details:**
+- Template title (bold, 2 lines max, ellipsis)
+- Template description (3 lines max, "see more" link)
+- Category tags (colored chips) - max 3 visible
+- Premium badge (if premium template)
+
+
+**Action Button:**
+- "Use Template" button (full-width, primary color)
+- Shows points cost (2 points free, 3+ premium)
+- Tap -> redirects to Generate tab with pre-loaded prompt
+
+
+**Template Detail Modal (On Image Tap):**
+- Opens full-screen modal
+- Large template preview image
+- Before/After slider (if available)
+- Complete description
+- Full tags list
+- Creator profile card with portfolio link
+- User ratings and reviews section
+- "Use This Template" sticky button at bottom
+- Close button (X) top-right
+
+
+**Filter Drawer (Right Swipe In):**
+
+
+**Filter Options:**
+- Gender: Male, Female, Unisex (checkboxes)
+- Type: Free, Premium (checkboxes)
+- Category: All categories list (checkboxes)
+- State: Dropdown with all Indian states
+- Age Group: 18-25, 25-35, 35-45, 45+ (checkboxes)
+- Sort By: Trending, Popular, Latest, Top Rated (radio buttons)
+- "Apply Filters" button
+- "Reset All" button
+
+
+**Search Functionality:**
+- Real-time search as user types
+- Search in: template title, description, tags, creator name
+- Recent searches history (show below search bar)
+- No results state with suggestion message
+
+
+**Special Sections:**
+
+
+**Trending Section (Top of feed):**
+- Horizontal scroll of trending templates
+- Fire icon indicator
+- Auto-refreshes daily based on usage
+
+
+**Recommended For You:**
+- Personalized based on user's history
+- Shows after first 5 templates in feed
+- "Why recommended" tooltip
+
+
+**Featured Collections:**
+- Admin-curated template collections
+- Weekly themes (e.g., "Festive Special", "Wedding Season")
+- Banner style presentation
+
+
+**Template Actions:**
+
+
+**Like Action:**
+- Tap heart icon - fills with animation
+- Increment like count
+- Save to user's liked templates list
+- Can unlike by tapping again
+
+
+**Save Action:**
+- Tap bookmark icon - fills with animation
+- Save to Profile > Saved Templates section
+- Organize in collections (create folders)
+
+
+**Follow Creator:**
+- Follow button on creator info
+- Changes to "Following" after tap
+- Get notifications on new templates from this creator
+
+
+**Use Template:**
+- Redirects to Generate Tab
+- Template's hidden prompt auto-loaded (not visible to user)
+- User can add their own prompt (merges with hidden prompt)
+- Template name shown at top of Generate page
+- Can change template from Generate page
+
+
+***
+
+
+### 1.4 WALLET TAB - DETAILED FEATURES
+
+
+**Main Balance Card (Top):**
+- Large animated number showing current points balance
+- Change indicator (green arrow up for earned, red arrow down for spent)
+- Last transaction time display
+- "Add Points" button (redirects to Pro tab)
+- Refresh icon to sync balance
+
+
+**Quick Stats Cards:**
+- Total Earned: Lifetime earned points with icon
+- Total Spent: Lifetime spent points with icon
+- This Month: Current month's activity summary
+
+
+**Earning Methods Section:**
+
+
+**Daily Login Bonus:**
+- Card showing daily streak calendar
+- "Claim 3 Points" button (if not claimed today)
+- Streak counter (e.g., "5 days streak 🔥")
+- Missed days shown in grey
+- Tooltip: "Login daily to earn 3 points!"
+
+
+**Referral Program:**
+- Referral link display with "Copy" button
+- Share button - opens share sheet with pre-filled message
+- Referral stats:
+  - Total referrals sent
+  - Successful referrals (completed signup)
+  - Pending referrals
+  - Total earned from referrals
+- How it works: Info popup explaining 20 points per successful referral
+- Referral leaderboard (top referrers)
+
+
+**Watch Ads for Points:**
+- "Watch Ad" button (shows 6 points icon)
+- Ad availability counter (e.g., "3 ads available today")
+- Timer showing when next ad available
+- Tap -> plays rewarded video ad
+- On completion: +6 points with celebration animation
+- Daily limit: 5 ads maximum
+
+
+**Transaction History Section:**
+
+
+**Filter Bar:**
+- All, Earned, Spent (tabs)
+- Date filter: Today, This Week, This Month, Custom Range
+- Search transactions
+
+
+**Transaction List (Infinite Scroll):**
+
+
+**Each Transaction Card Shows:**
+- Transaction icon (based on type)
+- Transaction type and description
+- Points amount (green + for credit, red - for debit)
+- Balance after transaction
+- Date and time
+- Reference ID (clickable to see details)
+
+
+**Transaction Types:**
+- Purchase: Points bought via payment
+- Generation: Image generation (-20 points)
+- Tool Use: Quick tools used (BG remove, enhance, etc.)
+- Referral Bonus: +20 points from referral
+- Daily Login: +3 points
+- Ad Watch: +6 points
+- Refund: Points returned due to failed generation
+- Creator Earning: (if creator) Template usage earnings
+
+
+**Transaction Detail Modal:**
+- Full transaction information
+- Date, time, amount
+- Description
+- Payment method (if purchase)
+- Receipt/Invoice (if purchase)
+- Related generation/template link
+- Support ticket option if issue
+
+
+**Creator Earnings (If User is Creator):**
+
+
+**Earnings Dashboard Card:**
+- Total earnings to date
+- Pending withdrawal amount
+- Last payout date
+- "Request Withdrawal" button (if > minimum threshold)
+
+
+**Earnings Graph:**
+- Line chart showing daily/weekly/monthly earnings
+- Toggle between time periods
+- Tap on data point to see details
+
+
+**Earnings Breakdown:**
+- By template: which template earned how much
+- By date: calendar view with daily earnings
+- Most profitable template highlight
+
+
+**Withdrawal Section:**
+- Minimum withdrawal: ₹500 equivalent points
+- Bank details form (if first time)
+- Withdrawal history
+- Processing time: 3-5 business days
+- Transaction ID tracking
+
+
+**Settings Icon (Top Right):**
+- Notification preferences for wallet activities
+- Auto-refund settings
+- Low balance alert threshold
+
+
+***
+
+
+### 1.5 GENERATE TAB - DETAILED FEATURES
+
+
+**Photo Upload Section (Top):**
+
+
+**Upload Area Design:**
+- Drag-and-drop zone with dotted border
+- "Upload 1-5 photos" text with icon
+- Multiple upload support
+- Tap to open file picker
+
+
+**Upload Interface:**
+- Grid view showing uploaded photos
+- Each photo has:
+  - Thumbnail preview
+  - Remove (X) button
+  - Reorder handle (drag to rearrange)
+  - Quality indicator (face detected ✓)
+- Add more button (+ icon) to add additional photos
+- Maximum 5 photos limit enforced
+
+
+**Photo Validation:**
+- Auto face detection on upload
+- Warning if no face detected
+- File size limit: 10MB per image
+- Supported formats: JPG, PNG, WEBP
+- Auto-compression if image too large
+
+
+**Quick AI Tools Section:**
+
+
+**Tool Buttons (Horizontal Scroll):**
+
+
+**Background Remover:**
+- Icon: scissors/eraser
+- Label: "BG Remove"
+- Functionality: Removes background from uploaded photo
+- Points cost: FREE (included)
+- Opens preview modal with result
+- Save/Apply button
+
+
+**Image Enhancement:**
+- Icon: sparkles/magic wand
+- Label: "Enhance"
+- Functionality: Auto color correction, brightness, sharpness
+- Points cost: 5 points
+- Before/After preview slider
+- Intensity slider (0-100%)
+- Apply button
+
+
+**Face Enhancement:**
+- Icon: smiley face
+- Label: "Face Fix"
+- Functionality: Face restoration, skin smoothing, eye enhancement
+- Points cost: 8 points
+- Before/After preview
+- Options: Subtle, Normal, Strong
+- Apply button
+
+
+**Upscale (Super Resolution):**
+- Icon: expand arrows
+- Label: "Upscale"
+- Options:
+  - 2x Upscale: 10 points
+  - 4x Upscale: 15 points
+- Preview in zoom view
+- Original size vs upscaled size comparison
+- Apply button
+
+
+**Colorize (B&W to Color):**
+- Icon: color palette
+- Label: "Colorize"
+- Functionality: Converts black & white to color
+- Points cost: 10 points
+- Multiple color scheme options
+- Preview before apply
+- Apply button
+
+
+**Style Transfer:**
+- Icon: paint brush
+- Label: "Style"
+- Functionality: Apply artistic styles
+- Styles: Oil Painting, Watercolor, Sketch, Cartoon, Vintage
+- Points cost: 8 points per style
+- Intensity slider
+- Preview and apply
+
+
+**Tool Workflow:**
+- Tap tool button
+- Processing starts (loading animation)
+- Preview modal opens with result
+- User can:
+  - Accept: Points deducted, result applied
+  - Reject: No points deducted, return to original
+  - Adjust: Settings slider available
+- Can combine multiple tools sequentially
+
+
+**Prompt Input Section:**
+
+
+**Template Selected State:**
+- Template name shown at top with small preview
+- "Change Template" button
+- Hidden prompt indicator: "✓ Template prompt loaded"
+- Tooltip explaining hidden prompt merging
+
+
+**Prompt Input Box:**
+- Large multi-line text area
+- Placeholder: "Describe what you want to create..."
+- Character counter (max 500 characters)
+- Voice input button (speech-to-text)
+- Emoji picker button
+
+
+**AI Prompt Suggestions:**
+- "💡 Try these prompts" section below input
+- Quick suggestion chips based on template
+- Example: "Professional look", "Cinematic lighting", "Soft background"
+- Tap chip to add to prompt
+
+
+**Negative Prompt (Advanced):**
+- Expandable "Advanced Options" accordion
+- Negative prompt field: "What to avoid in image"
+- Examples shown: "blurry, low quality, distorted"
+- Help tooltip explaining negative prompts
+
+
+**Smart Prompt Analysis:**
+- Real-time keyword detection
+- Green checkmark for good keywords
+- Yellow warning for unclear terms
+- Red flag for banned keywords
+- Suggestions to improve prompt
+
+
+**Advanced Settings Panel:**
+
+
+**Quality Selector:**
+- Dropdown menu
+- Options: SD (Standard), HD (High Definition), UHD (Ultra HD), 2K, 4K, 8K
+- Each option shows:
+  - Resolution details
+  - File size estimate
+  - Generation time estimate
+  - Points cost (increases with quality)
+- Default: HD
+
+
+**Aspect Ratio Selector:**
+- Visual grid of ratio options
+- Options: 1:1 (Square), 4:3, 16:9 (Widescreen), 9:16 (Portrait), 3:4
+- Preview shape indicator
+- Tap to select
+
+
+**Style Reference Upload (Optional):**
+- "Upload style reference" button
+- Upload an image whose style you want to copy
+- Style intensity slider (10-100%)
+- Preview how style will blend
+
+
+**Advanced AI Settings (Collapsible):**
+- Creativity level slider (0-100%)
+- Detail level: Low, Medium, High
+- Face preservation strength (important for portraits)
+- Background detail control
+
+
+**Points Cost Display:**
+- Always visible sticky card showing:
+  - Base generation: 20 points
+  - Quality upgrade: +X points
+  - Tools used: +Y points
+  - Total cost: Z points
+- Live update as settings change
+- Points balance comparison (you have X, need Y)
+
+
+**Generate Button:**
+- Large prominent button at bottom
+- Text: "Generate Image (20 Points)" [dynamic based on total cost]
+- Icon: rocket/magic wand
+- Disabled states:
+  - Insufficient points (show "Add Points" instead)
+  - No photos uploaded
+  - Banned keywords detected
+  - Processing another generation
+- Enabled: Primary color, pulsing animation
+
+
+**Generation Process Animation:**
+
+
+**Step 1: Validation**
+- "Checking your request..." message
+- Progress: 10%
+
+
+**Step 2: Content Moderation**
+- "Ensuring safety..." message
+- Progress: 30%
+
+
+**Step 3: Uploading Photos**
+- "Uploading your photos..." message
+- Progress: 50%
+
+
+**Step 4: AI Processing**
+- "Creating your image with AI..." message
+- "Powered by [AI Name]" subtitle
+- Creative loading animations (particles, neural network visualization)
+- Progress: 50-90%
+- Estimated time remaining counter
+
+
+**Step 5: Finalizing**
+- "Almost done..." message
+- Progress: 95%
+
+
+**Generation Complete Screen:**
+
+
+**Success Animation:**
+- Confetti/crackers explosion animation
+- Success sound effect
+- "Your image is ready! 🎉" message
+
+
+**Generated Image Display:**
+- Full-screen image preview
+- Pinch to zoom
+- Swipe gestures enabled
+
+
+**Action Buttons (Bottom Sheet):**
+
+
+**Download Button:**
+- Icon: download arrow
+- Options:
+  - Standard Quality (watermarked) - FREE
+  - HD Quality (no watermark) - 5 extra points
+  - Original Quality (no watermark) - 10 extra points
+- Tap opens quality selector
+- After selection, image downloads to gallery
+- Success toast: "Saved to gallery!"
+
+
+**Share Button:**
+- Icon: share
+- Opens native share sheet
+- Options:
+  - WhatsApp, Instagram, Facebook, Twitter
+  - Copy link (if image uploaded to cloud)
+  - More apps
+- Optional: Add "Created with Rupantar AI" watermark
+
+
+**Re-create Button:**
+- Icon: refresh
+- "Try again with same settings"
+- Confirmation: "This will cost another 20 points"
+- Useful if result not satisfactory
+- Same prompt and settings reused
+
+
+**Favorite Button:**
+- Icon: heart/star
+- "Save to Favorites"
+- Adds to History > Favorites tab
+- Heart fills with animation
+- Can organize into collections
+
+
+**Edit Button (Advanced):**
+- Opens mini editor
+- Options:
+  - Apply filters
+  - Adjust brightness/contrast
+  - Crop
+  - Add text
+- Save edited version
+
+
+**Close/Back Button:**
+- Returns to Generate tab
+- Shows option to generate again
+- Previous settings retained
+
+
+**Generation Failed Screen:**
+- Error icon with message
+- Reason explained (API error, content policy, etc.)
+- "Your points have been refunded" confirmation
+- "Try again" button
+- "Contact support" link if repeated failures
+
+
+***
+
+
+### 1.6 HISTORY TAB - DETAILED FEATURES
+
+
+**Tab Structure (Top):**
+- Two sub-tabs: "All History" and "Favorites"
+- Swipe or tap to switch
+- Active tab underline indicator
+
+
+**ALL HISTORY TAB:**
+
+
+**Filter & Sort Bar:**
+- Sort dropdown: Latest, Oldest, Most Downloaded
+- Filter button opens drawer:
+  - Date range picker
+  - Template used (multi-select)
+  - Quality (SD, HD, etc.)
+  - Favorited only toggle
+- Search bar: Search by prompt text
+- Clear filters option
+
+
+**Generation Grid View:**
+- Masonry/Pinterest grid layout
+- 2 columns on mobile, 3-4 on tablet/desktop
+- Lazy loading as user scrolls
+
+
+**Each Generation Card:**
+
+
+**Image Thumbnail:**
+- Square crop preview
+- Loading placeholder if not loaded
+- Tap to open full view
+
+
+**Quick Info Overlay (On Hover/Tap):**
+- Generation date and time
+- Template name used (if any)
+- Quality badge (HD, 4K, etc.)
+- Points spent
+
+
+**Action Icons (Overlay Bottom):**
+- Quick download icon
+- Share icon
+- Favorite icon (filled if favorited)
+- Menu (three dots) for more options
+
+
+**Generation Detail View (Full Screen Modal):**
+
+
+**Image Section:**
+- Full-size generated image
+- Pinch to zoom
+- Double-tap to zoom
+- Swipe left/right if multiple generations
+
+
+**Info Section (Swipe Up Drawer):**
+- Generation date and time
+- Prompt used (expandable)
+- Template details (if used) - tap to view template
+- Settings used: Quality, aspect ratio, AI model
+- Generation time taken
+- Points spent
+
+
+**Actions Bar:**
+- Download (with quality options)
+- Share (native share sheet)
+- Re-create (generate again with same settings)
+- Delete (with confirmation)
+- Report (if inappropriate)
+
+
+**Related Generations:**
+- "Similar images you created" section
+- Horizontal scroll of similar generations
+- Based on same template or similar prompts
+
+
+**Statistics Section:**
+- This generation downloaded X times
+- Shared Y times
+- Created Z days ago
+
+
+**FAVORITES TAB:**
+
+
+**Collection View:**
+- Option to create folders/collections
+- Default "All Favorites" collection
+- Custom collections: "Wedding Ideas", "Profile Pictures", etc.
+
+
+**Collection Management:**
+- Create new collection button
+- Each collection shows:
+  - Collection name and cover image
+  - Number of items
+  - Last updated date
+- Tap to open collection
+
+
+**Inside Collection:**
+- Same grid view as History
+- Can move images between collections
+- Bulk select mode:
+  - Long press to activate
+  - Select multiple images
+  - Actions: Move to collection, Delete, Share
+
+
+**Analytics Section (Optional):**
+- Total generations count
+- Most used template
+- Total points spent on generations
+- Average generation time
+- Favorite style/category
+
+
+**Export Options:**
+- Bulk download selected images
+- Create collage from selected
+- Export metadata as CSV
+
+
+**Empty States:**
+- If no history: Friendly message "Start creating amazing images!"
+- If no favorites: "Favorite your best generations!"
+- Call-to-action button to generate
+
+
+***
+
+
+### 1.7 PRO TAB - DETAILED FEATURES
+
+
+**Hero Section (Top):**
+- Premium gradient background
+- "Unlock Unlimited Creativity" headline
+- Subheading explaining benefits
+- Animated illustrations
+
+
+**Points Packages Section:**
+
+
+**Package Cards (3 Options):**
+
+
+**MINI PACK:**
+- Card Design: Basic, light color
+- Price: ₹9
+- Points: 50 points (admin configurable)
+- Badge: "Best for Beginners"
+- Benefits list:
+  - Generate 2-3 images
+  - Access all free templates
+  - Basic quality (HD)
+- "Buy Now" button
+- No badge/special indicator
+
+
+**PRO PACK (MOST POPULAR):**
+- Card Design: Highlighted, gradient, "Popular" badge
+- Price: ₹49
+- Points: 300 points
+- Bonus: +50 extra points
+- Badge: "🔥 Most Popular"
+- Benefits list:
+  - Generate 15+ images
+  - Access premium templates
+  - HD & UHD quality
+  - Priority generation queue
+  - Email support
+- "Buy Now" button (prominent)
+- "Best Value" tag
+
+
+**ULTIMATE PACK:**
+- Card Design: Premium gold/dark theme
+- Price: ₹199
+- Points: 1500 points
+- Bonus: +300 extra points
+- Badge: "👑 Best Value"
+- Benefits list:
+  - Generate 75+ images
+  - All premium features
+  - Up to 8K quality
+  - Priority support
+  - Early access to new features
+  - Exclusive templates
+  - No watermarks
+- "Buy Now" button (premium styled)
+
+
+**Package Comparison Table:**
+- Toggle to view detailed comparison
+- Features listed with checkmarks
+- Shows per-image cost calculation
+
+
+**Payment Process:**
+
+
+**Step 1: Package Selection**
+- User taps "Buy Now" on any package
+- Package highlights with selection animation
+- Summary card appears at bottom
+
+
+**Step 2: Payment Gateway Selection**
+- Modal opens showing available gateways
+- Options (Admin configured):
+  - Razorpay (with UPI, Cards, Wallets)
+  - Stripe (International cards)
+  - PayPal (International)
+- Each gateway shows supported payment methods
+- User selects preferred gateway
+
+
+**Step 3: Order Summary**
+- Package details confirmation
+- Points breakdown
+- Price in ₹ INR
+- GST/Tax calculation (if applicable)
+- Final amount to pay
+- Promo code input field (if available)
+- "Proceed to Payment" button
+
+
+**Step 4: Payment Gateway Page**
+- Redirects to selected gateway
+- Razorpay/Stripe/PayPal interface opens
+- User completes payment:
+  - UPI: Enter UPI ID or scan QR
+  - Card: Enter card details
+  - Wallet: Select wallet and authorize
+  - Net Banking: Select bank
+
+
+**Step 5: Payment Processing**
+- Loading screen "Processing your payment..."
+- Don't close warning message
+
+
+**Step 6: Payment Success**
+- Success animation (confetti)
+- "Payment Successful! 🎉" message
+- Points credited confirmation
+- New balance displayed
+- Transaction receipt
+- Email sent with receipt
+- "Start Creating" button (redirects to Generate tab)
+
+
+**Step 7: Payment Failed**
+- Error message with reason
+- "Retry Payment" button
+- "Contact Support" link
+- No points deducted
+
+
+**Promo Codes Section:**
+- "Have a promo code?" input field
+- Apply button
+- Validates code and shows discount
+- Error messages for invalid/expired codes
+
+
+**Transaction History Link:**
+- "View Purchase History" link
+- Opens Wallet > Transaction History filtered to purchases
+
+
+**Special Offers Banner:**
+- Limited time offers display
+- Countdown timer for offer expiry
+- Festival/seasonal discounts
+- First-time user discounts
+
+
+**Referral Rewards Section:**
+- "Earn Free Points!" card
+- Refer friends and get 20 points per successful referral
+- Share referral link button
+- Referral stats display
+
+
+**Subscription Option (Future Feature):**
+- Monthly subscription plans
+- Unlimited generations
+- Auto-renewal information
+- Subscription management
+
+
+**FAQs Section:**
+- "How do points work?"
+- "What payment methods are accepted?"
+- "Is my payment secure?"
+- "Can I get a refund?"
+- "How to use promo codes?"
+- Expandable accordion style
+
+
+**Support Contact:**
+- "Need help?" section
+- Email support link
+- Chat support button (if available)
+- FAQ link
+
+
+***
+
+
+### 1.8 PROFILE SECTION - DETAILED FEATURES
+
+
+**Access:** Top-right corner circle icon throughout app
+
+
+**Profile Header:**
+- Large profile picture (tap to change)
+- Username/Display name
+- Email address
+- Phone number
+- Member since date
+- Edit profile button
+
+
+**Profile Stats Cards:**
+- Total Generations: Count with icon
+- Points Balance: Current balance with "Add" button
+- Templates Used: Count of unique templates
+- Favorites Saved: Count
+
+
+**Account Information Section:**
+
+
+**Personal Details:**
+- Full Name (editable)
+- Email (editable with verification)
+- Phone (editable with verification)
+- Date of Birth (editable)
+- Gender (editable)
+- Location: Country, State, City (editable)
+
+
+**Edit Mode:**
+- "Edit Profile" button
+- All fields become editable
+- "Save Changes" and "Cancel" buttons appear
+- Validation on save
+- Success/error messages
+
+
+**Creator Section:**
+
+
+**For Non-Creators:**
+- Prominent "Become a Creator" card
+- Benefits explained:
+  - Create and sell templates
+  - Earn revenue (80% share)
+  - Build your portfolio
+  - Get verified badge
+- "Apply Now" button
+
+
+**Creator Application Form (Modal):**
+
+
+**Step 1: Basic Information**
+- Full Name (pre-filled)
+- Email (pre-filled)
+- Phone (pre-filled)
+- Create Username (unique, check availability)
+- Create Password
+- Confirm Password
+- "Next" button
+
+
+**Step 2: Social Media Links**
+- Facebook URL (optional)
+- YouTube URL (optional)
+- Instagram URL (optional)
+- Telegram URL (optional)
+- WhatsApp Number (optional)
+- At least one social link required
+- Validation for correct URL format
+- "Next" button
+
+
+**Step 3: Demo Templates**
+
+
+**Template 1 Upload:**
+- "Upload demo output image" area
+- "Enter prompt used" text field (min 50 chars)
+- Preview uploaded image
+- Remove and re-upload option
+
+
+**Template 2 Upload:**
+- Same as Template 1
+- Different image and prompt required
+
+
+**Terms & Conditions:**
+- Creator agreement checkbox
+- Revenue share terms (80-20 split)
+- Content policy agreement
+- "Submit Application" button
+
+
+**Post-Submission:**
+- Success animation
+- "Application submitted!" message
+- "We'll review within 48 hours" information
+- Return to profile
+
+
+**Application Status Display:**
+- Status card in profile showing:
+  - **Pending:** "Under Review ⏳" - yellow badge
+  - "Your application is being reviewed"
+  - Submission date
+  - Estimated review time
+  
+  - **Approved:** "Creator Login" button appears ✅
+  - Green badge "Approved!"
+  - Login button visible
+  - Approval date shown
+  
+  - **Rejected:** Red badge "Application Rejected 🔴"
+  - Rejection reason displayed
+  - "You can reapply after [date]" message
+  - "View Feedback" button
+  - Countdown timer to reapply date
+
+
+**Creator Login (After Approval):**
+- "Creator Login" button in profile
+- Tap opens login modal
+- Username and Password fields
+- "Login to Creator Dashboard" button
+- Forgot password link
+- On successful login:
+  - Redirects to Creator Dashboard
+  - Dashboard replaces profile view temporarily
+  - "Back to Main App" button always visible
+
+
+**Preferences Section:**
+
+
+**App Settings:**
+- Theme: Light, Dark, Auto (system)
+- Language: English, Hindi, Regional languages
+- Notifications: Toggle on/off
+  - Generation complete
+  - Points earned
+  - Template updates
+  - Promotional
+- Auto-save generations
+- Default quality setting
+
+
+**Privacy Settings:**
+- Profile visibility: Public, Private
+- Show email to others: Yes/No
+- Show generations in community: Yes/No
+- Data sharing preferences
+
+
+**Saved Templates Section:**
+- Grid view of all saved templates
+- Tap to view template detail
+- Unsave option
+- Organize in folders
+- Quick use button
+
+
+**My Generations Section:**
+- Quick access to recent generations
+- "View All" link to History tab
+- Last 6-10 generations shown
+
+
+**Support & Help Section:**
+
+
+**Contact Support:**
+- Email support form:
+  - Subject dropdown (Technical, Payment, Content, Other)
+  - Message text area
+  - Attach screenshot option
+  - Submit button
+- Support email display
+- Response time: 24-48 hours
+- Support ticket number on submission
+
+
+**Help & Information:**
+- About Us: Company information, team, vision
+- Privacy Policy: Full policy document, scrollable
+- Terms of Service: T&C document
+- Community Guidelines: Content policy, behavior rules
+- FAQs: Common questions and answers
+- Tutorial: How to use app guide
+- What's New: App update changelog
+
+
+**Account Management:**
+
+
+**Security:**
+- Change Password option
+- Two-factor authentication toggle
+- Login activity log
+- Trusted devices list
+- Logout from all devices button
+
+
+**Danger Zone:**
+- Delete Account option
+- Warning message about permanence
+- Confirmation flow:
+  - Enter password
+  - Check "I understand" box
+  - Type "DELETE" to confirm
+  - Final confirmation popup
+- Account deletion process:
+  - Data removal in 30 days
+  - Download data option before deletion
+  - Can cancel within 30 days
+
+
+**Logout:**
+- Logout button (prominent, bottom)
+- Confirmation popup
+- Clear cache option
+- Returns to login screen
+
+
+**Footer Section:**
+- App version number
+- Social media icons and links
+- Copyright information
+- "Made with ❤️ in India" message
+
+
+***
+
+
+## 🎨 SECTION 2: CREATOR DASHBOARD
+
+
+**Access:** Profile > Creator Login
+
+
+***
+
+
+### 2.1 CREATOR DASHBOARD HOME
+
+
+**Welcome Header:**
+- "Welcome back, [Creator Name]!" greeting
+- Profile picture with verified badge
+- Quick stats summary
+
+
+**Overview Cards:**
+
+
+**Earnings Card:**
+- Total earnings to date (₹ amount)
+- This month's earnings
+- Growth percentage vs last month
+- "View Details" link
+
+
+**Templates Card:**
+- Total templates uploaded
+- Approved count
+- Pending review count
+- Rejected count
+- "Manage Templates" link
+
+
+**Engagement Card:**
+- Total template uses
+- Total followers gained
+- Average rating (out of 5 stars)
+- "View Analytics" link
+
+
+**Quick Actions:**
+- "Create New Template" button (prominent)
+- "Check Pending" button
+- "Withdraw Earnings" button
+- "View Profile" button
+
+
+***
+
+
+### 2.2 TEMPLATE MANAGEMENT
+
+
+**Template List View:**
+
+
+**Filter Tabs:**
+- All Templates
+- Approved (green badge)
+- Pending Review (yellow badge)
+- Rejected (red badge)
+
+
+**Sort Options:**
+- Latest First
+- Most Used
+- Highest Earning
+- Best Rated
+
+
+**Template Card (List Item):**
+
+
+**Approved Template Card:**
+- Template thumbnail image
+- Template title and description (truncated)
+- Category tags
+- Status: "✅ Live"
+- Stats visible:
+  - Uses: 1,247 times
+  - Earnings: ₹2,340
+  - Followers: 89
+  - Rating: 4.7⭐ (234 ratings)
+- Actions:
+  - View Details
+  - Edit Template
+  - View Analytics
+  - Duplicate
+  - Delete
+
+
+**Pending Template Card:**
+- Template thumbnail (slightly faded)
+- Template title
+- Status: "⏳ Under Review"
+- Submitted date
+- Estimated review time
+- Action: "View Details" only
+
+
+**Rejected Template Card:**
+- Template thumbnail (grey filter)
+- Template title
+- Status: "❌ Rejected"
+- Rejection date
+- "View Feedback" button (shows admin's reason)
+- Actions:
+  - Edit & Resubmit
+  - Delete
+
+
+**Create New Template:**
+
+
+**Button Click Opens Multi-Step Form:**
+
+
+**Step 1: Basic Information**
+- Template Title (required, max 100 chars)
+- Template Description (required, max 500 chars)
+- Category: Dropdown (Male, Female, Unisex)
+- Sub-category: Dropdown (Wedding, Fashion, Business, etc.)
+- Tags: Add multiple tags (searchable)
+- Age Group: Dropdown
+- State: Dropdown (Indian states)
+- "Next" button
+
+
+**Step 2: Template Visuals**
+- Upload Demo Image (required)
+  - Drag and drop area
+  - File size: max 5MB
+  - Formats: JPG, PNG
+  - Preview after upload
+  - Crop tool available
+- Upload Additional Examples (optional, up to 3)
+- "Next" button
+
+
+**Step 3: AI Prompt Configuration**
+- Hidden Prompt (required)
+  - Large text area
+  - This is the actual prompt sent to AI
+  - Min 50 characters
+  - Prompt quality checker
+  - AI suggestions for improvement
+  - "Test Prompt" button (generates sample)
+- Visible Prompt (optional)
+  - What users see as description
+  - Can be different from hidden prompt
+- Negative Prompt (optional)
+  - What to avoid in generation
+- "Next" button
+
+
+**Step 4: Pricing & Settings**
+- Template Type:
+  - Free (2 points per use)
+  - Premium (custom pricing)
+- If Premium:
+  - Set points cost (3-20 points)
+  - Pricing recommendation based on similar templates
+- Advanced Settings:
+  - Recommended quality: SD, HD, UHD
+  - Recommended aspect ratio
+  - Face preservation priority
+- "Next" button
+
+
+**Step 5: Preview & Submit**
+- Preview of how template will appear to users
+- All details summary
+- Edit any section (back buttons)
+- Terms checkbox:
+  - Content is original/licensed
+  - Follows community guidelines
+  - Pricing is fair
+- "Submit for Review" button
+
+
+**Post-Submission:**
+- Success message
+- Template added with "Pending" status
+- "Create Another" or "Back to Dashboard" options
+
+
+**Edit Template:**
+- Same form as create
+- Pre-filled with existing data
+- Changes require re-approval
+- "Save as Draft" option
+- "Submit Changes for Review" button
+
+
+**Template Analytics (Detailed View):**
+
+
+**Performance Tab:**
+- Line graph: Uses over time (daily/weekly/monthly)
+- Total uses count
+- Unique users count
+- Average uses per day
+- Peak usage times
+
+
+**Earnings Tab:**
+- Bar chart: Earnings over time
+- Total earnings from this template
+- Revenue per use
+- Projected earnings (based on trend)
+
+
+**Engagement Tab:**
+- Followers gained from this template
+- Like count
+- Save count
+- Share count
+- User ratings breakdown (5-star histogram)
+- User comments/reviews (if enabled)
+
+
+**Demographics Tab:**
+- User age groups
+- User locations (states)
+- Gender of users
+- Peak usage hours
+
+
+**Export Options:**
+- Download analytics report (PDF/CSV)
+- Share performance stats
+
+
+***
+
+
+### 2.3 EARNINGS SECTION
+
+
+**Earnings Overview:**
+
+
+**Summary Cards:**
+- Total Lifetime Earnings (₹ amount)
+- This Month Earnings
+- Last Month Earnings
+- Growth percentage
+- Average earning per template
+
+
+**Earnings Graph:**
+- Interactive line/bar chart
+- Toggle: Daily, Weekly, Monthly, Yearly
+- Tap data points for details
+- Filter by template
+- Export graph image
+
+
+**Earnings Breakdown:**
+
+
+**By Template Table:**
+- Template name and thumbnail
+- Total uses
+- Revenue per use
+- Total earned
+- Sort by highest earning
+- Search templates
+
+
+**By Time Period:**
+- Calendar view
+- Each date shows earnings
+- Tap date for detailed transactions
+- Monthly summaries
+
+
+**Transaction History:**
+- List of all earning transactions
+- Each transaction shows:
+  - Date and time
+  - User who used template
+  - Template used
+  - Points earned (₹ equivalent)
+  - Platform fee deducted (20%)
+  - Net earnings
+- Filter by date, template
+- Search functionality
+- Export as CSV/PDF
+
+
+**Withdrawal Section:**
+
+
+**Withdrawal Eligibility:**
+- Minimum withdrawal: ₹500
+- Current withdrawable balance displayed
+- Progress bar to minimum if below
+
+
+**Bank Details Form (First Time):**
+- Account holder name
+- Bank name
+- Account number
+- IFSC code
+- Account type (Savings/Current)
+- PAN number (for tax)
+- Verification process
+
+
+**Withdrawal Request:**
+- Enter amount to withdraw
+- Available balance shown
+- Bank details confirmation
+- Review:
+  - Amount requested
+  - Platform fee: 0% (already deducted)
+  - TDS: 10% (if applicable)
+  - Net amount to receive
+- "Request Withdrawal" button
+
+
+**Processing:**
+- Success message
+- Withdrawal request ID
+- Status: Pending approval
+- Estimated processing time: 3-5 business days
+- Notification when processed
+
+
+**Withdrawal History:**
+- All past withdrawals
+- Status tracking:
+  - Pending: Yellow badge
+  - Processing: Blue badge
+  - Completed: Green badge with date
+  - Failed: Red badge with reason
+- Transaction ID
+- Bank details used
+- Amount
+- Date requested/completed
+
+
+**Payment Settings:**
+- Update bank details
+- Add multiple bank accounts
+- Set default account
+- Verify bank account (micro-deposit method)
+- Enable/disable withdrawal notifications
+
+
+***
+
+
+### 2.4 PROFILE & SETTINGS (CREATOR)
+
+
+**Creator Profile Management:**
+
+
+**Public Profile:**
+- Display name
+- Profile picture (upload/change)
+- Bio (max 500 chars)
+- Location
+- Joined date
+- Social media links (editable)
+- Portfolio showcase (top 6 templates)
+- "View Public Profile" button (preview how users see you)
+
+
+**Profile Stats:**
+- Total followers
+- Total template uses
+- Average rating
+- Total templates
+- Creator rank/badge level
+
+
+**Verification Badge:**
+- If verified: ✅ shown
+- If not: "Apply for Verification" button
+- Verification requirements:
+  - Minimum 10 approved templates
+  - Average rating > 4.0
+  - Minimum 1000 total uses
+  - No policy violations
+  - Application form
+
+
+**Settings:**
+
+
+**Notification Preferences:**
+- New template review complete
+- Earnings milestone reached
+- New follower
+- Template usage notifications
+- Weekly performance report
+- Promotional updates
+
+
+**Privacy:**
+- Show earnings publicly: Yes/No
+- Show follower count: Yes/No
+- Allow users to message: Yes/No
+
+
+**Creator Agreement:**
+- View creator terms
+- Revenue share details (80-20 split)
+- Content policy
+- Accepted date
+
+
+***
+
+
+### 2.5 SUPPORT & HELP (CREATOR)
+
+
+**Creator Support:**
+- Priority support ticket system
+- Subject: Template, Payment, Technical, Other
+- Message with attachments
+- Expected response: 24 hours
+
+
+**Creator Resources:**
+- Template creation best practices guide
+- Prompt writing tips and tricks
+- How to increase template usage
+- Marketing your templates
+- Understanding analytics
+- Video tutorials
+
+
+**Community:**
+- Creator forum access
+- Share tips with other creators
+- Success stories
+- Feature requests
+
+
+**Account Management:**
+- Switch to user view (temporary)
+- Logout from creator dashboard
+- Delete creator account option (reverts to regular user)
+
+
+***
+
+
+New feature update
+
+समझ गया भाई ❤️
+
+________________
+
+
+🎯 RUPANTAR AI – FULL APP + CREATOR PANEL FEATURES 
+________________
+📱 SECTION 1: USER APP FEATURES
+________________
+
+
+✅ 1. USER ACCOUNT SYSTEM
+✔ Registration
+* Full name
+
+* Email (OTP verification)
+
+* Phone number
+
+* Password
+
+* Terms & Conditions agreement
+
+* Auto-login after verification
+
+* Welcome bonus (daily login bonus भी active होगा)
+
+✔ Login
+   * Email/Phone + Password
+
+   * Forgot Password → email reset link
+
+   * 5 wrong attempts → 15 min lock
+
+   * Remember me option
+
+✔ Social Login (Optional)
+      * Google login
+
+      * Facebook login
+
+________________
+
+
+🧭 2. BOTTOM NAVIGATION (5 TABS)
+         1. Templates
+
+         2. Wallet
+
+         3. Generate (Center Action Button)
+
+         4. History
+
+         5. Pro (Only for Users)
+ ➡ Creator को Pro tab कभी नही दिखेगा।
+
+________________
+
+
+🎨 3. TEMPLATE TAB – MAIN FEATURE
+✔ Search Bar
+            * Search by: title, tags, creator, category
+
+            * Recent searches
+
+            * Instant results
+
+✔ Category Bar
+               * Trending
+
+               * Cartoon
+
+               * Wedding
+
+               * Festival
+
+               * Fashion
+
+               * Business
+
+               * Portrait
+
+               * Couple
+
+               * Cinematic
+
+               * आदि…
+
+✔ Template Cards (Updated)
+हर कार्ड में होगा:
+                  1. Preview Image (with zoom animation)
+
+                  2. Creator Info
+
+                     * Creator profile photo
+
+                     * Creator name + verified badge
+
+                     * Follow button right on the card
+
+                        3. Engagement Numbers
+
+                           * Likes
+
+                           * Saves
+
+                           * Uses count
+
+                              4. Template Category chips
+
+                              5. Free / Premium Tag
+
+                              6. Use Template Button
+
+                                 * Shows points cost
+
+                                 * Click → Generate Tab auto-prefill prompt
+
+✔ Template Detail Modal
+                                    * Large preview
+
+                                    * Before/After slider
+
+                                    * Template description
+
+                                    * All tags
+
+                                    * Creator full profile
+
+                                    * Ratings & reviews (optional)
+
+                                    * “Use Template” sticky button
+
+✔ Filters
+                                       * Gender
+
+                                       * Category
+
+                                       * Free/Premium
+
+                                       * State
+
+                                       * Sort by: Popular / Trending / Latest
+
+                                       * Reset All
+
+✔ Trending, Recommended, Collections sections
+AI-powered suggestions.
+________________
+
+
+💰 4. WALLET TAB – USER POINTS SYSTEM
+✔ Balance Card
+                                          * Current points
+
+                                          * Add points button
+
+                                          * Last update time
+
+✔ Earn Points
+                                             * Daily Login (3 points)
+
+                                             * Referral Program (20 points/referral)
+
+                                             * Watch Ads (6 points per ad → daily limit)
+
+                                             * Small tasks (optional future feature)
+
+✔ Transaction History
+                                                * All transactions
+
+                                                * Earned / Spent filters
+
+                                                * Reason + Points + Timestamp
+
+✔ If user is approved creator →
+Wallet tab same रहेगा BUT creator earnings अलग creator app में दिखेंगी।
+________________
+
+
+🚀 5. GENERATE TAB – MAIN AI FEATURES
+✔ Photo Upload
+                                                   * 1–5 photos
+
+                                                   * Remove, reorder
+
+                                                   * Face detection
+
+                                                   * Large file compression
+
+✔ Quick Tools
+                                                      * BG Remove (Free)
+
+                                                      * Enhance
+
+                                                      * Upscale
+
+                                                      * Face Fix
+
+                                                      * Colorize
+
+                                                      * Artistic Style
+(Points Deduction per tool)
+
+✔ Prompt Input
+                                                         * Hidden template prompt auto loaded
+
+                                                         * User prompt field
+
+                                                         * Negative prompt
+
+                                                         * Prompt suggestions
+
+                                                         * Voice input
+
+✔ Advanced Settings
+                                                            * Quality selection (HD, UHD, 4K, 8K)
+
+                                                            * Aspect Ratio
+
+                                                            * Style Reference Upload
+
+                                                            * Creativity slider
+
+✔ Generate Button
+                                                               * Points calculation
+
+                                                               * If no points → redirect to Pro tab
+
+✔ After Generation
+                                                                  * Image preview
+
+                                                                  * Download in multiple qualities
+
+                                                                  * Share
+
+                                                                  * Re-create
+
+                                                                  * Favorite
+
+                                                                  * Edit tools
+
+                                                                  * Auto-save to history
+
+________________
+
+
+🕘 6. HISTORY TAB
+✔ All History
+Grid view of all generated images
+With:
+                                                                     * Download
+
+                                                                     * Favorite
+
+                                                                     * Share
+
+                                                                     * Delete
+
+                                                                     * View Details
+
+✔ Favorites
+                                                                        * Collections
+
+                                                                        * Organize images
+
+                                                                        * Bulk move/delete
+
+________________
+
+
+👤 7. PROFILE TAB – USER SIDE
+✔ Profile Header
+                                                                           * Profile photo
+
+                                                                           * Name
+
+                                                                           * Email
+
+                                                                           * Phone
+
+                                                                           * Member since
+
+                                                                           * Edit Profile
+
+✔ Stats
+                                                                              * Total generations
+
+                                                                              * Templates used
+
+                                                                              * Favorites
+
+                                                                              * Points
+
+✔ Saved Templates
+                                                                                 * All saved templates list
+
+                                                                                 * Use immediately
+
+✔ Apply as Creator
+If NOT a creator:
+                                                                                    * Big card → "Become a Creator"
+
+                                                                                    * Benefit explanation
+
+                                                                                    * Apply Now button
+
+Creator application steps:
+                                                                                       1. Basic info
+
+                                                                                       2. Social links
+
+                                                                                       3. Demo templates
+
+                                                                                       4. Submit for review
+
+Status System:
+                                                                                          * Pending
+
+                                                                                          * Approved
+
+                                                                                          * Rejected
+
+✔ Login As Creator Button
+Only after approval
+                                                                                             * Tap → directly opens Creator Dashboard
+
+✔ Other Settings
+                                                                                                * Language
+
+                                                                                                * Theme
+
+                                                                                                * Notifications
+
+                                                                                                * Privacy
+
+                                                                                                * Change Password
+
+                                                                                                * Delete Account
+
+                                                                                                * Logout
+
+________________
+
+
+📌 IMPORTANT USER–CREATOR SWITCHING FEATURE
+🟣 If USER is not approved creator →
+👉 Only “Apply as Creator” shown.
+🟢 If USER is approved creator →
+👉 Profile will show:
+                                                                                                   * Login as Creator button
+
+                                                                                                   * Tap → fully switches to Creator dashboard
+
+                                                                                                   * Creator dashboard header shows "Return to Main App"
+
+🔄 Switching Flow
+User App  ↔  Creator Dashboard
+
+
+                                                                                                      * No logout required
+
+                                                                                                      * Same account stays logged in both
+
+________________
+
+
+🎨 SECTION 2: CREATOR DASHBOARD FEATURES
+(Creator separate dashboard/app के अंदर काम करेगा)
+________________
+
+
+🏠 1. CREATOR DASHBOARD HOME
+✔ Welcome Header
+                                                                                                         * Creator Name
+
+                                                                                                         * Verified badge (if any)
+
+                                                                                                         * Profile pic
+
+✔ Quick Stats
+                                                                                                            * Total Earnings
+
+                                                                                                            * Templates Live
+
+                                                                                                            * Pending Templates
+
+                                                                                                            * Total Uses
+
+                                                                                                            * Followers
+
+✔ Quick Actions
+                                                                                                               * Create New Template
+
+                                                                                                               * View Templates
+
+                                                                                                               * Analytics
+
+                                                                                                               * Withdraw Earnings
+
+                                                                                                               * View Public Profile
+
+✔ Button: “Return to Main App”
+Always visible for switching back to user app.
+________________
+
+
+🎨 2. TEMPLATE MANAGEMENT
+✔ Filters
+                                                                                                                  * All
+
+                                                                                                                  * Approved
+
+                                                                                                                  * Pending
+
+                                                                                                                  * Rejected
+
+✔ Sort
+                                                                                                                     * Latest
+
+                                                                                                                     * Most Used
+
+                                                                                                                     * Highest Earning
+
+                                                                                                                     * Best Rating
+
+✔ Template Card Info
+                                                                                                                        * Template thumbnail
+
+                                                                                                                        * Title
+
+                                                                                                                        * Uses
+
+                                                                                                                        * Earnings
+
+                                                                                                                        * Likes & Saves
+
+                                                                                                                        * Approval status
+
+✔ Actions
+                                                                                                                           * View
+
+                                                                                                                           * Edit & Resubmit
+
+                                                                                                                           * Analytics
+
+                                                                                                                           * Duplicate
+
+                                                                                                                           * Delete
+
+________________
+
+
+🆕 3. CREATE NEW TEMPLATE (STEP BASED)
+Step 1: Basic Info
+                                                                                                                              * Title
+
+                                                                                                                              * Description
+
+                                                                                                                              * Category
+
+                                                                                                                              * Tags
+
+                                                                                                                              * State
+
+                                                                                                                              * Age group
+
+Step 2: Visuals
+                                                                                                                                 * Demo image upload
+
+                                                                                                                                 * 3 example images
+
+                                                                                                                                 * Crop
+
+Step 3: Prompt Setup
+                                                                                                                                    * Hidden prompt (AI used)
+
+                                                                                                                                    * Visible prompt (shown to users)
+
+                                                                                                                                    * Negative prompt
+
+                                                                                                                                    * Prompt tester
+
+Step 4: Pricing
+                                                                                                                                       * FREE → 2 points
+
+                                                                                                                                       * PREMIUM → custom points set (admin limit)
+
+Step 5: Preview & Submit
+                                                                                                                                          * Template preview
+
+                                                                                                                                          * Summary
+
+                                                                                                                                          * Submit for Review
+
+________________
+
+
+📊 4. TEMPLATE ANALYTICS
+Per Template Stats
+                                                                                                                                             * Total uses
+
+                                                                                                                                             * Earnings
+
+                                                                                                                                             * Likes
+
+                                                                                                                                             * Saves
+
+                                                                                                                                             * Shares
+
+                                                                                                                                             * Ratings
+
+                                                                                                                                             * Comments (optional)
+
+Graphs
+                                                                                                                                                * Daily/Weekly/Monthly uses
+
+                                                                                                                                                * Earnings over time
+
+                                                                                                                                                * Audience demographics
+
+________________
+
+
+💰 5. CREATOR EARNINGS SECTION
+✔ Earnings Overview
+                                                                                                                                                   * Lifetime earnings
+
+                                                                                                                                                   * This month
+
+                                                                                                                                                   * Last month
+
+                                                                                                                                                   * Growth %
+
+✔ Template-wise Earnings
+                                                                                                                                                      * Highest earning templates
+
+                                                                                                                                                      * Revenue per use
+
+✔ Transaction History
+                                                                                                                                                         * When template used
+
+                                                                                                                                                         * Earnings added
+
+                                                                                                                                                         * Net earnings after platform fee
+
+✔ Withdrawal System
+                                                                                                                                                            * Add bank details
+
+                                                                                                                                                            * Minimum withdrawal limit
+
+                                                                                                                                                            * Request withdrawal
+
+                                                                                                                                                            * Withdrawal history
+
+________________
+
+
+⚙ 6. CREATOR SETTINGS
+Profile
+                                                                                                                                                               * Name
+
+                                                                                                                                                               * Bio
+
+                                                                                                                                                               * Social links
+
+                                                                                                                                                               * Profile picture
+
+Notifications
+                                                                                                                                                                  * Template approve/reject
+
+                                                                                                                                                                  * Earnings updates
+
+                                                                                                                                                                  * Follower alerts
+
+Privacy
+                                                                                                                                                                     * Show/hide earnings
+
+                                                                                                                                                                     * Show/hide follower count
+
+Account
+                                                                                                                                                                        * Change password
+
+                                                                                                                                                                        * Logout creator mode
+
+                                                                                                                                                                        * Delete creator account (reverts back to normal user)
+
+________________
+
+
+🆘 7. CREATOR SUPPORT HELP
+Support Ticket
+                                                                                                                                                                           * Raise ticket
+
+                                                                                                                                                                           * Attach screenshot
+
+                                                                                                                                                                           * Priority support
+
+Creator Resources
+                                                                                                                                                                              * How to get more template uses
+
+                                                                                                                                                                              * Prompt guides
+
+                                                                                                                                                                              * Analytics training
+
+                                                                                                                                                                              * Best practices
+
+________________
+
+
+🌟 MISSING BUT IMPORTANT FEATURES I INCLUDED (MY RECOMMENDATIONS)
+These features make app perfect & future-proof:
+✔ User–Creator seamless switching
+✔ Creator withdraw system
+✔ Per-template analytics
+✔ Referral system
+✔ Ads reward system
+✔ Template follow button
+✔ Hidden + visible prompt system
+✔ Template approval workflow
+✔ Auto-removal of policy violating templates
+✔ Verified Creator badge system
+✔ Trending algorithm
+✔ Template duplication system
+✔ Template pricing management
+✔ Smart prompt suggestions
+✔ User negative prompts
+✔ Style reference upload
+✔ 4K / 8K generation options
+✔ Unlimited collections in favorites
+________________

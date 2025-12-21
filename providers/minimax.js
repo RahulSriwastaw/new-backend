@@ -21,10 +21,10 @@ async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig
         }];
 
         // Add face preservation instruction to prompt
-        const facePreservationPrefix = "Preserve the exact same person's face, facial features, skin tone, and identity from the reference image. ";
+        const facePreservationPrefix = "Preserve the exact 100% same person's face, from the reference image. ";
         body.prompt = facePreservationPrefix + prompt;
 
-        console.log("📸 MiniMax I2I: Subject reference attached with high strength (0.8)");
+        console.log("📸 MiniMax I2I: Subject reference attached with high strength (1)");
     }
 
     // Step 1: Submit generation task

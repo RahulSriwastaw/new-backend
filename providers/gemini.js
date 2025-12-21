@@ -1,202 +1,103 @@
 /**
- * Google Gemini AI Provider
- * Uses Gemini 2.5 Flash Image for image generation
- * Documentation: https://ai.google.dev/gemini-api/docs/image-generation
+ * Google Gemini / Imagen 3 AI Provider
+ * STRICTLY Text-to-Image Only
+ * 
+ * Updates per user request:
+ * - Enforces T2I only (no uploaded images)
+ * - Uses Imagen 3.0 endpoint
+ * - Correct payload structure
  */
+
+const axios = require('axios'); // Ensure axios is used or fetch. The previous file used fetch. I'll stick to fetch.
 
 async function generateWithGemini({ prompt, negativePrompt, uploadedImages, apiKey, modelConfig }) {
-    // Gemini model for image generation
-    // Default to Nano Banana (gemini-2.5-flash-image) if not specified
-    const model = modelConfig?.model || "gemini-2.5-flash-image";
-    
-    console.log(`🤖 Google Gemini Provider Initialized. Model: ${model}`);
+    console.log("🤖 Gemini/Imagen Provider Initialized");
 
+    // 1. STRICT SAFETY CHECK: No Image-to-Image
     if (uploadedImages && uploadedImages.length > 0) {
-        // IMAGE-TO-IMAGE: Image editing with Gemini
-        return await generateImageEdit({ prompt, uploadedImages, apiKey, model });
-    } else {
-        // TEXT-TO-IMAGE: Gemini Generate
-        return await generateTextToImage({ prompt, negativePrompt, apiKey, model });
+        console.warn("⚠️ Gemini I2I Attempt Blocked. Routing should have caught this.");
+        throw new Error("Gemini does not support Image-to-Image/Face-Preservation. Please use Stability or MiniMax.");
     }
+
+    // 2. Perform Text-to-Image Generation
+    return await generateTextToImage({ prompt, negativePrompt, apiKey });
 }
 
 /**
- * Gemini Text-to-Image Generation
+ * Imagen 3.0 Text-to-Image Generation
  */
-async function generateTextToImage({ prompt, negativePrompt, apiKey, model }) {
-    console.log("🖼️  Gemini T2I: Image Generation");
+async function generateTextToImage({ prompt, negativePrompt, apiKey }) {
+    console.log("🖼️  Imagen 3.0 T2I: Starting Generation");
 
-    // Build prompt with negative if provided
-    let fullPrompt = prompt;
+    // Merge negative prompt into main prompt if needed, 
+    // though Imagen 3 API doesn't have a specific 'negative_prompt' field in the simple payload shown by user.
+    // User said: "prompt": { "text": "<final merged prompt>" }
+    let finalPrompt = prompt;
     if (negativePrompt) {
-        fullPrompt += `. Avoid: ${negativePrompt}`;
+        finalPrompt += ` . Avoid: ${negativePrompt}`;
     }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImages`; 
+    // Note: User said "imagen-3.0:generateImages". "imagen-3.0-generate-001" is the specific stable version often used.
+    // Let's use the one the user specifically requested if possible, or the standard one.
+    // User wrote: https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0:generateImages
+    // I will use that exact string to be safe.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0:generateImages?key=${apiKey}`;
 
     const body = {
-        contents: [{
-            parts: [{
-                text: fullPrompt
-            }]
-        }]
+        prompt: {
+            text: finalPrompt
+        },
+        imageGenerationConfig: {
+            aspectRatio: "1:1",
+            personGeneration: "ALLOW_ADULT",
+            safetyFilterLevel: "BLOCK_MEDIUM_AND_ABOVE"
+        }
     };
-
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-            method: 'POST',
-            headers: {
-                'x-goog-api-key': apiKey,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        }
-    );
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Gemini T2I Error:", errorText);
-
-        let errorMessage = 'API Error';
-        try {
-            const errorJson = JSON.parse(errorText);
-            errorMessage = errorJson.error?.message || 'Unknown error';
-        } catch {
-            errorMessage = errorText.substring(0, 200);
-        }
-
-        throw new Error(`Gemini T2I: ${errorMessage}`);
-    }
-
-    const data = await response.json();
-
-    // Gemini returns image in inline_data as base64
-    if (data.candidates && data.candidates[0]) {
-        const parts = data.candidates[0].content?.parts || [];
-
-        for (const part of parts) {
-            if (part.inline_data && part.inline_data.data) {
-                console.log("✅ Gemini T2I: Image generated successfully");
-                const mimeType = part.inline_data.mime_type || 'image/png';
-                return `data:${mimeType};base64,${part.inline_data.data}`;
-            }
-        }
-    }
-
-    throw new Error('Gemini T2I: No image in response');
-}
-
-/**
- * Gemini Image-to-Image Editing
- */
-async function generateImageEdit({ prompt, uploadedImages, apiKey, model }) {
-    console.log("📸 Gemini I2I: Image Editing");
-
-    // Fetch reference image
-    let imageBase64;
-    let imageMimeType = 'image/png';
 
     try {
-        const imgResponse = await fetch(uploadedImages[0]);
-        if (!imgResponse.ok) {
-            throw new Error(`Image fetch failed: ${imgResponse.status}`);
-        }
-
-        // Get MIME type from response
-        const contentType = imgResponse.headers.get('content-type');
-        if (contentType) {
-            imageMimeType = contentType;
-        }
-
-        const imageBuffer = await imgResponse.arrayBuffer();
-        imageBase64 = Buffer.from(imageBuffer).toString('base64');
-    } catch (error) {
-        console.error("❌ Image fetch error:", error);
-        throw new Error(`Failed to fetch image: ${error.message}`);
-    }
-
-    const body = {
-        contents: [{
-            parts: [
-                {
-                    text: prompt
-                },
-                {
-                    inline_data: {
-                        mime_type: imageMimeType,
-                        data: imageBase64
-                    }
-                }
-            ]
-        }],
-        safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
-        ],
-        generationConfig: {
-            temperature: 0.9,
-            topK: 32,
-            topP: 0.95,
-            maxOutputTokens: 1024
-        }
-    };
-
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'x-goog-api-key': apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(body)
-        }
-    );
+        });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Gemini I2I Error:", errorText);
-
-        let errorMessage = 'API Error';
-        try {
-            const errorJson = JSON.parse(errorText);
-            errorMessage = errorJson.error?.message || 'Unknown error';
-        } catch {
-            errorMessage = errorText.substring(0, 200);
-        }
-
-        throw new Error(`Gemini I2I: ${errorMessage}`);
-    }
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0]) {
-        // Check for finish reason
-        const candidate = data.candidates[0];
-        if (candidate.finishReason && candidate.finishReason !== "STOP") {
-             console.warn(`⚠️ Gemini I2I Finish Reason: ${candidate.finishReason}`);
-             if (candidate.finishReason === "SAFETY") {
-                 throw new Error("Gemini I2I: Generation blocked by safety settings. Please try a different prompt or image.");
-             }
-             if (candidate.finishReason === "RECITATION") {
-                 throw new Error("Gemini I2I: Generation blocked due to recitation check.");
-             }
-        }
-
-        const parts = candidate.content?.parts || [];
-
-        for (const part of parts) {
-            if (part.inline_data && part.inline_data.data) {
-                console.log("✅ Gemini I2I: Image edited successfully");
-                const mimeType = part.inline_data.mime_type || 'image/png';
-                return `data:${mimeType};base64,${part.inline_data.data}`;
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ Imagen 3.0 API Error:", errorText);
+            
+            let errorMessage = 'API Error';
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.error?.message || errorJson.error?.details?.[0]?.message || 'Unknown error';
+            } catch (e) {
+                errorMessage = errorText.substring(0, 200);
             }
+            throw new Error(`Imagen 3.0 Error: ${errorMessage}`);
         }
-    }
 
-    console.error("Gemini I2I Full Response:", JSON.stringify(data, null, 2));
-    throw new Error('Gemini I2I: No image in response (Check server logs for details)');
+        const data = await response.json();
+
+        // Parse Response (User Requirement 4)
+        // const base64Image = response.data.generatedImages?.[0]?.image?.imageBytes;
+        // In fetch 'data' is the body.
+        const base64Image = data.generatedImages?.[0]?.image?.imageBytes;
+
+        if (base64Image) {
+            console.log("✅ Imagen 3.0: Image generated successfully");
+            return `data:image/png;base64,${base64Image}`;
+        }
+
+        // Handle "No image in response"
+        console.error("Imagen 3.0 Full Response:", JSON.stringify(data, null, 2));
+        throw new Error("Gemini text-to-image returned no image (Safety/Policy Block)");
+
+    } catch (error) {
+        console.error("❌ Gemini/Imagen Generation Exception:", error);
+        throw error;
+    }
 }
 
 module.exports = { generateWithGemini };
