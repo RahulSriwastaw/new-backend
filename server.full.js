@@ -748,34 +748,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
         let provider = (activeModel.provider || '').toLowerCase();
         const isI2I = uploadedImages && uploadedImages.length > 0;
 
-        // === INTELLIGENT ROUTING (Gemini Fix) ===
-        // Gemini DOES NOT support I2I. Switch to Stability/MiniMax if needed.
-        if (isI2I && (provider.includes('gemini') || provider.includes('google'))) {
-             console.log("⚠️ Routing: Switching from Gemini to Stability for Image-to-Image/Face-Preserve");
-             
-             // 1. Try to find an ACTIVE fallback first
-             let fallbackModel = await AIModel.findOne({ 
-                 provider: { $regex: /stability|minimax/i }, 
-                 active: true 
-             }).select('+apiKey +config.apiKey');
-
-             // 2. If no active fallback, find ANY configured fallback (even if inactive)
-             if (!fallbackModel) {
-                 console.log("⚠️ No active I2I provider found. Searching for inactive backup...");
-                 fallbackModel = await AIModel.findOne({ 
-                     provider: { $regex: /stability|minimax/i }
-                 }).sort({ priority: -1 }).select('+apiKey +config.apiKey');
-             }
-
-             if (fallbackModel) {
-                 activeModel = fallbackModel;
-                 provider = (activeModel.provider || '').toLowerCase();
-                 apiKey = activeModel.config?.apiKey || activeModel.apiKey;
-                 console.log(`✅ Routing Success: Switched to ${activeModel.name} (${provider})`);
-             } else {
-                 throw new Error("This template requires Face Preservation (I2I), but no compatible AI (Stability/MiniMax) is configured.");
-             }
-        }
+        // === ALL PROVIDERS NOW SUPPORT BOTH T2I AND I2I ===
+        // Gemini, Stability, MiniMax all handle both modes via their providers
+        console.log(`🎯 Using ${activeModel.name} for ${isI2I ? 'I2I' : 'T2I'} generation`);
 
         // === MODULAR AI PROVIDER SYSTEM ===
         // Each provider has its own file in /providers/
@@ -836,56 +811,56 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
         // If I2I and the current provider failed, try to switch to another compatible provider
         const isI2I = uploadedImages && uploadedImages.length > 0;
         if (isI2I && !imageUrl) {
-             const currentProvider = (activeModel.provider || '').toLowerCase();
-             let failoverProviderRegex = null;
+          const currentProvider = (activeModel.provider || '').toLowerCase();
+          let failoverProviderRegex = null;
 
-             // Logic: If Stability failed, try MiniMax. If MiniMax failed, try Stability.
-             if (currentProvider.includes('stability')) {
-                 console.log("⚠️ Stability Failed. Attempting Failover to MiniMax...");
-                 failoverProviderRegex = /minimax/i;
-             } else if (currentProvider.includes('minimax')) {
-                 console.log("⚠️ MiniMax Failed. Attempting Failover to Stability...");
-                 failoverProviderRegex = /stability/i;
-             }
+          // Logic: If Stability failed, try MiniMax. If MiniMax failed, try Stability.
+          if (currentProvider.includes('stability')) {
+            console.log("⚠️ Stability Failed. Attempting Failover to MiniMax...");
+            failoverProviderRegex = /minimax/i;
+          } else if (currentProvider.includes('minimax')) {
+            console.log("⚠️ MiniMax Failed. Attempting Failover to Stability...");
+            failoverProviderRegex = /stability/i;
+          }
 
-             if (failoverProviderRegex) {
-                 try {
-                     const failoverModel = await AIModel.findOne({ 
-                         provider: { $regex: failoverProviderRegex } 
-                     }).select('+apiKey +config.apiKey');
+          if (failoverProviderRegex) {
+            try {
+              const failoverModel = await AIModel.findOne({
+                provider: { $regex: failoverProviderRegex }
+              }).select('+apiKey +config.apiKey');
 
-                     if (failoverModel) {
-                         const failoverApiKey = failoverModel.config?.apiKey || failoverModel.apiKey;
-                         
-                         if (failoverProviderRegex.source.includes('minimax')) {
-                             imageUrl = await generateWithMiniMax({
-                                 prompt: executionPrompt,
-                                 uploadedImages,
-                                 apiKey: failoverApiKey,
-                                 modelConfig: failoverModel.config,
-                                 aspectRatio
-                             });
-                         } else if (failoverProviderRegex.source.includes('stability')) {
-                             imageUrl = await generateWithStability({
-                                 prompt: executionPrompt,
-                                 negativePrompt: finalNegativePrompt,
-                                 uploadedImages,
-                                 aspectRatio,
-                                 apiKey: failoverApiKey,
-                                 modelConfig: failoverModel.config
-                             });
-                         }
+              if (failoverModel) {
+                const failoverApiKey = failoverModel.config?.apiKey || failoverModel.apiKey;
 
-                         if (imageUrl) {
-                             console.log("✅ Failover Success!");
-                             providerError = ''; // Clear error
-                         }
-                     }
-                 } catch (failoverErr) {
-                     console.error("❌ Failover Failed:", failoverErr);
-                     providerError += ` | Failover Exception: ${failoverErr.message}`;
-                 }
-             }
+                if (failoverProviderRegex.source.includes('minimax')) {
+                  imageUrl = await generateWithMiniMax({
+                    prompt: executionPrompt,
+                    uploadedImages,
+                    apiKey: failoverApiKey,
+                    modelConfig: failoverModel.config,
+                    aspectRatio
+                  });
+                } else if (failoverProviderRegex.source.includes('stability')) {
+                  imageUrl = await generateWithStability({
+                    prompt: executionPrompt,
+                    negativePrompt: finalNegativePrompt,
+                    uploadedImages,
+                    aspectRatio,
+                    apiKey: failoverApiKey,
+                    modelConfig: failoverModel.config
+                  });
+                }
+
+                if (imageUrl) {
+                  console.log("✅ Failover Success!");
+                  providerError = ''; // Clear error
+                }
+              }
+            } catch (failoverErr) {
+              console.error("❌ Failover Failed:", failoverErr);
+              providerError += ` | Failover Exception: ${failoverErr.message}`;
+            }
+          }
         }
       }
     }
@@ -2038,13 +2013,13 @@ app.put(['/api/admin/ai-models/:key', '/api/admin/config/ai/:key', '/api/admin/c
 
     // Handle Model ID / Config update (Support for Admin Panel "Add Model" feature)
     if (req.body.config?.model || req.body.modelId) {
-        const newModelId = req.body.config?.model || req.body.modelId;
-        await AIModel.updateOne(
-            { _id: model._id },
-            { $set: { "config.model": newModelId } }
-        );
-        if (!model.config) model.config = {};
-        model.config.model = newModelId;
+      const newModelId = req.body.config?.model || req.body.modelId;
+      await AIModel.updateOne(
+        { _id: model._id },
+        { $set: { "config.model": newModelId } }
+      );
+      if (!model.config) model.config = {};
+      model.config.model = newModelId;
     }
 
     if (req.body.active !== undefined) { model.active = req.body.active; model.isActive = req.body.active; }
