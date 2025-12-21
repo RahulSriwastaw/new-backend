@@ -20,13 +20,13 @@ async function generateWithGemini({ prompt, negativePrompt, uploadedImages, apiK
     }
 
     // 2. Perform Text-to-Image Generation
-    return await generateTextToImage({ prompt, negativePrompt, aspectRatio: modelConfig?.aspectRatio || '1:1', apiKey });
+    return await generateTextToImage({ prompt, negativePrompt, aspectRatio: modelConfig?.aspectRatio || '1:1', apiKey, modelConfig });
 }
 
 /**
  * Imagen 3.0 Text-to-Image Generation
  */
-async function generateTextToImage({ prompt, negativePrompt, apiKey }) {
+async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey, modelConfig }) {
     console.log("🖼️  Imagen 3.0 T2I: Starting Generation");
 
     // Merge negative prompt into main prompt if needed, 
@@ -42,13 +42,19 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey }) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateImages?key=${apiKey}`;
 
     // Map common aspect ratios to Gemini's supported format
+    // Gemini supports: "1:1", "3:4", "4:3", "9:16", "16:9"
+    let targetAspectRatio = "1:1";
+    if (aspectRatio && ["1:1", "3:4", "4:3", "9:16", "16:9"].includes(aspectRatio)) {
+        targetAspectRatio = aspectRatio;
+    } else if (aspectRatio === "2:3") targetAspectRatio = "3:4"; // Approximation
+    else if (aspectRatio === "3:2") targetAspectRatio = "4:3"; // Approximation
 
     const body = {
         prompt: {
             text: finalPrompt
         },
         imageGenerationConfig: {
-            aspectRatio: "1:1",
+            aspectRatio: targetAspectRatio,
             personGeneration: "ALLOW_ADULT",
             safetyFilterLevel: "BLOCK_MEDIUM_AND_ABOVE"
         }

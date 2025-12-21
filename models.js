@@ -69,6 +69,7 @@ const aiModelSchema = new mongoose.Schema({
   name: { type: String, required: true },
   provider: { type: String, required: true },
   active: { type: Boolean, default: false },
+  supportsImageToImage: { type: Boolean, default: true },
   priority: { type: Number, default: 1 },
   costPerImage: { type: Number, default: 1.0 },
   config: {
