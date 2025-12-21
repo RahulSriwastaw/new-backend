@@ -16,9 +16,15 @@ async function generateWithMiniMax({ prompt, uploadedImages, apiKey, modelConfig
     if (uploadedImages && uploadedImages.length > 0) {
         body.subject_reference = [{
             type: 'character',
-            image_file: uploadedImages[0]
+            image_file: uploadedImages[0],
+            strength: 0.8  // Higher strength (0.6-1.0) = better face matching
         }];
-        console.log("📸 MiniMax I2I: Subject reference attached");
+
+        // Add face preservation instruction to prompt
+        const facePreservationPrefix = "Preserve the exact same person's face, facial features, skin tone, and identity from the reference image. ";
+        body.prompt = facePreservationPrefix + prompt;
+
+        console.log("📸 MiniMax I2I: Subject reference attached with high strength (0.8)");
     }
 
     // Step 1: Submit generation task
