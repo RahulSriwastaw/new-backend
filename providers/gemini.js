@@ -72,15 +72,33 @@ async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey
         if (!response.ok) {
             const errorText = await response.text();
             console.error("❌ Imagen 3.0 API Error:", errorText);
-            
+
             let errorMessage = 'API Error';
             try {
                 const errorJson = JSON.parse(errorText);
-                errorMessage = errorJson.error?.message || errorJson.error?.details?.[0]?.message || 'Unknown error';
+                // Safely extract error message from various possible structures
+                if (errorJson.error) {
+                    if (typeof errorJson.error === 'string') {
+                        errorMessage = errorJson.error;
+                    } else if (errorJson.error.message) {
+                        errorMessage = errorJson.error.message;
+                    } else if (errorJson.error.details && Array.isArray(errorJson.error.details) && errorJson.error.details[0]?.message) {
+                        errorMessage = errorJson.error.details[0].message;
+                    } else if (errorJson.error.status) {
+                        errorMessage = errorJson.error.status;
+                    } else {
+                        // If error object exists but doesn't have expected properties
+                        errorMessage = JSON.stringify(errorJson.error).substring(0, 200);
+                    }
+                } else if (errorJson.message) {
+                    errorMessage = errorJson.message;
+                } else {
+                    errorMessage = errorText.substring(0, 200);
+                }
             } catch (e) {
                 errorMessage = errorText.substring(0, 200);
             }
-            throw new Error(`Imagen 3.0 Error: ${errorMessage}`);
+            throw new Error(`Gemini API Error: ${errorMessage}`);
         }
 
         const data = await response.json();
