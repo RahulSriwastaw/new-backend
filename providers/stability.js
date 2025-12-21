@@ -24,62 +24,46 @@ async function generateWithStability({ prompt, negativePrompt, uploadedImages, a
 async function generateImageToImage({ prompt, negativePrompt, uploadedImages, apiKey }) {
     console.log("📸 Stability SDXL I2I: Face Preservation Mode");
 
-    // Fetch and prepare image
-    let imageBuffer;
+    // Fetch and prepare image as Base64
+    let base64Image;
     try {
         const imgResponse = await fetch(uploadedImages[0]);
         if (!imgResponse.ok) {
             throw new Error(`Image fetch failed: ${imgResponse.status}`);
         }
-        imageBuffer = await imgResponse.arrayBuffer();
+        const imageBuffer = await imgResponse.arrayBuffer();
+        base64Image = Buffer.from(imageBuffer).toString('base64');
     } catch (error) {
         console.error("❌ Image fetch error:", error);
         throw new Error(`Failed to fetch reference image: ${error.message}`);
     }
 
-    // Create multipart/form-data
-    const FormData = globalThis.FormData || require('form-data');
-    const formData = new FormData();
-
-    // Handle Blob for Node.js environment
-    let imageBlob;
-    try {
-        // Try Node 18+ Blob
-        const { Blob } = require('buffer');
-        imageBlob = new Blob([imageBuffer], { type: 'image/png' });
-    } catch {
-        // Fallback: Use Buffer directly (works with most FormData implementations)
-        imageBlob = Buffer.from(imageBuffer);
-    }
-
-    // Required parameters
-    formData.append('init_image', imageBlob, 'input.png');
-    formData.append('init_image_mode', 'IMAGE_STRENGTH'); // REQUIRED for SDXL I2I
-    formData.append('image_strength', '0.35'); // 0-1: Lower = more like original (0.35 = preserve 65%)
-
-    // Text prompts (SDXL format)
-    formData.append('text_prompts[0][text]', prompt);
-    formData.append('text_prompts[0][weight]', '1');
+    // Build request body (JSON format with Base64)
+    const body = {
+        text_prompts: [
+            { text: prompt, weight: 1 }
+        ],
+        init_image: base64Image,
+        init_image_mode: 'IMAGE_STRENGTH',
+        image_strength: 0.35, // 65% preservation
+        cfg_scale: 7,
+        samples: 1,
+        steps: 30
+    };
 
     if (negativePrompt) {
-        formData.append('text_prompts[1][text]', negativePrompt);
-        formData.append('text_prompts[1][weight]', '-1');
+        body.text_prompts.push({ text: negativePrompt, weight: -1 });
     }
-
-    // Optional parameters
-    formData.append('cfg_scale', '7'); // Prompt adherence (7 = balanced)
-    formData.append('samples', '1');
-    formData.append('steps', '30');
 
     // Call Stability SDXL API
     const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image', {
         method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
             'Accept': 'application/json'
-            // DO NOT set Content-Type - let FormData handle it with boundary
         },
-        body: formData
+        body: JSON.stringify(body)
     });
 
     if (!response.ok) {
