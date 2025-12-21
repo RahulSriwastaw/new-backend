@@ -41,8 +41,19 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
     const FormData = globalThis.FormData || require('form-data');
     const formData = new FormData();
 
+    // Handle Blob for Node.js environment
+    let imageBlob;
+    try {
+        // Try Node 18+ Blob
+        const { Blob } = require('buffer');
+        imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+    } catch {
+        // Fallback: Use Buffer directly (works with most FormData implementations)
+        imageBlob = Buffer.from(imageBuffer);
+    }
+
     // Required parameters
-    formData.append('init_image', new Blob([imageBuffer], { type: 'image/png' }), 'input.png');
+    formData.append('init_image', imageBlob, 'input.png');
     formData.append('init_image_mode', 'IMAGE_STRENGTH'); // REQUIRED for SDXL I2I
     formData.append('image_strength', '0.35'); // 0-1: Lower = more like original (0.35 = preserve 65%)
 
