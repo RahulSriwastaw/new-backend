@@ -3206,11 +3206,36 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
 
   } catch (err) {
     console.error('Payment Init Error:', err);
+    console.error('Error name:', err.name);
+    console.error('Error message:', err.message);
     console.error('Error stack:', err.stack);
+    
+    // Check if response was already sent
+    if (res.headersSent) {
+      console.error('Response already sent, cannot send error response');
+      return;
+    }
+    
+    // Handle specific error types
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        msg: 'Invalid request data', 
+        error: err.message 
+      });
+    }
+    
+    if (err.name === 'CastError') {
+      return res.status(400).json({ 
+        msg: 'Invalid package ID format', 
+        error: 'Please provide a valid package ID' 
+      });
+    }
+    
     res.status(500).json({ 
       msg: 'Payment initialization failed', 
       error: err.message || 'Unknown error',
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      errorType: err.name || 'Error',
+      details: process.env.NODE_ENV === 'development' ? err.stack : 'Check server logs for details'
     });
   }
 });
