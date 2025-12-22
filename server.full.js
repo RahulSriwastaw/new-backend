@@ -2753,6 +2753,16 @@ app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
   res.json({ success: true, id: String(doc._id), isActive: doc.isActive });
 });
 
+app.delete('/api/admin/finance/gateways/:id', async (req, res) => {
+  try {
+    const gateway = await PaymentGateway.findByIdAndDelete(req.params.id);
+    if (!gateway) return res.status(404).json({ error: 'Gateway not found' });
+    res.json({ success: true, message: 'Gateway deleted successfully' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete gateway', message: e.message });
+  }
+});
+
 app.get('/api/admin/fix-gateways-duplicates', async (req, res) => {
   // 1. Group by provider
   const gateways = await PaymentGateway.find();
@@ -3000,8 +3010,8 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/pro?payment_success=true&session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
-        cancel_url: `${req.headers.origin || 'https://rupantara-fronted.vercel.app'}/pro`,
+        success_url: `${req.headers.origin || process.env.FRONTEND_URL || 'https://rupantara-fronted.vercel.app'}/pro?payment_success=true&session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
+        cancel_url: `${req.headers.origin || process.env.FRONTEND_URL || 'https://rupantara-fronted.vercel.app'}/pro`,
         metadata: { userId: req.user.id, packageId: packageId },
       });
 
@@ -3053,9 +3063,9 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
 
     const order = await instance.orders.create(options);
     res.json({
+      orderId: order.id,
       id: order.id,
       currency: order.currency,
-      amount: order.amount,
       amount: order.amount,
       keyId: key_id,
       key: key_id // standard name
@@ -3104,7 +3114,8 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
         type: 'credit',
         description: `Purchased ${pkg.name}`,
         gateway: 'razorpay',
-        status: 'success'
+        status: 'success',
+        date: new Date()
       });
 
       res.json({ success: true, newBalance: user.points });

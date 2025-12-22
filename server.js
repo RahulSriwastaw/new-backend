@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const { Template, Category, User } = require('./models');
+const { Template, Category, User, PointsPackage, PaymentGateway, Transaction } = require('./models');
 
 const app = express();
 app.enable('trust proxy');
@@ -210,6 +210,43 @@ try {
 } catch (error) {
   console.error('Failed to load creator template routes:', error.message);
 }
+
+// Packages endpoint for frontend
+app.get(['/api/packages', '/api/v1/packages'], async (req, res) => {
+  try {
+    const useDb = mongoose.connection && mongoose.connection.readyState === 1;
+    if (useDb) {
+      const pkgs = await PointsPackage.find({ isActive: true }).sort({ price: 1 });
+      return res.json(pkgs.map(p => ({
+        id: String(p._id),
+        name: p.name,
+        price: p.price,
+        points: p.points,
+        bonusPoints: p.bonusPoints || 0,
+        isPopular: p.isPopular || false,
+        isActive: p.isActive !== false,
+        tag: p.tag || ''
+      })));
+    }
+    return res.json([]);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch packages' });
+  }
+});
+
+// Payment endpoints
+app.get(['/api/payment/active-gateway', '/api/v1/payment/active-gateway'], async (req, res) => {
+  try {
+    const useDb = mongoose.connection && mongoose.connection.readyState === 1;
+    if (useDb) {
+      const active = await PaymentGateway.findOne({ isActive: true });
+      return res.json({ provider: active ? active.provider.toLowerCase() : 'razorpay' });
+    }
+    return res.json({ provider: 'razorpay' });
+  } catch (e) {
+    return res.json({ provider: 'razorpay' });
+  }
+});
 
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
