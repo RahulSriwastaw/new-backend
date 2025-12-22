@@ -2759,45 +2759,30 @@ app.post('/api/admin/finance/gateways', authUser, async (req, res) => {
 });
 app.put('/api/admin/finance/gateways/:id', authUser, async (req, res) => {
   try {
-    // Get existing gateway first to preserve secretKey if not provided
-    const existingGateway = await PaymentGateway.findById(req.params.id).select('+secretKey');
+    const existingGateway = await PaymentGateway.findById(req.params.id);
     if (!existingGateway) {
       return res.status(404).json({ error: 'Gateway not found' });
     }
 
     const update = { ...req.body };
     
-    // Only update secretKey if it's provided and not empty
-    // If secretKey is empty string or undefined, preserve the existing one
-    if (update.secretKey === '' || update.secretKey === undefined || update.secretKey === null) {
-      delete update.secretKey; // Don't update secretKey, keep existing
-    } else if (update.secretKey && update.secretKey.trim() !== '') {
-      // Only update if new secretKey is provided and not empty
-      update.secretKey = update.secretKey.trim();
-    } else {
-      delete update.secretKey; // Empty after trim, preserve existing
-    }
+    // Remove credential fields if present (credentials are in ENV variables, not database)
+    delete update.publicKey;
+    delete update.secretKey;
     
     // Normalize provider if provided
     if (update.provider) {
       update.provider = update.provider.toLowerCase();
     }
     
-    // Use findByIdAndUpdate but ensure secretKey is preserved if not in update
     const gateway = await PaymentGateway.findByIdAndUpdate(
       req.params.id, 
       update, 
       { new: true, runValidators: true }
-    ).select('+secretKey');
+    );
     
     if (!gateway) {
       return res.status(404).json({ error: 'Gateway not found' });
-    }
-    
-    // If secretKey was not updated, ensure it's preserved
-    if (!update.secretKey && existingGateway.secretKey) {
-      gateway.secretKey = existingGateway.secretKey;
-      await gateway.save();
     }
     
     res.json({ ...gateway._doc, id: String(gateway._id) });
@@ -3024,6 +3009,24 @@ app.get('/api/packages', async (req, res) => {
 });
 
 // --- Payment Routes (Razorpay) ---
+// Helper function to get gateway credentials from environment variables
+const getGatewayCredentials = (provider) => {
+  const providerLower = provider.toLowerCase();
+  const envMap = {
+    razorpay: { keyId: 'RAZORPAY_KEY_ID', secretKey: 'RAZORPAY_KEY_SECRET' },
+    stripe: { keyId: 'STRIPE_PUBLIC_KEY', secretKey: 'STRIPE_SECRET_KEY' },
+    paypal: { keyId: 'PAYPAL_CLIENT_ID', secretKey: 'PAYPAL_CLIENT_SECRET' },
+    phonepe: { keyId: 'PHONEPE_MERCHANT_ID', secretKey: 'PHONEPE_SALT_KEY' },
+    paytm: { keyId: 'PAYTM_MERCHANT_ID', secretKey: 'PAYTM_MERCHANT_KEY' }
+  };
+  const envKeys = envMap[providerLower];
+  if (!envKeys) return { keyId: null, secretKey: null };
+  return {
+    keyId: process.env[envKeys.keyId]?.trim() || null,
+    secretKey: process.env[envKeys.secretKey]?.trim() || null
+  };
+};
+
 // Public route to get active gateway
 app.get('/api/payment/active-gateway', async (req, res) => {
   try {
@@ -3106,18 +3109,14 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
 
     // Pkg already retrieved above
 
-    // Get Razorpay Config (select secretKey explicitly)
+    // Get Razorpay Config (only for isActive and isTestMode check)
     const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
-      .select('+secretKey')
       .sort({ isActive: -1, _id: -1 });
 
     console.log('Razorpay config check:', {
       configExists: !!config,
       isActive: config?.isActive,
-      hasPublicKey: !!(config?.publicKey && config.publicKey.trim()),
-      hasSecretKey: !!(config?.secretKey && config.secretKey.trim()),
-      publicKeyLength: config?.publicKey?.length || 0,
-      secretKeyLength: config?.secretKey?.length || 0
+      isTestMode: config?.isTestMode
     });
 
     // If config exists in DB and is explicitly disabled, return error
@@ -3125,55 +3124,24 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
       return res.status(400).json({ msg: 'Razorpay gateway is disabled in Admin Panel' });
     }
 
-    // Use DB credentials if available and valid, otherwise fallback to ENV
-    let key_id = null;
-    let key_secret = null;
-    
-    // First try to get from DB config (only if config exists and has valid keys)
-    if (config) {
-      if (config.publicKey && typeof config.publicKey === 'string' && config.publicKey.trim().length > 0) {
-        key_id = config.publicKey.trim();
-      }
-      if (config.secretKey && typeof config.secretKey === 'string' && config.secretKey.trim().length > 0) {
-        key_secret = config.secretKey.trim();
-      }
-    }
-    
-    // Fallback to ENV if DB doesn't have credentials or they're invalid
-    if (!key_id || key_id === '') {
-      if (process.env.RAZORPAY_KEY_ID && typeof process.env.RAZORPAY_KEY_ID === 'string' && process.env.RAZORPAY_KEY_ID.trim().length > 0) {
-        key_id = process.env.RAZORPAY_KEY_ID.trim();
-        console.log('Using ENV RAZORPAY_KEY_ID (fallback)');
-      }
-    } else {
-      console.log('Using DB publicKey for Razorpay');
-    }
-    
-    if (!key_secret || key_secret === '') {
-      if (process.env.RAZORPAY_KEY_SECRET && typeof process.env.RAZORPAY_KEY_SECRET === 'string' && process.env.RAZORPAY_KEY_SECRET.trim().length > 0) {
-        key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
-        console.log('Using ENV RAZORPAY_KEY_SECRET (fallback)');
-      }
-    } else {
-      console.log('Using DB secretKey for Razorpay');
-    }
+    // Get credentials from environment variables only
+    const credentials = getGatewayCredentials('razorpay');
+    const key_id = credentials.keyId;
+    const key_secret = credentials.secretKey;
 
     if (!key_id || !key_secret || key_id === '' || key_secret === '') {
-      console.error('Razorpay credentials missing:', { 
+      console.error('Razorpay credentials missing from environment variables:', { 
         hasKeyId: !!key_id && key_id !== '', 
-        hasKeySecret: !!key_secret && key_secret !== '', 
-        configExists: !!config,
-        configHasPublicKey: !!(config?.publicKey && config.publicKey.trim()),
-        configHasSecretKey: !!(config?.secretKey && config.secretKey.trim()),
-        hasEnvKeyId: !!process.env.RAZORPAY_KEY_ID,
-        hasEnvKeySecret: !!process.env.RAZORPAY_KEY_SECRET
+        hasKeySecret: !!key_secret && key_secret !== ''
       });
       return res.status(500).json({ 
-        msg: 'Razorpay credentials missing. Please configure in Admin Panel.',
+        msg: 'Razorpay credentials missing. Please configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables.',
         error: 'Payment gateway not configured',
-        details: 'Go to Admin Panel > Finance & Wallet > Payment Gateways and add Razorpay credentials'
+        details: 'Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to Render environment variables'
       });
     }
+    
+    console.log('Using ENV variables for Razorpay credentials');
 
     // Verification of mode
     if (config?.isTestMode && key_id.startsWith('rzp_live')) {

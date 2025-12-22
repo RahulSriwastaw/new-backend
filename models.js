@@ -162,13 +162,13 @@ const pointsPackageSchema = new mongoose.Schema({
 });
 
 // 7. Payment Gateway Config Schema
+// Note: Credentials (publicKey, secretKey) are stored in environment variables, not in database
 const gatewaySchema = new mongoose.Schema({
   name: { type: String, required: true },
   provider: { type: String, required: true },
   isActive: { type: Boolean, default: false },
-  isTestMode: { type: Boolean, default: true },
-  publicKey: { type: String, default: '' },
-  secretKey: { type: String, default: '', select: false }
+  isTestMode: { type: Boolean, default: true }
+  // publicKey and secretKey removed - now stored in environment variables only
 });
 
 // 8. Finance Config Schema (Singleton)
