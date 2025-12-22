@@ -3111,29 +3111,51 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
       .select('+secretKey')
       .sort({ isActive: -1, _id: -1 });
 
-    // If config exists in DB, check if active
-    if (config && !config.isActive) {
+    console.log('Razorpay config check:', {
+      configExists: !!config,
+      isActive: config?.isActive,
+      hasPublicKey: !!(config?.publicKey && config.publicKey.trim()),
+      hasSecretKey: !!(config?.secretKey && config.secretKey.trim()),
+      publicKeyLength: config?.publicKey?.length || 0,
+      secretKeyLength: config?.secretKey?.length || 0
+    });
+
+    // If config exists in DB and is explicitly disabled, return error
+    if (config && config.isActive === false) {
       return res.status(400).json({ msg: 'Razorpay gateway is disabled in Admin Panel' });
     }
 
-    // Use DB credentials if available, otherwise fallback to ENV
+    // Use DB credentials if available and valid, otherwise fallback to ENV
     let key_id = null;
     let key_secret = null;
     
-    // First try to get from DB config
-    if (config && config.publicKey && config.publicKey.trim()) {
-      key_id = config.publicKey.trim();
-    }
-    if (config && config.secretKey && config.secretKey.trim()) {
-      key_secret = config.secretKey.trim();
+    // First try to get from DB config (only if config exists and has valid keys)
+    if (config) {
+      if (config.publicKey && typeof config.publicKey === 'string' && config.publicKey.trim().length > 0) {
+        key_id = config.publicKey.trim();
+      }
+      if (config.secretKey && typeof config.secretKey === 'string' && config.secretKey.trim().length > 0) {
+        key_secret = config.secretKey.trim();
+      }
     }
     
-    // Fallback to ENV if DB doesn't have credentials
-    if (!key_id && process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID.trim()) {
-      key_id = process.env.RAZORPAY_KEY_ID.trim();
+    // Fallback to ENV if DB doesn't have credentials or they're invalid
+    if (!key_id || key_id === '') {
+      if (process.env.RAZORPAY_KEY_ID && typeof process.env.RAZORPAY_KEY_ID === 'string' && process.env.RAZORPAY_KEY_ID.trim().length > 0) {
+        key_id = process.env.RAZORPAY_KEY_ID.trim();
+        console.log('Using ENV RAZORPAY_KEY_ID (fallback)');
+      }
+    } else {
+      console.log('Using DB publicKey for Razorpay');
     }
-    if (!key_secret && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_KEY_SECRET.trim()) {
-      key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
+    
+    if (!key_secret || key_secret === '') {
+      if (process.env.RAZORPAY_KEY_SECRET && typeof process.env.RAZORPAY_KEY_SECRET === 'string' && process.env.RAZORPAY_KEY_SECRET.trim().length > 0) {
+        key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
+        console.log('Using ENV RAZORPAY_KEY_SECRET (fallback)');
+      }
+    } else {
+      console.log('Using DB secretKey for Razorpay');
     }
 
     if (!key_id || !key_secret || key_id === '' || key_secret === '') {
