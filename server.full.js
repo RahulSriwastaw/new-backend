@@ -3092,20 +3092,23 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     }
 
     // Use DB credentials if available, otherwise fallback to ENV
-    const key_id = config?.publicKey || process.env.RAZORPAY_KEY_ID;
-    const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
+    const key_id = (config?.publicKey && config.publicKey.trim()) || (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID.trim()) || null;
+    const key_secret = (config?.secretKey && config.secretKey.trim()) || (process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_KEY_SECRET.trim()) || null;
 
-    if (!key_id || !key_secret) {
+    if (!key_id || !key_secret || key_id === '' || key_secret === '') {
       console.error('Razorpay credentials missing:', { 
-        hasKeyId: !!key_id, 
-        hasKeySecret: !!key_secret, 
+        hasKeyId: !!key_id && key_id !== '', 
+        hasKeySecret: !!key_secret && key_secret !== '', 
         configExists: !!config,
+        configHasPublicKey: !!(config?.publicKey && config.publicKey.trim()),
+        configHasSecretKey: !!(config?.secretKey && config.secretKey.trim()),
         hasEnvKeyId: !!process.env.RAZORPAY_KEY_ID,
         hasEnvKeySecret: !!process.env.RAZORPAY_KEY_SECRET
       });
       return res.status(500).json({ 
         msg: 'Razorpay credentials missing. Please configure in Admin Panel.',
-        error: 'Payment gateway not configured'
+        error: 'Payment gateway not configured',
+        details: 'Go to Admin Panel > Finance & Wallet > Payment Gateways and add Razorpay credentials'
       });
     }
 
@@ -3116,11 +3119,29 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
 
     try {
       // Validate Razorpay instance creation
-      if (!key_id || !key_secret) {
+      if (!key_id || !key_secret || key_id.trim() === '' || key_secret.trim() === '') {
         throw new Error('Razorpay credentials are required');
       }
 
-      const instance = new Razorpay({ key_id, key_secret });
+      // Validate key format (Razorpay keys start with rzp_)
+      if (!key_id.startsWith('rzp_')) {
+        console.error('Invalid Razorpay Key ID format:', key_id.substring(0, 10) + '...');
+        return res.status(500).json({ 
+          msg: 'Invalid Razorpay Key ID format. Key ID should start with "rzp_"',
+          error: 'Invalid credentials format'
+        });
+      }
+
+      let instance;
+      try {
+        instance = new Razorpay({ key_id, key_secret });
+      } catch (initError) {
+        console.error('Razorpay instance creation failed:', initError);
+        return res.status(500).json({ 
+          msg: 'Failed to initialize Razorpay. Please check your credentials.',
+          error: initError.message || 'Razorpay initialization failed'
+        });
+      }
 
       const amountInPaise = Math.round(pkg.price * 100);
       if (amountInPaise <= 0) {
