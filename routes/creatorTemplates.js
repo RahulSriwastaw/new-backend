@@ -51,6 +51,7 @@ module.exports = (authMiddleware) => {
             }
 
             // Create new template - map fields correctly
+            // CRITICAL: Creator templates start as PENDING and are NOT active
             const newTemplate = new Template({
                 title,
                 description,
@@ -67,10 +68,10 @@ module.exports = (authMiddleware) => {
                 creatorId: creator.id || creator._id,
                 type: 'Creator',
                 source: 'creator',
-                status: 'active',
+                status: 'draft', // Draft until approved
                 approvalStatus: 'pending', // Pending approval by admin
                 submittedAt: new Date(),
-                isPaused: isActive !== undefined ? !isActive : false,
+                isPaused: true, // Paused until approved
                 useCount: 0,
                 likeCount: 0,
                 savesCount: 0,

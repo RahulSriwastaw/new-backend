@@ -97,7 +97,12 @@ app.get(['/api/templates', '/api/v1/templates'], async (req, res) => {
   try {
     const useDb = mongoose.connection && mongoose.connection.readyState === 1;
     if (useDb) {
-      const list = await Template.find({ status: 'active' }).sort({ useCount: -1 }).limit(100);
+      // CRITICAL: Only show approved + live templates to users
+      const list = await Template.find({ 
+        status: 'active',
+        approvalStatus: 'approved',
+        isPaused: false
+      }).sort({ useCount: -1 }).limit(100);
       return res.json(list.map(t => ({
         id: t._id,
         title: t.title,

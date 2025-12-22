@@ -1596,20 +1596,60 @@ app.get('/api/admin/templates', async (req, res) => {
   res.json(list.map(t => ({ ...t._doc, id: t._id })));
 });
 app.post('/api/admin/templates', async (req, res) => {
-  const t = await Template.create(req.body);
-  res.json({ ...t._doc, id: t._id });
+  try {
+    // ADMIN templates are auto-approved
+    const templateData = {
+      ...req.body,
+      type: 'Official',
+      source: 'admin',
+      isOfficial: true,
+      approvalStatus: 'approved', // Auto-approve admin templates
+      approvedAt: new Date(),
+      isPaused: false
+    };
+    const t = await Template.create(templateData);
+    res.json({ ...t._doc, id: t._id });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create template', message: e.message });
+  }
 });
 app.patch('/api/admin/templates/:id', async (req, res) => {
-  const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!t) return res.status(404).json({ error: 'Not found' });
-  res.json({ ...t._doc, id: t._id });
+  try {
+    const existing = await Template.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    
+    // If editing an approved template, reset to pending (unless it's admin template)
+    const updates = { ...req.body };
+    if (existing.approvalStatus === 'approved' && existing.source === 'creator') {
+      updates.approvalStatus = 'pending';
+      updates.approvedAt = null;
+    }
+    
+    const t = await Template.findByIdAndUpdate(req.params.id, updates, { new: true });
+    res.json({ ...t._doc, id: t._id });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update template', message: e.message });
+  }
 });
 
 // Admin panel uses PUT for template updates
 app.put('/api/admin/templates/:id', async (req, res) => {
-  const t = await Template.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!t) return res.status(404).json({ error: 'Not found' });
-  res.json({ ...t._doc, id: t._id });
+  try {
+    const existing = await Template.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    
+    // If editing an approved template, reset to pending (unless it's admin template)
+    const updates = { ...req.body };
+    if (existing.approvalStatus === 'approved' && existing.source === 'creator') {
+      updates.approvalStatus = 'pending';
+      updates.approvedAt = null;
+    }
+    
+    const t = await Template.findByIdAndUpdate(req.params.id, updates, { new: true });
+    res.json({ ...t._doc, id: t._id });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update template', message: e.message });
+  }
 });
 
 // Bulk update helper used by the Admin UI
@@ -1624,6 +1664,128 @@ app.put('/api/admin/templates/bulk-update', async (req, res) => {
 app.delete('/api/admin/templates/:id', async (req, res) => {
   await Template.findByIdAndDelete(req.params.id);
   res.json({ success: true });
+});
+
+// ============================================
+// ADMIN TEMPLATE APPROVAL ENDPOINTS
+// ============================================
+
+// Get all pending templates for admin review
+app.get('/api/admin/templates/pending', async (req, res) => {
+  try {
+    const pendingTemplates = await Template.find({ approvalStatus: 'pending' })
+      .populate('creatorId', 'name username email photoURL isVerified')
+      .sort({ submittedAt: -1 })
+      .limit(100);
+
+    const templates = pendingTemplates.map(t => ({
+      ...t.toObject(),
+      id: t._id,
+      creatorName: t.creatorId?.name || t.creatorId?.username || 'Unknown',
+      creatorAvatar: t.creatorId?.photoURL || '',
+      creatorVerified: t.creatorId?.isVerified || false
+    }));
+
+    res.json({ templates, count: templates.length });
+  } catch (e) {
+    console.error('Failed to fetch pending templates:', e);
+    res.status(500).json({ error: 'Failed to fetch pending templates' });
+  }
+});
+
+// Approve a template
+app.post('/api/admin/templates/:id/approve', async (req, res) => {
+  try {
+    const template = await Template.findByIdAndUpdate(
+      req.params.id,
+      {
+        approvalStatus: 'approved',
+        approvedAt: new Date(),
+        status: 'active', // Make it active
+        isPaused: false, // Unpause it
+        approvedBy: req.user?._id || null
+      },
+      { new: true }
+    );
+
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    console.log(`✅ Template approved: ${template.title}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Template approved successfully',
+      template 
+    });
+  } catch (e) {
+    console.error('Failed to approve template:', e);
+    res.status(500).json({ error: 'Failed to approve template' });
+  }
+});
+
+// Reject a template
+app.post('/api/admin/templates/:id/reject', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const template = await Template.findByIdAndUpdate(
+      req.params.id,
+      {
+        approvalStatus: 'rejected',
+        rejectionReason: reason.trim(),
+        rejectedAt: new Date(),
+        isPaused: true // Pause rejected templates
+      },
+      { new: true }
+    );
+
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    console.log(`❌ Template rejected: ${template.title} - Reason: ${reason}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Template rejected',
+      template 
+    });
+  } catch (e) {
+    console.error('Failed to reject template:', e);
+    res.status(500).json({ error: 'Failed to reject template' });
+  }
+});
+
+// Toggle template pause status (only for approved templates)
+app.post('/api/admin/templates/:id/toggle-pause', async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Only allow pausing approved templates
+    if (template.approvalStatus !== 'approved') {
+      return res.status(400).json({ error: 'Can only pause approved templates' });
+    }
+
+    template.isPaused = !template.isPaused;
+    await template.save();
+
+    res.json({ 
+      success: true, 
+      isPaused: template.isPaused,
+      message: template.isPaused ? 'Template paused' : 'Template resumed'
+    });
+  } catch (e) {
+    console.error('Failed to toggle pause status:', e);
+    res.status(500).json({ error: 'Failed to toggle pause status' });
+  }
 });
 
 app.get('/api/templates', async (req, res) => {
@@ -1718,6 +1880,11 @@ app.get('/api/templates/:id', async (req, res) => {
       .populate('creatorId', 'name username email photoURL isVerified');
     if (!t) return res.status(404).json({ error: 'Not found' });
 
+    // CRITICAL: Only show approved + live templates to users
+    if (t.approvalStatus !== 'approved' || t.isPaused) {
+      return res.status(404).json({ error: 'Template not available' });
+    }
+
     const template = {
       ...t.toObject(),
       id: t._id,
@@ -1737,7 +1904,12 @@ app.get('/api/templates/search', async (req, res) => {
     const q = String(req.query.q || '').trim();
     if (!q) return res.json([]);
     const re = new RegExp(q, 'i');
-    const list = await Template.find({ $or: [{ title: re }, { prompt: re }, { description: re }] }).limit(50);
+    // CRITICAL: Only search approved + live templates
+    const list = await Template.find({ 
+      $or: [{ title: re }, { prompt: re }, { description: re }],
+      approvalStatus: 'approved',
+      isPaused: false
+    }).limit(50);
     res.json(list.map(t => ({ ...t._doc, id: t._id })));
   } catch (e) {
     res.status(500).json({ error: 'Search failed' });
