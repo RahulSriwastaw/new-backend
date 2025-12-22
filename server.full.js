@@ -2759,11 +2759,23 @@ app.post('/api/admin/finance/gateways', authUser, async (req, res) => {
 });
 app.put('/api/admin/finance/gateways/:id', authUser, async (req, res) => {
   try {
+    // Get existing gateway first to preserve secretKey if not provided
+    const existingGateway = await PaymentGateway.findById(req.params.id).select('+secretKey');
+    if (!existingGateway) {
+      return res.status(404).json({ error: 'Gateway not found' });
+    }
+
     const update = { ...req.body };
     
     // Only update secretKey if it's provided and not empty
-    if (update.secretKey === '' || update.secretKey === undefined) {
-      delete update.secretKey;
+    // If secretKey is empty string or undefined, preserve the existing one
+    if (update.secretKey === '' || update.secretKey === undefined || update.secretKey === null) {
+      delete update.secretKey; // Don't update secretKey, keep existing
+    } else if (update.secretKey && update.secretKey.trim() !== '') {
+      // Only update if new secretKey is provided and not empty
+      update.secretKey = update.secretKey.trim();
+    } else {
+      delete update.secretKey; // Empty after trim, preserve existing
     }
     
     // Normalize provider if provided
@@ -2771,10 +2783,23 @@ app.put('/api/admin/finance/gateways/:id', authUser, async (req, res) => {
       update.provider = update.provider.toLowerCase();
     }
     
-    const gateway = await PaymentGateway.findByIdAndUpdate(req.params.id, update, { new: true });
+    // Use findByIdAndUpdate but ensure secretKey is preserved if not in update
+    const gateway = await PaymentGateway.findByIdAndUpdate(
+      req.params.id, 
+      update, 
+      { new: true, runValidators: true }
+    ).select('+secretKey');
+    
     if (!gateway) {
       return res.status(404).json({ error: 'Gateway not found' });
     }
+    
+    // If secretKey was not updated, ensure it's preserved
+    if (!update.secretKey && existingGateway.secretKey) {
+      gateway.secretKey = existingGateway.secretKey;
+      await gateway.save();
+    }
+    
     res.json({ ...gateway._doc, id: String(gateway._id) });
   } catch (e) {
     console.error('Error updating gateway:', e);
