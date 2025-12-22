@@ -131,7 +131,13 @@ const templateSchema = new mongoose.Schema({
 // 5b. Category Schema (Admin-managed)
 const categorySchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
-  subCategories: [{ type: String }]
+  subCategories: [{ type: String }],
+  icon: { type: String },
+  description: { type: String },
+  isActive: { type: Boolean, default: true },
+  order: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 // 6. Points Package Schema

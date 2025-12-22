@@ -3791,6 +3791,16 @@ app.post('/api/creator/templates', authUser, async (req, res) => {
 const creatorProfileRoutes = require('./creatorProfileRoutes');
 app.use('/api/admin/creators', authUser, creatorProfileRoutes);
 
+// Import and mount Category API routes (support multiple paths for compatibility)
+const categoryRoutes = require('./routes/categories')(authUser);
+app.use('/api/v1/categories', categoryRoutes);  // For v1 API
+app.use('/api/categories', categoryRoutes);      // For public frontend
+app.use('/api/admin/categories', categoryRoutes); // For admin panel (admin routes have auth middleware in routes file)
+
+// Import and mount Creator Template routes
+const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
+app.use('/api/v1/creator/templates', creatorTemplateRoutes);
+
 // Admin logs endpoint
 app.get('/api/admin/logs', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
