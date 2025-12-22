@@ -1682,12 +1682,26 @@ app.get('/api/templates', async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     const list = await Template.find(query)
+      .populate('creatorId', 'name username email photoURL isVerified')
       .sort(sortOption)
       .skip(skip)
       .limit(limitNum);
 
+    // Map and include creator info
+    const templatesWithCreator = list.map(t => {
+      const template = t.toObject();
+      return {
+        ...template,
+        id: t._id,
+        creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
+        creatorAvatar: t.creatorId?.photoURL || '',
+        creatorVerified: t.creatorId?.isVerified || false
+      };
+    });
+
     // Return mapped result
-    res.json(list.map(t => ({ ...t._doc, id: t._id })));
+    res.json(templatesWithCreator);
+
   } catch (e) {
     console.error("Template Fetch Error:", e);
     res.status(500).json({ error: 'Failed to fetch templates' });
@@ -1695,9 +1709,20 @@ app.get('/api/templates', async (req, res) => {
 });
 app.get('/api/templates/:id', async (req, res) => {
   try {
-    const t = await Template.findById(req.params.id);
+    const t = await Template.findById(req.params.id)
+      .populate('creatorId', 'name username email photoURL isVerified');
     if (!t) return res.status(404).json({ error: 'Not found' });
-    res.json({ ...t._doc, id: t._id });
+
+    const template = {
+      ...t.toObject(),
+      id: t._id,
+      creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
+      creatorAvatar: t.creatorId?.photoURL || '',
+      creatorVerified: t.creatorId?.isVerified || false
+    };
+
+    res.json(template);
+
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch template' });
   }
