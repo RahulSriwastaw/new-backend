@@ -3082,8 +3082,14 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     try {
       const instance = new Razorpay({ key_id, key_secret });
 
+      const amountInPaise = Math.round(pkg.price * 100);
+      if (amountInPaise <= 0) {
+        console.error('Invalid amount calculated:', { price: pkg.price, amountInPaise });
+        return res.status(400).json({ msg: 'Invalid package price. Amount must be greater than 0.' });
+      }
+
       const options = {
-        amount: Math.round(pkg.price * 100), // Amount in paise (integer)
+        amount: amountInPaise, // Amount in paise (integer)
         currency: "INR",
         receipt: `order_${Date.now()}_${String(req.user.id)}`,
         notes: {
@@ -3092,7 +3098,9 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         }
       };
 
+      console.log('Creating Razorpay order with options:', { ...options, key_id: key_id.substring(0, 10) + '...' });
       const order = await instance.orders.create(options);
+      console.log('Razorpay order created successfully:', order.id);
       res.json({
         orderId: order.id,
         id: order.id,
@@ -3103,6 +3111,7 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
       });
     } catch (razorpayError) {
       console.error('Razorpay order creation error:', razorpayError);
+      console.error('Razorpay error details:', razorpayError.error);
       return res.status(500).json({ 
         msg: 'Failed to create Razorpay order', 
         error: razorpayError.message || 'Unknown error',
