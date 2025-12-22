@@ -3181,9 +3181,17 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     }
 
     try {
-      // Validate Razorpay instance creation
+      // Validate credentials are present (already checked above, but double-check)
       if (!key_id || !key_secret || key_id.trim() === '' || key_secret.trim() === '') {
-        throw new Error('Razorpay credentials are required');
+        console.error('Razorpay credentials validation failed:', {
+          key_id: key_id ? `${key_id.substring(0, 10)}...` : 'null',
+          key_secret: key_secret ? '***' : 'null'
+        });
+        return res.status(500).json({ 
+          msg: 'Razorpay credentials are required',
+          error: 'Payment gateway not configured',
+          details: 'Please configure Razorpay credentials in Admin Panel or set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables'
+        });
       }
 
       // Validate key format (Razorpay keys start with rzp_)
@@ -3191,7 +3199,8 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         console.error('Invalid Razorpay Key ID format:', key_id.substring(0, 10) + '...');
         return res.status(500).json({ 
           msg: 'Invalid Razorpay Key ID format. Key ID should start with "rzp_"',
-          error: 'Invalid credentials format'
+          error: 'Invalid credentials format',
+          details: 'Please check your Razorpay Key ID in Admin Panel'
         });
       }
 
