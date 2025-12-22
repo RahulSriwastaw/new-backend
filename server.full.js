@@ -4012,6 +4012,7 @@ app.use('/api/admin/categories', categoryRoutes); // For admin panel (admin rout
 // Import and mount Creator Template routes
 const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
 app.use('/api/v1/creator/templates', creatorTemplateRoutes);
+app.use('/api/creator/templates', creatorTemplateRoutes); // Also support without /v1 (for URL rewrite compatibility)
 
 // Admin logs endpoint
 app.get('/api/admin/logs', (req, res) => {
