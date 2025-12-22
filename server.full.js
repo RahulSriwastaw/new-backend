@@ -65,22 +65,32 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
+    // Allow Vercel preview URLs (e.g., *.vercel.app)
+    if (origin.includes('.vercel.app') || origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+
+    // Allow localhost for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
     // In production, log blocked origins for debugging
     if (process.env.NODE_ENV === 'production') {
       console.warn(`⚠️ CORS blocked origin: ${origin}`);
     }
-    
+
     // For development, allow all origins
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    
+
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -1002,7 +1012,7 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     const errorMsg = String(err && err.message ? err.message : String(err));
     console.error("❌ Generation Error:", err);
     recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: errorMsg });
-    
+
     // Better error messages for common issues
     let userFriendlyError = 'Image generation failed. Please try again.';
     if (errorMsg.includes('Insufficient points')) {
@@ -1014,9 +1024,9 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     } else if (errorMsg.includes('rate limit') || errorMsg.includes('quota')) {
       userFriendlyError = 'Service temporarily unavailable. Please try again later.';
     }
-    
+
     // Return user-friendly error message
-    res.status(500).json({ 
+    res.status(500).json({
       error: userFriendlyError,
       ...(process.env.NODE_ENV === 'development' && { details: errorMsg })
     });
@@ -3818,10 +3828,10 @@ app.use((req, res, next) => {
 // 404 Handler for undefined routes
 app.use((req, res) => {
   if (req.url.startsWith('/api/')) {
-    return res.status(404).json({ 
-      error: 'Route not found', 
+    return res.status(404).json({
+      error: 'Route not found',
       message: `The endpoint ${req.method} ${req.url} does not exist`,
-      path: req.url 
+      path: req.url
     });
   }
   res.status(404).json({ error: 'Not found', message: 'The requested resource was not found' });
