@@ -3121,7 +3121,12 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
 
   } catch (err) {
     console.error('Payment Init Error:', err);
-    res.status(500).json({ msg: 'Payment initialization failed', error: err.message });
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      msg: 'Payment initialization failed', 
+      error: err.message || 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
