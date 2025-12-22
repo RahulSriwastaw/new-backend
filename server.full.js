@@ -3212,6 +3212,7 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         amount: options.amount, 
         currency: options.currency,
         receipt: options.receipt,
+        receiptLength: options.receipt.length,
         key_id: key_id.substring(0, 10) + '...' 
       });
       
