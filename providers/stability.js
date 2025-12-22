@@ -11,10 +11,10 @@ async function generateWithStability({ prompt, negativePrompt, uploadedImages, a
 
     if (uploadedImages && uploadedImages.length > 0) {
         // IMAGE-TO-IMAGE: MUST use multipart/form-data
-        return await generateImageToImage({ prompt, negativePrompt, uploadedImages, apiKey });
+        return await generateImageToImage({ prompt, negativePrompt, uploadedImages, apiKey, strength });
     } else {
         // TEXT-TO-IMAGE: JSON is fine
-        return await generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey });
+        return await generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey, modelConfig, strength });
     }
 }
 
