@@ -2984,10 +2984,12 @@ app.get('/api/payment/active-gateway', async (req, res) => {
   }
 });
 
-app.post('/api/payment/create-order', authUser, async (req, res) => {
+app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser, async (req, res) => {
   try {
-    const { packageId, gateway = 'razorpay' } = req.body;
+    console.log('Payment create-order request:', { packageId: req.body?.packageId, gateway: req.body?.gateway, userId: req.user?.id });
+    const { packageId, gateway = 'razorpay' } = req.body || {};
     if (!packageId) {
+      console.error('Package ID missing in request');
       return res.status(400).json({ msg: 'Package ID is required' });
     }
     const pkg = await PointsPackage.findById(packageId);
@@ -2996,7 +2998,12 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
       return res.status(404).json({ msg: 'Package not found' });
     }
     if (!pkg.isActive) {
+      console.error('Package is not active:', packageId);
       return res.status(400).json({ msg: 'Package is not active' });
+    }
+    if (!pkg.price || pkg.price <= 0) {
+      console.error('Package price is invalid:', pkg.price);
+      return res.status(400).json({ msg: 'Package price must be greater than 0' });
     }
 
     // --- STRIPE LOGIC ---
