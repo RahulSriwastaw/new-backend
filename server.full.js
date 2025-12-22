@@ -3117,8 +3117,24 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     }
 
     // Use DB credentials if available, otherwise fallback to ENV
-    const key_id = (config?.publicKey && config.publicKey.trim()) || (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID.trim()) || null;
-    const key_secret = (config?.secretKey && config.secretKey.trim()) || (process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_KEY_SECRET.trim()) || null;
+    let key_id = null;
+    let key_secret = null;
+    
+    // First try to get from DB config
+    if (config && config.publicKey && config.publicKey.trim()) {
+      key_id = config.publicKey.trim();
+    }
+    if (config && config.secretKey && config.secretKey.trim()) {
+      key_secret = config.secretKey.trim();
+    }
+    
+    // Fallback to ENV if DB doesn't have credentials
+    if (!key_id && process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID.trim()) {
+      key_id = process.env.RAZORPAY_KEY_ID.trim();
+    }
+    if (!key_secret && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAY_KEY_SECRET.trim()) {
+      key_secret = process.env.RAZORPAY_KEY_SECRET.trim();
+    }
 
     if (!key_id || !key_secret || key_id === '' || key_secret === '') {
       console.error('Razorpay credentials missing:', { 
