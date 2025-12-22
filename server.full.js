@@ -2137,18 +2137,31 @@ app.get('/api/admin/finance/packages', async (_req, res) => {
   const list = await PointsPackage.find().sort({ isPopular: -1, price: 1 });
   res.json(list.map(p => ({ ...p._doc, id: String(p._id) })));
 });
-app.post('/api/admin/finance/packages', async (req, res) => {
-  const doc = await PointsPackage.create(req.body);
-  res.json({ ...doc._doc, id: String(doc._id) });
+app.post('/api/admin/finance/packages', authUser, async (req, res) => {
+  try {
+    const doc = await PointsPackage.create(req.body);
+    res.json({ ...doc._doc, id: String(doc._id) });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create package', message: e.message });
+  }
 });
-app.put('/api/admin/finance/packages/:id', async (req, res) => {
-  const doc = await PointsPackage.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!doc) return res.status(404).json({ error: 'Not found' });
-  res.json({ ...doc._doc, id: String(doc._id) });
+app.put('/api/admin/finance/packages/:id', authUser, async (req, res) => {
+  try {
+    const doc = await PointsPackage.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    res.json({ ...doc._doc, id: String(doc._id) });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update package', message: e.message });
+  }
 });
-app.delete('/api/admin/finance/packages/:id', async (req, res) => {
-  await PointsPackage.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+app.delete('/api/admin/finance/packages/:id', authUser, async (req, res) => {
+  try {
+    const doc = await PointsPackage.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Package not found' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete package', message: e.message });
+  }
 });
 
 app.get('/api/admin/finance/gateways', async (_req, res) => {
@@ -2974,8 +2987,17 @@ app.get('/api/payment/active-gateway', async (req, res) => {
 app.post('/api/payment/create-order', authUser, async (req, res) => {
   try {
     const { packageId, gateway = 'razorpay' } = req.body;
+    if (!packageId) {
+      return res.status(400).json({ msg: 'Package ID is required' });
+    }
     const pkg = await PointsPackage.findById(packageId);
-    if (!pkg) return res.status(404).json({ msg: 'Package not found' });
+    if (!pkg) {
+      console.error('Package not found:', packageId);
+      return res.status(404).json({ msg: 'Package not found' });
+    }
+    if (!pkg.isActive) {
+      return res.status(400).json({ msg: 'Package is not active' });
+    }
 
     // --- STRIPE LOGIC ---
     if (gateway.toLowerCase() === 'stripe') {
@@ -3041,7 +3063,8 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
     const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_id || !key_secret) {
-      return res.status(500).json({ msg: 'Razorpay credentials missing' });
+      console.error('Razorpay credentials missing:', { hasKeyId: !!key_id, hasKeySecret: !!key_secret, configExists: !!config });
+      return res.status(500).json({ msg: 'Razorpay credentials missing. Please configure in Admin Panel.' });
     }
 
     // Verification of mode
@@ -3049,27 +3072,36 @@ app.post('/api/payment/create-order', authUser, async (req, res) => {
       console.warn('⚠️ Warning: Using Razorpay LIVE key while in TEST mode. Payments WILL be real!');
     }
 
-    const instance = new Razorpay({ key_id, key_secret });
+    try {
+      const instance = new Razorpay({ key_id, key_secret });
 
-    const options = {
-      amount: Math.round(pkg.price * 100), // Amount in paise (integer)
-      currency: "INR",
-      receipt: `order_${Date.now()}`,
-      notes: {
-        userId: req.user.id,
-        packageId: packageId
-      }
-    };
+      const options = {
+        amount: Math.round(pkg.price * 100), // Amount in paise (integer)
+        currency: "INR",
+        receipt: `order_${Date.now()}_${String(req.user.id)}`,
+        notes: {
+          userId: String(req.user.id),
+          packageId: String(packageId)
+        }
+      };
 
-    const order = await instance.orders.create(options);
-    res.json({
-      orderId: order.id,
-      id: order.id,
-      currency: order.currency,
-      amount: order.amount,
-      keyId: key_id,
-      key: key_id // standard name
-    });
+      const order = await instance.orders.create(options);
+      res.json({
+        orderId: order.id,
+        id: order.id,
+        currency: order.currency,
+        amount: order.amount,
+        keyId: key_id,
+        key: key_id // standard name
+      });
+    } catch (razorpayError) {
+      console.error('Razorpay order creation error:', razorpayError);
+      return res.status(500).json({ 
+        msg: 'Failed to create Razorpay order', 
+        error: razorpayError.message || 'Unknown error',
+        details: razorpayError.error?.description || 'Check Razorpay credentials'
+      });
+    }
 
   } catch (err) {
     console.error('Payment Init Error:', err);
