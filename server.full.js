@@ -3132,12 +3132,14 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     if (!key_id || !key_secret || key_id === '' || key_secret === '') {
       console.error('Razorpay credentials missing from environment variables:', { 
         hasKeyId: !!key_id && key_id !== '', 
-        hasKeySecret: !!key_secret && key_secret !== ''
+        hasKeySecret: !!key_secret && key_secret !== '',
+        envKeyIdExists: !!process.env.RAZORPAY_KEY_ID,
+        envKeySecretExists: !!process.env.RAZORPAY_KEY_SECRET
       });
       return res.status(500).json({ 
-        msg: 'Razorpay credentials missing. Please configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables.',
+        msg: 'Razorpay credentials not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to Render environment variables.',
         error: 'Payment gateway not configured',
-        details: 'Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to Render environment variables'
+        details: 'Go to Render Dashboard > Your Service > Environment > Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET, then restart the service.'
       });
     }
     
