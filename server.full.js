@@ -3166,8 +3166,15 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         key_id: key_id.substring(0, 10) + '...' 
       });
       
-      const order = await instance.orders.create(options);
-      console.log('Razorpay order created successfully:', order.id);
+      let order;
+      try {
+        order = await instance.orders.create(options);
+        console.log('Razorpay order created successfully:', order.id);
+      } catch (orderError) {
+        console.error('Razorpay order creation failed:', orderError);
+        console.error('Order error details:', orderError.error);
+        throw orderError; // Re-throw to be caught by outer catch
+      }
       
       return res.json({
         orderId: order.id,
