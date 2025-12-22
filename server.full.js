@@ -2719,41 +2719,67 @@ app.get('/api/admin/finance/gateways', async (_req, res) => {
   const gateways = await PaymentGateway.find();
   res.json(gateways.map(g => ({ ...g._doc, id: String(g._id) })));
 });
-app.post('/api/admin/finance/gateways', async (req, res) => {
-  const { provider, name, publicKey, secretKey, isActive, isTestMode } = req.body;
+app.post('/api/admin/finance/gateways', authUser, async (req, res) => {
+  try {
+    const { provider, name, publicKey, secretKey, isActive, isTestMode } = req.body;
 
-  // Normalize provider to prevent duplicates (e.g. Razorpay vs razorpay)
-  const normProvider = provider.toLowerCase();
+    if (!provider || !name) {
+      return res.status(400).json({ error: 'Provider and name are required' });
+    }
 
-  let gateway = await PaymentGateway.findOne({ provider: { $regex: new RegExp(`^${normProvider}$`, 'i') } });
+    // Normalize provider to prevent duplicates (e.g. Razorpay vs razorpay)
+    const normProvider = provider.toLowerCase();
 
-  if (gateway) {
-    gateway.name = name || gateway.name;
-    gateway.isActive = isActive !== undefined ? isActive : gateway.isActive;
-    gateway.isTestMode = isTestMode !== undefined ? isTestMode : gateway.isTestMode;
-    if (publicKey) gateway.publicKey = publicKey;
-    if (secretKey) gateway.secretKey = secretKey;
-    // Ensure provider is consistent
-    gateway.provider = normProvider;
-    await gateway.save();
-  } else {
-    gateway = await PaymentGateway.create({
-      provider: normProvider,
-      name,
-      isActive,
-      isTestMode,
-      publicKey,
-      secretKey
-    });
+    let gateway = await PaymentGateway.findOne({ provider: { $regex: new RegExp(`^${normProvider}$`, 'i') } });
+
+    if (gateway) {
+      gateway.name = name || gateway.name;
+      gateway.isActive = isActive !== undefined ? isActive : gateway.isActive;
+      gateway.isTestMode = isTestMode !== undefined ? isTestMode : gateway.isTestMode;
+      if (publicKey !== undefined) gateway.publicKey = publicKey;
+      if (secretKey !== undefined && secretKey !== '') gateway.secretKey = secretKey;
+      // Ensure provider is consistent
+      gateway.provider = normProvider;
+      await gateway.save();
+    } else {
+      gateway = await PaymentGateway.create({
+        provider: normProvider,
+        name,
+        isActive: isActive !== undefined ? isActive : false,
+        isTestMode: isTestMode !== undefined ? isTestMode : true,
+        publicKey: publicKey || '',
+        secretKey: secretKey || ''
+      });
+    }
+    res.json({ ...gateway._doc, id: String(gateway._id) });
+  } catch (e) {
+    console.error('Error saving gateway:', e);
+    res.status(500).json({ error: 'Failed to save gateway', message: e.message });
   }
-  res.json({ ...gateway._doc, id: String(gateway._id) });
 });
-app.put('/api/admin/finance/gateways/:id', async (req, res) => {
-  const update = { ...req.body };
-  if (!update.secretKey) delete update.secretKey;
-  if (update.provider) update.provider = update.provider.toLowerCase(); // Normalize
-  const gateway = await PaymentGateway.findByIdAndUpdate(req.params.id, update, { new: true });
-  res.json({ ...gateway._doc, id: String(gateway._id) });
+app.put('/api/admin/finance/gateways/:id', authUser, async (req, res) => {
+  try {
+    const update = { ...req.body };
+    
+    // Only update secretKey if it's provided and not empty
+    if (update.secretKey === '' || update.secretKey === undefined) {
+      delete update.secretKey;
+    }
+    
+    // Normalize provider if provided
+    if (update.provider) {
+      update.provider = update.provider.toLowerCase();
+    }
+    
+    const gateway = await PaymentGateway.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!gateway) {
+      return res.status(404).json({ error: 'Gateway not found' });
+    }
+    res.json({ ...gateway._doc, id: String(gateway._id) });
+  } catch (e) {
+    console.error('Error updating gateway:', e);
+    res.status(500).json({ error: 'Failed to update gateway', message: e.message });
+  }
 });
 
 app.post('/api/admin/finance/gateways/:id/toggle', async (req, res) => {
