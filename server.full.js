@@ -3115,6 +3115,11 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     }
 
     try {
+      // Validate Razorpay instance creation
+      if (!key_id || !key_secret) {
+        throw new Error('Razorpay credentials are required');
+      }
+
       const instance = new Razorpay({ key_id, key_secret });
 
       const amountInPaise = Math.round(pkg.price * 100);
@@ -3133,10 +3138,17 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         }
       };
 
-      console.log('Creating Razorpay order with options:', { ...options, key_id: key_id.substring(0, 10) + '...' });
+      console.log('Creating Razorpay order with options:', { 
+        amount: options.amount, 
+        currency: options.currency,
+        receipt: options.receipt,
+        key_id: key_id.substring(0, 10) + '...' 
+      });
+      
       const order = await instance.orders.create(options);
       console.log('Razorpay order created successfully:', order.id);
-      res.json({
+      
+      return res.json({
         orderId: order.id,
         id: order.id,
         currency: order.currency,
@@ -3147,10 +3159,20 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     } catch (razorpayError) {
       console.error('Razorpay order creation error:', razorpayError);
       console.error('Razorpay error details:', razorpayError.error);
+      console.error('Razorpay error stack:', razorpayError.stack);
+      
+      // Check if it's a credentials error
+      if (razorpayError.message && (razorpayError.message.includes('credentials') || razorpayError.message.includes('authentication'))) {
+        return res.status(500).json({ 
+          msg: 'Razorpay credentials are invalid. Please check your API keys in Admin Panel.',
+          error: razorpayError.message
+        });
+      }
+      
       return res.status(500).json({ 
         msg: 'Failed to create Razorpay order', 
         error: razorpayError.message || 'Unknown error',
-        details: razorpayError.error?.description || 'Check Razorpay credentials'
+        details: razorpayError.error?.description || razorpayError.error?.reason || 'Check Razorpay credentials and try again'
       });
     }
 
