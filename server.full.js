@@ -3272,8 +3272,20 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
       });
     }
     
+    // Provide user-friendly error message
+    let errorMsg = 'Payment initialization failed';
+    if (err.message) {
+      if (err.message.includes('credentials') || err.message.includes('authentication')) {
+        errorMsg = 'Payment gateway credentials are invalid. Please check Admin Panel configuration.';
+      } else if (err.message.includes('timeout') || err.message.includes('ECONNREFUSED')) {
+        errorMsg = 'Unable to connect to payment service. Please try again later.';
+      } else {
+        errorMsg = err.message;
+      }
+    }
+    
     res.status(500).json({ 
-      msg: 'Payment initialization failed', 
+      msg: errorMsg, 
       error: err.message || 'Unknown error',
       errorType: err.name || 'Error',
       details: process.env.NODE_ENV === 'development' ? err.stack : 'Check server logs for details'
