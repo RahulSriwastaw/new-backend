@@ -179,6 +179,38 @@ app.get(['/api/admin/templates/categories', '/api/v1/admin/templates/categories'
   }
 });
 
+// Import and mount Creator Template routes
+const jwt = require('jsonwebtoken');
+
+// Simple auth middleware for creator routes
+const authUser = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.headers['x-auth-token'];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const user = await User.findById(decoded.id || decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Import and mount Creator Template routes
+try {
+  const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
+  app.use('/api/v1/creator/templates', creatorTemplateRoutes);
+  app.use('/api/creator/templates', creatorTemplateRoutes); // Also support without /v1
+  console.log('Creator template routes mounted');
+} catch (error) {
+  console.error('Failed to load creator template routes:', error.message);
+}
+
 app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
