@@ -70,7 +70,7 @@ if (mongoUri) {
             { name: 'Business', subCategories: ['business'] },
           ]);
         }
-      } catch {}
+      } catch { }
     })
     .catch(err => console.error('MongoDB connection error:', err));
 } else {
@@ -134,7 +134,34 @@ app.get(['/api/user', '/api/v1/user'], (req, res) => {
   res.status(200).json({});
 });
 
-app.get(['/api/admin/templates/categories','/api/v1/admin/templates/categories'], async (req, res) => {
+// Category endpoints (support multiple paths for frontend, admin, and v1 API)
+app.get(['/api/categories', '/api/v1/categories', '/api/admin/categories'], async (req, res) => {
+  try {
+    const useDb = mongoose.connection && mongoose.connection.readyState === 1;
+    if (useDb) {
+      const cats = await Category.find({ isActive: true });
+      return res.json({
+        success: true,
+        count: cats.length,
+        categories: cats.map(c => ({
+          id: c._id,
+          name: c.name,
+          subCategories: c.subCategories || [],
+          icon: c.icon || '',
+          description: c.description || '',
+          order: c.order || 0,
+          isActive: c.isActive !== false
+        }))
+      });
+    }
+    return res.json({ success: true, count: 0, categories: [] });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'Failed to fetch categories' });
+  }
+});
+
+// Legacy endpoint for backward compatibility
+app.get(['/api/admin/templates/categories', '/api/v1/admin/templates/categories'], async (req, res) => {
   try {
     const useDb = mongoose.connection && mongoose.connection.readyState === 1;
     if (useDb) {

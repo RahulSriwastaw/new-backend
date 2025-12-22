@@ -3744,9 +3744,11 @@ app.post('/api/creator/templates', authUser, async (req, res) => {
 const creatorProfileRoutes = require('./creatorProfileRoutes');
 app.use('/api/admin/creators', authUser, creatorProfileRoutes);
 
-// Import and mount Category API routes
+// Import and mount Category API routes (support multiple paths for compatibility)
 const categoryRoutes = require('./routes/categories')(authUser);
-app.use('/api/v1/categories', categoryRoutes);
+app.use('/api/v1/categories', categoryRoutes);  // For v1 API
+app.use('/api/categories', categoryRoutes);      // For public frontend
+app.use('/api/admin/categories', categoryRoutes); // For admin panel (admin routes have auth middleware in routes file)
 
 // Import and mount Creator Template routes
 const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
