@@ -36,10 +36,10 @@ module.exports = (authMiddleware) => {
     });
 
     /**
-     * POST /api/admin/categories
+     * POST /api/admin/categories/
      * Create a new category (ADMIN ONLY)
      */
-    router.post('/admin', authMiddleware, async (req, res) => {
+    router.post('/', authMiddleware, async (req, res) => {
         try {
             const { name, subCategories, icon, description, order } = req.body;
 
@@ -89,7 +89,7 @@ module.exports = (authMiddleware) => {
      * PUT /api/admin/categories/:id
      * Update a category (ADMIN ONLY)
      */
-    router.put('/admin/:id', authMiddleware, async (req, res) => {
+    router.put('/:id', authMiddleware, async (req, res) => {
         try {
             const { id } = req.params;
             const updates = req.body;
@@ -127,7 +127,7 @@ module.exports = (authMiddleware) => {
      * DELETE /api/admin/categories/:id
      * Delete a category (ADMIN ONLY)
      */
-    router.delete('/admin/:id', authMiddleware, async (req, res) => {
+    router.delete('/:id', authMiddleware, async (req, res) => {
         try {
             const { id } = req.params;
 
