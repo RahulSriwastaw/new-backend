@@ -6,7 +6,7 @@
 
 const FormData = require('form-data');
 
-async function generateWithStability({ prompt, negativePrompt, uploadedImages, aspectRatio, apiKey }) {
+async function generateWithStability({ prompt, negativePrompt, uploadedImages, aspectRatio, apiKey, modelConfig, strength }) {
     console.log("🎨 Stability AI Provider Initialized");
 
     if (uploadedImages && uploadedImages.length > 0) {
@@ -22,7 +22,7 @@ async function generateWithStability({ prompt, negativePrompt, uploadedImages, a
  * SDXL Image-to-Image (Face Preservation)
  * MUST use multipart/form-data (not JSON)
  */
-async function generateImageToImage({ prompt, negativePrompt, uploadedImages, apiKey }) {
+async function generateImageToImage({ prompt, negativePrompt, uploadedImages, apiKey, strength }) {
     console.log("📸 Stability SDXL I2I: Face Preservation Mode (Multipart)");
 
     // Fetch image
@@ -72,7 +72,8 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
     formData.append('init_image_mode', 'IMAGE_STRENGTH');
 
     // Required: Strength (0-1, lower = more preservation)
-    formData.append('image_strength', '0.35'); // 65% preservation
+    const imageStrength = strength !== undefined ? String(strength) : '0.35'; // Use provided strength or default
+    formData.append('image_strength', imageStrength);
 
     // Text prompts
     formData.append('text_prompts[0][text]', prompt);
@@ -131,7 +132,7 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
  * SDXL Text-to-Image
  * JSON format is fine for T2I
  */
-async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey, modelConfig }) {
+async function generateTextToImage({ prompt, negativePrompt, aspectRatio, apiKey, modelConfig, strength }) {
     console.log("🖼️  Stability SDXL T2I: Text-to-Image Mode");
 
     // Default to SDXL 1.0 if not specified

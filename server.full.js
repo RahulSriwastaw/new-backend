@@ -60,11 +60,33 @@ const allowedOrigins = [
   'https://rupantara-fronted.vercel.app',
   ...envOrigins.map(o => o.replace(/`/g, '').trim()),
 ];
-// Debugging CORS: Allow all origins
+// CORS Configuration with better error handling
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In production, log blocked origins for debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(`⚠️ CORS blocked origin: ${origin}`);
+    }
+    
+    // For development, allow all origins
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(bodyParser.json({ limit: '25mb' }));
@@ -660,7 +682,7 @@ app.get('/api/v1/creator/application', authUser, async (req, res) => {
 app.post('/api/generation/generate', authUser, async (req, res) => {
   try {
 
-    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages: reqUploadedImages = [], quality = 'HD', aspectRatio = '1:1' } = req.body;
+    const { templateId, userPrompt, prompt, negativePrompt, uploadedImages: reqUploadedImages = [], quality = 'HD', aspectRatio = '1:1', modelId, strength, variations = 1 } = req.body;
     let uploadedImages = reqUploadedImages;
 
     // Validate User
@@ -670,11 +692,19 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     }
 
     // Determine Logic/Cost
-    // DEBUG: Fetch all to diagnose state in error message
-    const allModelsDebug = await AIModel.find({}).select('key active provider isActive +apiKey +config.apiKey');
-
-    let activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
-    if (!activeModel) activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey +config.apiKey');
+    // Use selected model if provided, otherwise use active model
+    let activeModel = null;
+    if (modelId) {
+      activeModel = await AIModel.findById(modelId).select('+apiKey +config.apiKey');
+      if (!activeModel) {
+        // Fallback to active model if selected model not found
+        activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
+        if (!activeModel) activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey +config.apiKey');
+      }
+    } else {
+      activeModel = await AIModel.findOne({ active: true }).select('+apiKey +config.apiKey');
+      if (!activeModel) activeModel = await AIModel.findOne({ isActive: true }).select('+apiKey +config.apiKey');
+    }
     const cost = activeModel?.costPerImage ?? 1;
     if (user.points < cost) return res.status(400).json({ error: 'Insufficient points' });
 
@@ -763,7 +793,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             uploadedImages,
             aspectRatio,
             apiKey,
-            modelConfig: activeModel.config
+            modelConfig: activeModel.config,
+            strength: strength || 0.35 // Use provided strength or default
           });
 
         } else if (provider.includes('replicate')) {
@@ -968,11 +999,27 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     };
     res.json(response);
   } catch (err) {
-    const errorMsg = String(err && err.message ? err.message : Cc(err));
-    console.error("Generation Validated Catch:", err);
+    const errorMsg = String(err && err.message ? err.message : String(err));
+    console.error("❌ Generation Error:", err);
     recentLogs.push({ ts: new Date().toISOString(), method: 'POST', path: '/api/generation/generate', status: 500, ms: 0, error: errorMsg });
-    // Return actual error in dev mode or for admin debugging
-    res.status(500).json({ error: 'Server Error', details: errorMsg });
+    
+    // Better error messages for common issues
+    let userFriendlyError = 'Image generation failed. Please try again.';
+    if (errorMsg.includes('Insufficient points')) {
+      userFriendlyError = 'Insufficient points. Please purchase more points.';
+    } else if (errorMsg.includes('API key') || errorMsg.includes('authentication')) {
+      userFriendlyError = 'AI service configuration error. Please contact support.';
+    } else if (errorMsg.includes('timeout') || errorMsg.includes('Timeout')) {
+      userFriendlyError = 'Request timed out. Please try again.';
+    } else if (errorMsg.includes('rate limit') || errorMsg.includes('quota')) {
+      userFriendlyError = 'Service temporarily unavailable. Please try again later.';
+    }
+    
+    // Return user-friendly error message
+    res.status(500).json({ 
+      error: userFriendlyError,
+      ...(process.env.NODE_ENV === 'development' && { details: errorMsg })
+    });
   }
 });
 
@@ -3744,13 +3791,44 @@ app.post('/api/creator/templates', authUser, async (req, res) => {
 const creatorProfileRoutes = require('./creatorProfileRoutes');
 app.use('/api/admin/creators', authUser, creatorProfileRoutes);
 
+// Admin logs endpoint
+app.get('/api/admin/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
+  res.json(recentLogs.slice(-limit));
+});
+
+// API version compatibility - redirect /api/v1/* to /api/*
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/')) {
+    req.url = req.url.replace('/api/v1/', '/api/');
+  }
+  next();
+});
+
+// 404 Handler for undefined routes
+app.use((req, res) => {
+  if (req.url.startsWith('/api/')) {
+    return res.status(404).json({ 
+      error: 'Route not found', 
+      message: `The endpoint ${req.method} ${req.url} does not exist`,
+      path: req.url 
+    });
+  }
+  res.status(404).json({ error: 'Not found', message: 'The requested resource was not found' });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled Error:', err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   recentLogs.push({ ts: new Date().toISOString(), method: 'SYSTEM', path: 'SERVER_START', status: 200, ms: 0 });
-});
-app.get('/api/admin/logs', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
-  res.json(recentLogs.slice(-limit));
 });
 
