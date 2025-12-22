@@ -102,7 +102,8 @@ aiModelSchema.pre('save', async function (next) {
 const templateSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  imageUrl: { type: String, required: true },
+  inputImage: { type: String }, // User's original photo (BEFORE)
+  imageUrl: { type: String, required: true }, // Generated result (AFTER)
   category: { type: String, default: 'General' },
   subCategory: { type: String, default: '' },
   prompt: { type: String },
