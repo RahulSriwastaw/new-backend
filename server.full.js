@@ -3191,10 +3191,17 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         return res.status(400).json({ msg: 'Invalid package price. Amount must be greater than 0.' });
       }
 
+      // Generate receipt - Razorpay requires max 40 characters
+      // Format: timestamp (13) + user_id_last12 (12) + package_last8 (8) = 33 chars (safe)
+      const timestamp = Date.now();
+      const userId = String(req.user.id);
+      const packageIdStr = String(packageId);
+      const receipt = `${timestamp}${userId.slice(-12)}${packageIdStr.slice(-8)}`;
+      
       const options = {
         amount: amountInPaise, // Amount in paise (integer)
         currency: "INR",
-        receipt: `order_${Date.now()}_${String(req.user.id)}`,
+        receipt: receipt, // Max 40 characters as per Razorpay requirement
         notes: {
           userId: String(req.user.id),
           packageId: String(packageId)
