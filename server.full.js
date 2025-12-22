@@ -3096,8 +3096,17 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     const key_secret = config?.secretKey || process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_id || !key_secret) {
-      console.error('Razorpay credentials missing:', { hasKeyId: !!key_id, hasKeySecret: !!key_secret, configExists: !!config });
-      return res.status(500).json({ msg: 'Razorpay credentials missing. Please configure in Admin Panel.' });
+      console.error('Razorpay credentials missing:', { 
+        hasKeyId: !!key_id, 
+        hasKeySecret: !!key_secret, 
+        configExists: !!config,
+        hasEnvKeyId: !!process.env.RAZORPAY_KEY_ID,
+        hasEnvKeySecret: !!process.env.RAZORPAY_KEY_SECRET
+      });
+      return res.status(500).json({ 
+        msg: 'Razorpay credentials missing. Please configure in Admin Panel.',
+        error: 'Payment gateway not configured'
+      });
     }
 
     // Verification of mode
