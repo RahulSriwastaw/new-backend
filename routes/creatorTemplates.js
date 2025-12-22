@@ -54,6 +54,7 @@ module.exports = (authMiddleware) => {
             const newTemplate = new Template({
                 title,
                 description,
+                inputImage: req.body.inputImage || '',
                 imageUrl: demoImage, // Schema uses imageUrl, not demoImage
                 category,
                 subCategory: subCategory || '',
@@ -64,9 +65,11 @@ module.exports = (authMiddleware) => {
                 isPremium: templateType === 'premium',
                 pointsCost: templateType === 'premium' ? (pointsCost || 25) : 0,
                 creatorId: creator.id || creator._id,
+                type: 'Creator',
                 source: 'creator',
                 status: 'active',
                 approvalStatus: 'pending', // Pending approval by admin
+                submittedAt: new Date(),
                 isPaused: isActive !== undefined ? !isActive : false,
                 useCount: 0,
                 likeCount: 0,

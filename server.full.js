@@ -1630,7 +1630,12 @@ app.get('/api/templates', async (req, res) => {
   try {
     const { category, subCategory, gender, state, ageGroup, isPremium, sort, search, tags, page, limit } = req.query;
 
-    const query = { status: 'active' }; // Only show active templates
+    // CRITICAL SECURITY: Only show approved and non-paused templates to users
+    const query = {
+      status: 'active',
+      approvalStatus: 'approved',
+      isPaused: false
+    };
 
     // 1. Filters
     if (category && category !== 'All') query.category = category;
