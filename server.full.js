@@ -875,7 +875,15 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
         }
       } catch (e) {
         console.error("AI Generation External API Error:", e);
-        providerError = `Exception: ${e.message}`;
+        console.error("Error Stack:", e.stack);
+        console.error("Error Details:", {
+          name: e.name,
+          message: e.message,
+          status: e.status,
+          statusText: e.statusText,
+          body: e.body
+        });
+        providerError = e.message || `Exception: ${String(e)}`;
 
         // === FAILOVER LOGIC ===
         // If I2I and the current provider failed, try to switch to another compatible provider
@@ -1046,18 +1054,24 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
     let userFriendlyError = 'Image generation failed. Please try again.';
     if (errorMsg.includes('Insufficient points')) {
       userFriendlyError = 'Insufficient points. Please purchase more points.';
-    } else if (errorMsg.includes('API key') || errorMsg.includes('authentication')) {
+    } else if (errorMsg.includes('API key') || errorMsg.includes('authentication') || errorMsg.includes('not configured')) {
       userFriendlyError = 'AI service configuration error. Please contact support.';
     } else if (errorMsg.includes('timeout') || errorMsg.includes('Timeout')) {
-      userFriendlyError = 'Request timed out. Please try again.';
+      userFriendlyError = 'Generation is taking longer than expected. Please try again.';
     } else if (errorMsg.includes('rate limit') || errorMsg.includes('quota')) {
       userFriendlyError = 'Service temporarily unavailable. Please try again later.';
+    } else if (errorMsg.includes('Replicate:')) {
+      // Extract Replicate-specific error message
+      const replicateError = errorMsg.replace('Replicate:', '').trim();
+      userFriendlyError = `Replicate error: ${replicateError}`;
     }
 
-    // Return user-friendly error message
+    // Return user-friendly error message with details
     res.status(500).json({
       error: userFriendlyError,
-      ...(process.env.NODE_ENV === 'development' && { details: errorMsg })
+      msg: userFriendlyError, // Also include 'msg' field for frontend compatibility
+      message: userFriendlyError,
+      ...(process.env.NODE_ENV === 'development' && { details: errorMsg, stack: err?.stack })
     });
   }
 });
