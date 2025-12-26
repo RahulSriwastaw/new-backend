@@ -28,7 +28,9 @@ module.exports = (authMiddleware) => {
             const {
                 title,
                 description,
+                inputImage,  // ✅ Extract inputImage from request body
                 demoImage,
+                imageUrl,  // Backend expects imageUrl, not demoImage
                 exampleImages,
                 category,
                 subCategory,
@@ -41,6 +43,14 @@ module.exports = (authMiddleware) => {
                 pointsCost,
                 isActive
             } = req.body;
+            
+            // Log inputImage for debugging
+            console.log('📤 Creating template - inputImage check:', {
+                hasInputImage: !!inputImage,
+                inputImageLength: inputImage?.length || 0,
+                inputImagePreview: inputImage?.substring(0, 50) || 'N/A',
+                allBodyKeys: Object.keys(req.body)
+            });
 
             // Validation
             if (!title || !description || !demoImage || !hiddenPrompt || !category) {
@@ -119,14 +129,15 @@ module.exports = (authMiddleware) => {
 
             // Ensure inputImage field is included in response
             const templatesWithInputImage = templates.map(t => {
-                // Log for debugging
-                console.log(`📦 Template ${t._id}: inputImage =`, t.inputImage ? 'EXISTS' : 'MISSING', t.inputImage?.substring(0, 50) || 'N/A');
+                // Log for debugging - check what's actually in database
+                const dbInputImage = t.inputImage || '';
+                console.log(`📦 Template ${t._id}: inputImage =`, dbInputImage ? 'EXISTS' : 'MISSING', dbInputImage?.substring(0, 50) || 'N/A', `(length: ${dbInputImage?.length || 0})`);
                 
                 return {
                     ...t,
-                    id: t._id,
-                    // Explicitly include inputImage - check multiple possible field names
-                    inputImage: t.inputImage || t.inputImageUrl || t.beforeImage || t.originalImage || '',
+                    id: String(t._id),
+                    // Explicitly include inputImage - prioritize database value
+                    inputImage: dbInputImage || t.inputImageUrl || t.beforeImage || t.originalImage || '',
                     imageUrl: t.imageUrl || '',
                     image: t.imageUrl || '',  // Alias for compatibility
                     demoImage: t.imageUrl || '',  // Alias for compatibility
