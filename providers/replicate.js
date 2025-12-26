@@ -39,40 +39,46 @@ async function generateWithReplicate({ prompt, negativePrompt, uploadedImages, a
     // Get dimensions from aspect ratio
     const { width, height } = getDimensionsFromAspectRatio(aspectRatio || '1:1');
 
-    // Build input object
+    // Build input object - start with minimal required fields
     const input = {
         prompt: prompt || "A beautiful image",
-        width: width,
-        height: height,
-        num_outputs: 1,
-        guidance_scale: 7.5,
-        num_inference_steps: quality === 'UHD' || quality === '4K' || quality === '8K' ? 50 : 25,
-        scheduler: "K_EULER",
-        apply_watermark: false,
     };
 
-    // Add negative prompt if available
-    if (negativePrompt) {
-        input.negative_prompt = negativePrompt;
-    }
-
-    // Add image for I2I if available
+    // Add image for I2I if available (must be before other params)
     if (uploadedImages && uploadedImages.length > 0) {
         // Use first uploaded image
         const imageData = uploadedImages[0];
         
-        // If it's a data URL, convert to base64 string
+        // Replicate accepts data URLs directly for image input
         if (imageData.startsWith('data:')) {
             input.image = imageData;
-        } else {
+        } else if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+            // If it's a URL, use it directly
             input.image = imageData;
+        } else {
+            // Assume it's a base64 string, add data URL prefix
+            input.image = `data:image/png;base64,${imageData}`;
         }
         
-        // Add prompt strength for I2I (0.0 to 1.0)
+        // Add prompt strength for I2I (0.0 to 1.0) - only for models that support it
         input.prompt_strength = 0.8;
         input.num_inference_steps = 30; // More steps for I2I
         
         console.log("📸 Replicate I2I: Image input attached");
+    } else {
+        // Text-to-image parameters
+        input.width = width;
+        input.height = height;
+        input.num_outputs = 1;
+        input.guidance_scale = 7.5;
+        input.num_inference_steps = quality === 'UHD' || quality === '4K' || quality === '8K' ? 50 : 25;
+        input.scheduler = "K_EULER";
+        input.apply_watermark = false;
+    }
+
+    // Add negative prompt if available (not all models support this)
+    if (negativePrompt) {
+        input.negative_prompt = negativePrompt;
     }
 
     // Handle different model formats
