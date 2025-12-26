@@ -117,10 +117,20 @@ module.exports = (authMiddleware) => {
                 .sort({ createdAt: -1 })
                 .lean();
 
+            // Ensure inputImage field is included in response
+            const templatesWithInputImage = templates.map(t => ({
+                ...t,
+                id: t._id,
+                inputImage: t.inputImage || '',  // Explicitly include inputImage
+                imageUrl: t.imageUrl || '',
+                image: t.imageUrl || '',  // Alias for compatibility
+                demoImage: t.imageUrl || '',  // Alias for compatibility
+            }));
+
             res.json({
                 success: true,
-                count: templates.length,
-                templates
+                count: templatesWithInputImage.length,
+                templates: templatesWithInputImage
             });
 
         } catch (error) {
