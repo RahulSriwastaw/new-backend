@@ -1323,11 +1323,7 @@ app.get('/api/generation/costs', async (req, res) => {
     res.json({
       baseCost,
       qualityCosts,
-      templateCost,
-      // Calculate total for given quality
-      calculateTotal: (quality: string = 'HD') => {
-        return baseCost + (qualityCosts[quality as keyof typeof qualityCosts] || 0) + templateCost;
-      }
+      templateCost
     });
   } catch (error) {
     console.error('Error fetching generation costs:', error);
