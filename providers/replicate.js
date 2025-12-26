@@ -92,12 +92,20 @@ async function generateWithReplicate({ prompt, negativePrompt, uploadedImages, a
 
     try {
         console.log("🚀 Starting Replicate generation...");
-        console.log("📝 Input:", JSON.stringify(input, null, 2));
+        console.log("📝 Model Identifier:", modelIdentifier);
+        console.log("📝 Input Keys:", Object.keys(input));
+        // Don't log full input if it contains large base64 images
+        const logInput = { ...input };
+        if (logInput.image && logInput.image.length > 100) {
+            logInput.image = logInput.image.substring(0, 100) + '... (truncated)';
+        }
+        console.log("📝 Input:", JSON.stringify(logInput, null, 2));
 
-        // Run the model
+        // Run the model - Replicate SDK handles polling automatically
         const output = await replicate.run(modelIdentifier, { input });
 
-        console.log("📦 Replicate Output:", output);
+        console.log("📦 Replicate Output Type:", typeof output);
+        console.log("📦 Replicate Output:", Array.isArray(output) ? `Array[${output.length}]` : output);
 
         // Handle output - can be array or single URL
         let imageUrl = null;
