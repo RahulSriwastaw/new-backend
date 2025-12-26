@@ -1266,29 +1266,37 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
 
 
 app.get('/api/generation/history', authUser, async (req, res) => {
-  const page = parseInt(req.query.page || '1', 10);
-  const limit = parseInt(req.query.limit || '20', 10);
-  const skip = (page - 1) * limit;
-  // Use allowDiskUse to handle large sort operations
-  const list = await Generation.find({ userId: req.user.id })
-    .sort({ createdAt: -1 })
-    .allowDiskUse(true)
-    .skip(skip)
-    .limit(limit);
-  res.json({
-    generations: list.map(g => ({
-      id: String(g._id),
-      generatedImage: g.generatedImage,
-      visiblePrompt: g.templateName || 'AI Generated Image',
-      quality: g.quality,
-      aspectRatio: g.aspectRatio,
-      pointsSpent: g.pointsSpent,
-      createdAt: g.createdAt.toISOString(),
-      isFavorite: g.isFavorite,
-      downloadCount: g.downloadCount,
-      shareCount: g.shareCount
-    }))
-  });
+  try {
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '20', 10);
+    const skip = (page - 1) * limit;
+    // Use allowDiskUse to handle large sort operations
+    const list = await Generation.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .allowDiskUse(true)
+      .skip(skip)
+      .limit(limit);
+    res.json({
+      generations: list.map(g => ({
+        id: String(g._id),
+        generatedImage: g.generatedImage,
+        visiblePrompt: g.templateName || 'AI Generated Image',
+        quality: g.quality,
+        aspectRatio: g.aspectRatio,
+        pointsSpent: g.pointsSpent,
+        createdAt: g.createdAt.toISOString(),
+        isFavorite: g.isFavorite,
+        downloadCount: g.downloadCount,
+        shareCount: g.shareCount
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching generation history:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch generation history',
+      message: error.message 
+    });
+  }
 });
 
 app.get('/api/generation/:id', authUser, async (req, res) => {
