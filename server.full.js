@@ -1331,11 +1331,7 @@ app.get('/api/generation/costs', async (req, res) => {
     res.json({
       baseCost: 20,
       qualityCosts: { SD: 0, HD: 5, UHD: 10, '2K': 15, '4K': 20, '8K': 30 },
-      templateCost: 0,
-      calculateTotal: (quality: string = 'HD') => {
-        const costs: Record<string, number> = { SD: 0, HD: 5, UHD: 10, '2K': 15, '4K': 20, '8K': 30 };
-        return 20 + (costs[quality] || 0);
-      }
+      templateCost: 0
     });
   }
 });
