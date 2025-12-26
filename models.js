@@ -227,6 +227,10 @@ const generationSchema = new mongoose.Schema({
   seed: { type: Number } // Random seed for reproducibility and variation
 });
 
+// Add compound index for efficient querying by userId and createdAt (for history endpoint)
+// This prevents "Sort exceeded memory limit" errors by allowing MongoDB to use the index for sorting
+generationSchema.index({ userId: 1, createdAt: -1 });
+
 // 12. Quick Tools Config Schema
 const toolConfigSchema = new mongoose.Schema({
   tools: [

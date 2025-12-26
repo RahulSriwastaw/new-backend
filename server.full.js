@@ -1270,12 +1270,16 @@ app.get('/api/generation/history', authUser, async (req, res) => {
     const page = parseInt(req.query.page || '1', 10);
     const limit = parseInt(req.query.limit || '20', 10);
     const skip = (page - 1) * limit;
-    // Use allowDiskUse to handle large sort operations
+    
+    // Use compound index (userId, createdAt) for efficient querying
+    // allowDiskUse as fallback for very large datasets
     const list = await Generation.find({ userId: req.user.id })
       .sort({ createdAt: -1 })
       .allowDiskUse(true)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use lean() for better performance with large datasets
+    
     res.json({
       generations: list.map(g => ({
         id: String(g._id),
@@ -1292,6 +1296,12 @@ app.get('/api/generation/history', authUser, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching generation history:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      codeName: error.codeName
+    });
     res.status(500).json({ 
       error: 'Failed to fetch generation history',
       message: error.message 
