@@ -118,14 +118,20 @@ module.exports = (authMiddleware) => {
                 .lean();
 
             // Ensure inputImage field is included in response
-            const templatesWithInputImage = templates.map(t => ({
-                ...t,
-                id: t._id,
-                inputImage: t.inputImage || '',  // Explicitly include inputImage
-                imageUrl: t.imageUrl || '',
-                image: t.imageUrl || '',  // Alias for compatibility
-                demoImage: t.imageUrl || '',  // Alias for compatibility
-            }));
+            const templatesWithInputImage = templates.map(t => {
+                // Log for debugging
+                console.log(`📦 Template ${t._id}: inputImage =`, t.inputImage ? 'EXISTS' : 'MISSING', t.inputImage?.substring(0, 50) || 'N/A');
+                
+                return {
+                    ...t,
+                    id: t._id,
+                    // Explicitly include inputImage - check multiple possible field names
+                    inputImage: t.inputImage || t.inputImageUrl || t.beforeImage || t.originalImage || '',
+                    imageUrl: t.imageUrl || '',
+                    image: t.imageUrl || '',  // Alias for compatibility
+                    demoImage: t.imageUrl || '',  // Alias for compatibility
+                };
+            });
 
             res.json({
                 success: true,
@@ -180,11 +186,31 @@ module.exports = (authMiddleware) => {
 
             // Update fields
             const updates = req.body;
+            
+            // Log inputImage update specifically
+            if (updates.inputImage !== undefined) {
+                console.log('📤 Updating template inputImage:', {
+                    templateId: template._id,
+                    hasInputImage: !!updates.inputImage,
+                    inputImageLength: updates.inputImage?.length || 0,
+                    inputImagePreview: updates.inputImage?.substring(0, 50) || 'N/A'
+                });
+            }
+            
             Object.keys(updates).forEach(key => {
                 if (updates[key] !== undefined && key !== 'creatorId' && key !== 'status') {
                     template[key] = updates[key];
                 }
             });
+            
+            // Verify inputImage is being set
+            if (updates.inputImage !== undefined) {
+                console.log('✅ Template inputImage set:', {
+                    templateId: template._id,
+                    hasInputImage: !!template.inputImage,
+                    inputImageLength: template.inputImage?.length || 0
+                });
+            }
 
             // Reset status to pending if was rejected
             if (template.status === 'rejected') {
