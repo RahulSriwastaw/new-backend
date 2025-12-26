@@ -842,7 +842,8 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
             uploadedImages,
             aspectRatio,
             apiKey,
-            modelId: activeModel.config?.model
+            modelId: activeModel.config?.model,
+            quality: quality
           });
 
         } else if (provider.includes('minimax')) {
