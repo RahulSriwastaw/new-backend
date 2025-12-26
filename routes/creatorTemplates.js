@@ -159,8 +159,9 @@ module.exports = (authMiddleware) => {
                 });
             }
 
-            // Only allow editing if pending or rejected
-            if (template.status !== 'pending' && template.status !== 'rejected') {
+            // Allow editing if pending, rejected, or draft
+            // Draft templates can be edited before submission
+            if (template.status !== 'pending' && template.status !== 'rejected' && template.status !== 'draft') {
                 return res.status(400).json({
                     success: false,
                     message: `Cannot edit ${template.status} templates`
