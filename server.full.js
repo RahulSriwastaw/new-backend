@@ -1293,6 +1293,57 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
 });
 
 
+// Get generation costs (for frontend to calculate total cost)
+app.get('/api/generation/costs', async (req, res) => {
+  try {
+    // Get active AI model cost
+    const activeModel = await AIModel.findOne({ active: true });
+    const baseCost = activeModel?.costPerImage ?? 20;
+    
+    // Quality costs (can be configured in admin panel later)
+    const qualityCosts = {
+      SD: 0,
+      HD: 5,
+      UHD: 10,
+      '2K': 15,
+      '4K': 20,
+      '8K': 30
+    };
+    
+    // Get template cost if templateId provided
+    const templateId = req.query.templateId;
+    let templateCost = 0;
+    if (templateId) {
+      const template = await Template.findById(templateId);
+      if (template) {
+        templateCost = template.pointsCost || (template.isPremium ? 10 : 0);
+      }
+    }
+    
+    res.json({
+      baseCost,
+      qualityCosts,
+      templateCost,
+      // Calculate total for given quality
+      calculateTotal: (quality: string = 'HD') => {
+        return baseCost + (qualityCosts[quality as keyof typeof qualityCosts] || 0) + templateCost;
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching generation costs:', error);
+    // Return defaults on error
+    res.json({
+      baseCost: 20,
+      qualityCosts: { SD: 0, HD: 5, UHD: 10, '2K': 15, '4K': 20, '8K': 30 },
+      templateCost: 0,
+      calculateTotal: (quality: string = 'HD') => {
+        const costs: Record<string, number> = { SD: 0, HD: 5, UHD: 10, '2K': 15, '4K': 20, '8K': 30 };
+        return 20 + (costs[quality] || 0);
+      }
+    });
+  }
+});
+
 app.get('/api/generation/history', authUser, async (req, res) => {
   try {
     const page = parseInt(req.query.page || '1', 10);
