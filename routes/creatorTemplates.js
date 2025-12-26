@@ -89,6 +89,17 @@ module.exports = (authMiddleware) => {
             });
 
             await newTemplate.save();
+            
+            // Verify inputImage was saved - reload from database to confirm
+            const savedTemplate = await Template.findById(newTemplate._id);
+            console.log('✅ Template saved and verified:', {
+                id: savedTemplate._id,
+                hasInputImage: !!savedTemplate.inputImage,
+                inputImageLength: savedTemplate.inputImage?.length || 0,
+                inputImagePreview: savedTemplate.inputImage?.substring(0, 50) || 'N/A',
+                hasImageUrl: !!savedTemplate.imageUrl,
+                imageUrlPreview: savedTemplate.imageUrl?.substring(0, 50) || 'N/A'
+            });
 
             console.log(`✅ Creator ${creator.fullName} submitted template: ${title}`);
 
