@@ -1269,7 +1269,12 @@ app.get('/api/generation/history', authUser, async (req, res) => {
   const page = parseInt(req.query.page || '1', 10);
   const limit = parseInt(req.query.limit || '20', 10);
   const skip = (page - 1) * limit;
-  const list = await Generation.find({ userId: req.user.id }).sort({ createdAt: -1 }).skip(skip).limit(limit);
+  // Use allowDiskUse to handle large sort operations
+  const list = await Generation.find({ userId: req.user.id })
+    .sort({ createdAt: -1 })
+    .allowDiskUse(true)
+    .skip(skip)
+    .limit(limit);
   res.json({
     generations: list.map(g => ({
       id: String(g._id),
