@@ -158,7 +158,8 @@ const pointsPackageSchema = new mongoose.Schema({
   bonusPoints: { type: Number, default: 0 },
   isPopular: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
-  tag: String
+  tag: String,
+  historyRetentionDays: { type: Number, default: 30 } // How many days generated images stay in history for this package
 });
 
 // 7. Payment Gateway Config Schema
@@ -178,6 +179,16 @@ const financeConfigSchema = new mongoose.Schema({
   creatorPayoutPerPoint: { type: Number, default: 0.10 }, // Creators get 0.10 Rupee per point
   currency: { type: String, default: 'INR' },
   taxRate: { type: Number, default: 18 }
+});
+
+// 8b. History Retention Config Schema (Singleton) - Admin controls for Cloudinary budget
+const historyRetentionConfigSchema = new mongoose.Schema({
+  defaultRetentionDays: { type: Number, default: 30 }, // Default retention for all users
+  enableAutoCleanup: { type: Boolean, default: true }, // Enable automatic cleanup of old images
+  cleanupSchedule: { type: String, default: 'daily' }, // 'daily', 'weekly', 'monthly'
+  lastCleanupDate: { type: Date },
+  totalImagesDeleted: { type: Number, default: 0 }, // Track for analytics
+  updatedAt: { type: Date, default: Date.now }
 });
 
 // 9. Sub Admin Schema
@@ -411,6 +422,7 @@ module.exports = {
   PointsPackage: mongoose.model('PointsPackage', pointsPackageSchema),
   PaymentGateway: mongoose.model('PaymentGateway', gatewaySchema),
   FinanceConfig: mongoose.model('FinanceConfig', financeConfigSchema),
+  HistoryRetentionConfig: mongoose.model('HistoryRetentionConfig', historyRetentionConfigSchema),
   Admin: mongoose.model('Admin', adminSchema),
   Notification: mongoose.model('Notification', notificationSchema),
   Generation: mongoose.model('Generation', generationSchema),

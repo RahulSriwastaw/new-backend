@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
-  PointsPackage, PaymentGateway, FinanceConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
+  PointsPackage, PaymentGateway, FinanceConfig, HistoryRetentionConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
   Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule
 } = require('./models');
 
@@ -104,34 +104,62 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '25mb' }));
 
 // ... (request logging middleware remains same)
 
-// Image Proxy for CORS Bypass
+// Image Proxy for CORS Bypass - Fixed with timeout and better error handling
 app.get(['/api/proxy', '/api/v1/proxy'], async (req, res) => {
   const { url } = req.query;
-  console.log("Create Proxy Request for:", url);
-  if (!url) return res.status(400).send('No URL provided');
+  console.log("📥 Proxy Request for:", url?.substring(0, 100));
+  if (!url) return res.status(400).json({ error: 'No URL provided' });
+  
   try {
     const fetch = global.fetch;
     const targetUrl = decodeURIComponent(url);
-    const resp = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RupantarAI/1.0)'
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    try {
+      const resp = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; RupantarAI/1.0)',
+          'Accept': 'image/*'
+        },
+        signal: controller.signal,
+        timeout: 30000
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        console.error("❌ Proxy Upstream Error:", resp.status, targetUrl?.substring(0, 100));
+        return res.status(resp.status).json({ 
+          error: 'Image fetch failed', 
+          status: resp.status 
+        });
       }
-    });
 
-    if (!resp.ok) {
-      console.error("Proxy Upstream Error:", resp.status, targetUrl);
-      return res.status(404).send(`Image fetch failed: ${resp.status}`);
+      const contentType = resp.headers.get('content-type') || 'image/png';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+      // Stream the response for better performance
+      const arrayBuffer = await resp.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error("⏱️ Proxy Timeout:", targetUrl?.substring(0, 100));
+        return res.status(504).json({ error: 'Request timeout' });
+      }
+      throw fetchError;
     }
-
-    const contentType = resp.headers.get('content-type');
-    if (contentType) res.setHeader('Content-Type', contentType);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    const arrayBuffer = await resp.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
   } catch (e) {
-    console.error("Proxy Error:", e);
-    res.status(500).send("Proxy failed");
+    console.error("❌ Proxy Error:", e.message);
+    res.status(500).json({ 
+      error: 'Proxy failed', 
+      message: e.message 
+    });
   }
 });
 
@@ -1271,9 +1299,46 @@ app.get('/api/generation/history', authUser, async (req, res) => {
     const limit = parseInt(req.query.limit || '20', 10);
     const skip = (page - 1) * limit;
     
+    // Get user's package to determine retention period
+    const user = await User.findById(req.user.id);
+    let retentionDays = 30; // Default retention
+    
+    // Get retention config
+    let retentionConfig = await HistoryRetentionConfig.findOne();
+    if (!retentionConfig) {
+      // Create default config if doesn't exist
+      retentionConfig = await HistoryRetentionConfig.create({
+        defaultRetentionDays: 30,
+        enableAutoCleanup: true,
+        cleanupSchedule: 'daily'
+      });
+    }
+    
+    // Check if user has a package with custom retention
+    if (user && user.packageId) {
+      const userPackage = await PointsPackage.findById(user.packageId);
+      if (userPackage && userPackage.historyRetentionDays) {
+        retentionDays = userPackage.historyRetentionDays;
+      } else {
+        retentionDays = retentionConfig.defaultRetentionDays;
+      }
+    } else {
+      retentionDays = retentionConfig.defaultRetentionDays;
+    }
+    
+    // Calculate cutoff date based on retention period
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    
+    // Build query with retention filter
+    const query = {
+      userId: req.user.id,
+      createdAt: { $gte: cutoffDate } // Only show images within retention period
+    };
+    
     // Use compound index (userId, createdAt) for efficient querying
     // allowDiskUse as fallback for very large datasets
-    const list = await Generation.find({ userId: req.user.id })
+    const list = await Generation.find(query)
       .sort({ createdAt: -1 })
       .allowDiskUse(true)
       .skip(skip)
@@ -1292,7 +1357,8 @@ app.get('/api/generation/history', authUser, async (req, res) => {
         isFavorite: g.isFavorite,
         downloadCount: g.downloadCount,
         shareCount: g.shareCount
-      }))
+      })),
+      retentionDays: retentionDays // Include retention info for frontend
     });
   } catch (error) {
     console.error('❌ Error fetching generation history:', error);
@@ -4277,6 +4343,248 @@ app.use('/api/creator/templates', creatorTemplateRoutes); // Also support withou
 app.get('/api/admin/logs', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
   res.json(recentLogs.slice(-limit));
+});
+
+// ============================================
+// HISTORY RETENTION & CLEANUP SYSTEM
+// ============================================
+
+/**
+ * Cleanup old generated images based on retention policy
+ * This helps control Cloudinary storage costs
+ */
+async function cleanupOldGenerations() {
+  try {
+    console.log('🧹 Starting cleanup of old generated images...');
+    
+    // Get retention config
+    let retentionConfig = await HistoryRetentionConfig.findOne();
+    if (!retentionConfig || !retentionConfig.enableAutoCleanup) {
+      console.log('⏭️ Auto cleanup is disabled, skipping...');
+      return { deleted: 0, skipped: true };
+    }
+    
+    // Get all packages with their retention periods
+    const packages = await PointsPackage.find({ isActive: true });
+    const packageRetentionMap = {};
+    packages.forEach(pkg => {
+      packageRetentionMap[pkg._id.toString()] = pkg.historyRetentionDays || retentionConfig.defaultRetentionDays;
+    });
+    
+    // Get all users with their packages
+    const users = await User.find({ packageId: { $exists: true, $ne: null } });
+    let totalDeleted = 0;
+    
+    // Process each user
+    for (const user of users) {
+      const retentionDays = packageRetentionMap[user.packageId?.toString()] || retentionConfig.defaultRetentionDays;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+      
+      // Find old generations for this user
+      const oldGenerations = await Generation.find({
+        userId: user._id,
+        createdAt: { $lt: cutoffDate }
+      });
+      
+      if (oldGenerations.length > 0) {
+        // Delete from database (Cloudinary images will remain but won't be accessible)
+        await Generation.deleteMany({
+          userId: user._id,
+          createdAt: { $lt: cutoffDate }
+        });
+        
+        totalDeleted += oldGenerations.length;
+        console.log(`✅ Deleted ${oldGenerations.length} old generations for user ${user.email}`);
+      }
+    }
+    
+    // Also cleanup users without packages (use default retention)
+    const defaultCutoffDate = new Date();
+    defaultCutoffDate.setDate(defaultCutoffDate.getDate() - retentionConfig.defaultRetentionDays);
+    
+    const usersWithoutPackage = await User.find({ 
+      $or: [{ packageId: { $exists: false } }, { packageId: null }] 
+    });
+    
+    for (const user of usersWithoutPackage) {
+      const oldGenerations = await Generation.find({
+        userId: user._id,
+        createdAt: { $lt: defaultCutoffDate }
+      });
+      
+      if (oldGenerations.length > 0) {
+        await Generation.deleteMany({
+          userId: user._id,
+          createdAt: { $lt: defaultCutoffDate }
+        });
+        
+        totalDeleted += oldGenerations.length;
+      }
+    }
+    
+    // Update retention config
+    if (retentionConfig) {
+      retentionConfig.lastCleanupDate = new Date();
+      retentionConfig.totalImagesDeleted = (retentionConfig.totalImagesDeleted || 0) + totalDeleted;
+      await retentionConfig.save();
+    }
+    
+    console.log(`✅ Cleanup completed. Deleted ${totalDeleted} old generations.`);
+    return { deleted: totalDeleted, skipped: false };
+    
+  } catch (error) {
+    console.error('❌ Cleanup error:', error);
+    return { deleted: 0, error: error.message };
+  }
+}
+
+// Schedule cleanup (run daily at 2 AM)
+// Note: In production, use a proper cron service or Render.com cron jobs
+if (process.env.ENABLE_AUTO_CLEANUP !== 'false') {
+  // Run cleanup on server start (for testing)
+  // In production, use Render.com cron jobs or similar
+  setInterval(async () => {
+    const now = new Date();
+    if (now.getHours() === 2 && now.getMinutes() === 0) {
+      await cleanupOldGenerations();
+    }
+  }, 60000); // Check every minute
+}
+
+// Admin endpoint: Manual cleanup trigger
+app.post('/api/admin/history/cleanup', authUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    const admin = await Admin.findOne({ email: req.user.email });
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const result = await cleanupOldGenerations();
+    res.json({
+      success: true,
+      deleted: result.deleted,
+      message: `Cleanup completed. Deleted ${result.deleted} old generations.`
+    });
+  } catch (error) {
+    console.error('❌ Manual cleanup error:', error);
+    res.status(500).json({ error: 'Cleanup failed', message: error.message });
+  }
+});
+
+// Admin endpoint: Get retention config
+app.get('/api/admin/history/retention', authUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    const admin = await Admin.findOne({ email: req.user.email });
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    let config = await HistoryRetentionConfig.findOne();
+    if (!config) {
+      config = await HistoryRetentionConfig.create({
+        defaultRetentionDays: 30,
+        enableAutoCleanup: true,
+        cleanupSchedule: 'daily'
+      });
+    }
+    
+    // Get packages with retention info
+    const packages = await PointsPackage.find({ isActive: true });
+    
+    res.json({
+      config: {
+        defaultRetentionDays: config.defaultRetentionDays,
+        enableAutoCleanup: config.enableAutoCleanup,
+        cleanupSchedule: config.cleanupSchedule,
+        lastCleanupDate: config.lastCleanupDate,
+        totalImagesDeleted: config.totalImagesDeleted
+      },
+      packages: packages.map(pkg => ({
+        id: pkg._id,
+        name: pkg.name,
+        historyRetentionDays: pkg.historyRetentionDays || config.defaultRetentionDays
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Get retention config error:', error);
+    res.status(500).json({ error: 'Failed to fetch config', message: error.message });
+  }
+});
+
+// Admin endpoint: Update retention config
+app.put('/api/admin/history/retention', authUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    const admin = await Admin.findOne({ email: req.user.email });
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const { defaultRetentionDays, enableAutoCleanup, cleanupSchedule } = req.body;
+    
+    let config = await HistoryRetentionConfig.findOne();
+    if (!config) {
+      config = await HistoryRetentionConfig.create({
+        defaultRetentionDays: defaultRetentionDays || 30,
+        enableAutoCleanup: enableAutoCleanup !== undefined ? enableAutoCleanup : true,
+        cleanupSchedule: cleanupSchedule || 'daily'
+      });
+    } else {
+      if (defaultRetentionDays !== undefined) config.defaultRetentionDays = defaultRetentionDays;
+      if (enableAutoCleanup !== undefined) config.enableAutoCleanup = enableAutoCleanup;
+      if (cleanupSchedule) config.cleanupSchedule = cleanupSchedule;
+      config.updatedAt = new Date();
+      await config.save();
+    }
+    
+    res.json({
+      success: true,
+      config: {
+        defaultRetentionDays: config.defaultRetentionDays,
+        enableAutoCleanup: config.enableAutoCleanup,
+        cleanupSchedule: config.cleanupSchedule
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update retention config error:', error);
+    res.status(500).json({ error: 'Failed to update config', message: error.message });
+  }
+});
+
+// Admin endpoint: Update package retention
+app.put('/api/admin/packages/:id/retention', authUser, async (req, res) => {
+  try {
+    // Check if user is admin
+    const admin = await Admin.findOne({ email: req.user.email });
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const { historyRetentionDays } = req.body;
+    
+    const pkg = await PointsPackage.findById(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ error: 'Package not found' });
+    }
+    
+    pkg.historyRetentionDays = historyRetentionDays || 30;
+    await pkg.save();
+    
+    res.json({
+      success: true,
+      package: {
+        id: pkg._id,
+        name: pkg.name,
+        historyRetentionDays: pkg.historyRetentionDays
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update package retention error:', error);
+    res.status(500).json({ error: 'Failed to update package', message: error.message });
+  }
 });
 
 // API version compatibility - redirect /api/v1/* to /api/*
