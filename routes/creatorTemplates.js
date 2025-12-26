@@ -52,11 +52,26 @@ module.exports = (authMiddleware) => {
                 allBodyKeys: Object.keys(req.body)
             });
 
+            // Use imageUrl if provided, otherwise use demoImage
+            const finalImageUrl = imageUrl || demoImage;
+            
+            // Ensure inputImage is properly set
+            const finalInputImage = inputImage || req.body.inputImageUrl || '';
+            
+            // Log for debugging
+            console.log('📤 Creating template with inputImage:', {
+                hasInputImage: !!finalInputImage,
+                inputImageLength: finalInputImage?.length || 0,
+                inputImagePreview: finalInputImage?.substring(0, 50) || 'N/A',
+                hasImageUrl: !!finalImageUrl,
+                imageUrlLength: finalImageUrl?.length || 0
+            });
+
             // Validation
-            if (!title || !description || !demoImage || !hiddenPrompt || !category) {
+            if (!title || !description || !finalImageUrl || !hiddenPrompt || !category) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Missing required fields: title, description, demoImage, hiddenPrompt, category'
+                    message: 'Missing required fields: title, description, imageUrl/demoImage, hiddenPrompt, category'
                 });
             }
 
@@ -65,8 +80,8 @@ module.exports = (authMiddleware) => {
             const newTemplate = new Template({
                 title,
                 description,
-                inputImage: req.body.inputImage || '',
-                imageUrl: demoImage, // Schema uses imageUrl, not demoImage
+                inputImage: finalInputImage, // Explicitly set inputImage
+                imageUrl: finalImageUrl, // Use imageUrl if provided, otherwise demoImage
                 category,
                 subCategory: subCategory || '',
                 tags: tags || [],
