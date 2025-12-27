@@ -14,7 +14,7 @@ const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, HistoryRetentionConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
-  Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule, TemplateSave
+  Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule, TemplateSave, Popup, Offer, PromoCode, AdLog
 } = require('./models');
 
 // AI Providers (Modular System)
@@ -4992,6 +4992,11 @@ app.use('/api/admin/categories', categoryRoutes); // For admin panel (admin rout
 const creatorTemplateRoutes = require('./routes/creatorTemplates')(authUser);
 app.use('/api/v1/creator/templates', creatorTemplateRoutes);
 app.use('/api/creator/templates', creatorTemplateRoutes); // Also support without /v1 (for URL rewrite compatibility)
+
+// Import and mount Monetization routes
+const monetizationRoutes = require('./routes/monetization');
+app.use('/api/monetization', monetizationRoutes);
+app.use('/api/admin/monetization', monetizationRoutes);
 
 // Admin logs endpoint
 app.get('/api/admin/logs', (req, res) => {

@@ -447,5 +447,11 @@ module.exports = {
     hiddenPrompt: { type: String, required: true },
     applyTo: [{ type: String, enum: ['image', 'image_to_image', 'text_to_image'], default: ['image', 'image_to_image', 'text_to_image'] }],
     createdAt: { type: Date, default: Date.now }
-  }))
+  })),
+
+  // Monetization Models (from models-monetization.js)
+  Popup: require('./models-monetization').Popup,
+  Offer: require('./models-monetization').Offer,
+  PromoCode: require('./models-monetization').PromoCode,
+  AdLog: require('./models-monetization').AdLog
 };
