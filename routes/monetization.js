@@ -358,7 +358,7 @@ router.put('/popups/:id', async (req, res) => {
       }
 
       // Clean and validate text content
-      const cleanedTextContent: any = {};
+      const cleanedTextContent = {};
       if (req.body.textContent.mainTitle !== undefined) {
         cleanedTextContent.mainTitle = req.body.textContent.mainTitle?.trim() || '';
       }
@@ -400,19 +400,19 @@ router.put('/popups/:id', async (req, res) => {
       }
       if (req.body.textContent.tags !== undefined) {
         cleanedTextContent.tags = req.body.textContent.tags
-          .map((tag: any) => ({
+          .map((tag) => ({
             ...tag,
             text: tag.text?.trim() || ''
           }))
-          .filter((tag: any) => tag.text);
+          .filter((tag) => tag.text);
       }
       if (req.body.textContent.features !== undefined) {
         cleanedTextContent.features = req.body.textContent.features
-          .map((feature: any) => ({
+          .map((feature) => ({
             ...feature,
             text: feature.text?.trim() || ''
           }))
-          .filter((feature: any) => feature.text);
+          .filter((feature) => feature.text);
       }
 
       // Merge with existing textContent
