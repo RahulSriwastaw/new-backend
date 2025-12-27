@@ -2195,6 +2195,13 @@ app.post('/api/templates/:id/like', authUser, async (req, res) => {
       template.likedBy = [];
     }
 
+    // Fix source field if it's invalid (e.g., 'manual' should be 'creator' or 'admin')
+    if (template.source && !['admin', 'creator'].includes(template.source)) {
+      // Default to 'creator' if source is invalid
+      template.source = template.creatorId ? 'creator' : 'admin';
+      console.log(`⚠️ Fixed invalid source value for template ${templateId}: ${template.source}`);
+    }
+
     // Convert userId to ObjectId for comparison
     const userIdStr = String(userId);
     const isLiked = template.likedBy.some(id => String(id) === userIdStr);
@@ -2232,7 +2239,19 @@ app.post('/api/templates/:id/like', authUser, async (req, res) => {
           console.log(`✅ Like successful: Template ${templateId}, User ${userId}, New count: ${template.likeCount}`);
         } catch (saveError) {
           console.error("❌ Template save error on like:", saveError);
-          throw saveError;
+          // If save fails due to validation, try to fix and retry
+          if (saveError.message && saveError.message.includes('source')) {
+            template.source = template.creatorId ? 'creator' : 'admin';
+            try {
+              await template.save();
+              console.log(`✅ Like successful after fixing source: Template ${templateId}, User ${userId}`);
+            } catch (retryError) {
+              console.error("❌ Template save error after retry:", retryError);
+              throw retryError;
+            }
+          } else {
+            throw saveError;
+          }
         }
 
         // Update creator's likes count (non-blocking)
