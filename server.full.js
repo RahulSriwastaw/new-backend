@@ -2302,15 +2302,17 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       : userId;
 
     // Find templates where user is in savedBy array
-    // MongoDB automatically matches ObjectId in arrays with direct equality
+    // Use $in operator to match ObjectId in array (works for both ObjectId and string)
     const query = {
-      savedBy: userIdObj, // MongoDB will match this ObjectId in the savedBy array
+      savedBy: { $in: [userIdObj, String(userId), userId] }, // Try all formats
       status: 'active',
       approvalStatus: 'approved',
       isPaused: { $ne: true }
     };
 
     console.log('📋 Query:', JSON.stringify(query, null, 2));
+    console.log('📋 userIdObj type:', typeof userIdObj, 'value:', userIdObj);
+    console.log('📋 userId type:', typeof userId, 'value:', userId);
 
     let savedTemplates = [];
     try {
