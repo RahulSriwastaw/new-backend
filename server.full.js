@@ -2385,19 +2385,26 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       };
     });
 
-    // Get total count for pagination
-    let totalCount;
+    // Get total count for pagination - use same query format
+    let totalCount = 0;
     try {
       totalCount = await Template.countDocuments(query);
+      console.log(`✅ Total count: ${totalCount}`);
     } catch (countError) {
       console.error("❌ Count error:", countError);
-      // Try fallback count
-      totalCount = await Template.countDocuments({
-        savedBy: String(userId),
-        status: 'active',
-        approvalStatus: 'approved',
-        isPaused: { $ne: true }
-      });
+      // Try fallback count with $in
+      try {
+        totalCount = await Template.countDocuments({
+          savedBy: { $in: [String(userId), userId] },
+          status: 'active',
+          approvalStatus: 'approved',
+          isPaused: { $ne: true }
+        });
+        console.log(`✅ Total count (fallback): ${totalCount}`);
+      } catch (fallbackCountError) {
+        console.error("❌ Fallback count also failed:", fallbackCountError);
+        totalCount = savedTemplates.length; // Use array length as fallback
+      }
     }
 
     res.json({
