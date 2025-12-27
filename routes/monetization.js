@@ -183,20 +183,20 @@ router.post('/popups', async (req, res) => {
       // Clean tags
       if (popupData.textContent.tags) {
         popupData.textContent.tags = popupData.textContent.tags
-          .map((tag: any) => ({
+          .map((tag) => ({
             ...tag,
             text: tag.text?.trim() || ''
           }))
-          .filter((tag: any) => tag.text);
+          .filter((tag) => tag.text);
       }
       // Clean features
       if (popupData.textContent.features) {
         popupData.textContent.features = popupData.textContent.features
-          .map((feature: any) => ({
+          .map((feature) => ({
             ...feature,
             text: feature.text?.trim() || ''
           }))
-          .filter((feature: any) => feature.text);
+          .filter((feature) => feature.text);
       }
     }
 
