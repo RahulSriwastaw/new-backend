@@ -2000,6 +2000,19 @@ app.get('/api/templates', async (req, res) => {
   try {
     const { category, subCategory, gender, state, ageGroup, isPremium, sort, search, tags, page, limit } = req.query;
 
+    // Try to get user ID from token (optional - for like status)
+    let userId = null;
+    try {
+      const token = req.header('Authorization')?.replace('Bearer ', '');
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025');
+        userId = decoded.user?.id || decoded.user?.userId || decoded.user?._id;
+      }
+    } catch (tokenError) {
+      // User not authenticated or invalid token - continue without like status
+      userId = null;
+    }
+
     // CRITICAL SECURITY: Only show approved and non-paused templates to users
     const query = {
       status: 'active',
@@ -2062,15 +2075,19 @@ app.get('/api/templates', async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
-    // Map and include creator info
+    // Map and include creator info + like status
     const templatesWithCreator = list.map(t => {
       const template = t.toObject();
+      const userIdStr = userId ? String(userId) : null;
+      const isLiked = userIdStr && t.likedBy ? t.likedBy.some(id => String(id) === userIdStr) : false;
+      
       return {
         ...template,
         id: t._id,
         creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
         creatorAvatar: t.creatorId?.photoURL || '',
-        creatorVerified: t.creatorId?.isVerified || false
+        creatorVerified: t.creatorId?.isVerified || false,
+        isLiked: isLiked // Include like status for authenticated users
       };
     });
 
