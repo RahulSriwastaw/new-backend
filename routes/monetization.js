@@ -345,7 +345,7 @@ router.put('/popups/:id', async (req, res) => {
         const endDate = updateData.endTime;
         const day = endDate.getDate();
         const month = endDate.toLocaleString('en-US', { month: 'short' });
-        const ordinalSuffix = (d: number) => {
+        const ordinalSuffix = (d) => {
           if (d > 3 && d < 21) return 'th';
           switch (d % 10) {
             case 1: return 'st';
