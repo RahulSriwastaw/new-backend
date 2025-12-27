@@ -2288,6 +2288,7 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     const { page = 1, limit = 50 } = req.query;
     
     if (!userId) {
+      console.error("❌ User ID not found in req.user:", req.user);
       return res.status(401).json({ error: 'User ID not found' });
     }
 
@@ -2295,9 +2296,14 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
+    // Convert userId to ObjectId for query
+    const userIdObj = mongoose.Types.ObjectId.isValid(userId) 
+      ? new mongoose.Types.ObjectId(userId) 
+      : userId;
+
     // Find templates where user is in savedBy array
     const savedTemplates = await Template.find({
-      savedBy: userId,
+      savedBy: userIdObj,
       status: 'active',
       approvalStatus: 'approved',
       isPaused: false
