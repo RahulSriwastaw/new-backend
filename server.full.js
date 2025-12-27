@@ -2315,47 +2315,42 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
 
     // Map templates with creator info and like status
     const templatesWithInfo = savedTemplates.map(t => {
-      const template = t.toObject();
+      // t is already a plain object due to .lean()
       const userIdStr = String(userId);
       const isLiked = t.likedBy && Array.isArray(t.likedBy) && t.likedBy.some(id => String(id) === userIdStr);
       const isSaved = true; // User saved these templates
       
       return {
-        ...template,
+        ...t,
         id: String(t._id),
-        demoImage: t.imageUrl || template.imageUrl || '',
-        imageUrl: t.imageUrl || template.imageUrl || '',
-        image: t.imageUrl || template.imageUrl || '',
-        inputImage: t.inputImage || template.inputImage || '',
-        creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
+        demoImage: t.imageUrl || '',
+        imageUrl: t.imageUrl || '',
+        image: t.imageUrl || '',
+        inputImage: t.inputImage || '',
+        creatorName: t.creatorId?.name || t.creatorId?.username || (t.creatorId?.email ? t.creatorId.email.split('@')[0] : 'Creator') || 'Creator',
         creatorAvatar: t.creatorId?.photoURL || '',
         creatorVerified: t.creatorId?.isVerified || false,
         isLiked: isLiked || false,
         isSaved: isSaved,
-        likeCount: t.likeCount || template.likeCount || 0,
-        saveCount: t.savesCount || template.savesCount || 0,
-        usageCount: t.useCount || template.useCount || 0,
-        category: t.category || template.category || 'General',
-        subCategory: t.subCategory || template.subCategory || '',
-        tags: t.tags || template.tags || [],
-        isFree: !t.isPremium && !template.isPremium,
-        pointsCost: t.pointsCost || template.pointsCost || 0,
-        hiddenPrompt: t.prompt || template.prompt || t.hiddenPrompt || template.hiddenPrompt || '',
-        visiblePrompt: t.visiblePrompt || template.visiblePrompt || '',
-        negativePrompt: t.negativePrompt || template.negativePrompt || '',
-        approvalStatus: t.approvalStatus || template.approvalStatus || 'approved',
-        rating: template.rating || 4.5,
-        ratingCount: template.ratingCount || 0
+        likeCount: t.likeCount || 0,
+        saveCount: t.savesCount || 0,
+        usageCount: t.useCount || 0,
+        category: t.category || 'General',
+        subCategory: t.subCategory || '',
+        tags: t.tags || [],
+        isFree: !t.isPremium,
+        pointsCost: t.pointsCost || 0,
+        hiddenPrompt: t.prompt || t.hiddenPrompt || '',
+        visiblePrompt: t.visiblePrompt || '',
+        negativePrompt: t.negativePrompt || '',
+        approvalStatus: t.approvalStatus || 'approved',
+        rating: t.rating || 4.5,
+        ratingCount: t.ratingCount || 0
       };
     });
 
-    // Get total count for pagination
-    const totalCount = await Template.countDocuments({
-      savedBy: userIdObj,
-      status: 'active',
-      approvalStatus: 'approved',
-      isPaused: false
-    });
+    // Get total count for pagination - use same query
+    const totalCount = await Template.countDocuments(query);
 
     res.json({
       success: true,
