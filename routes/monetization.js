@@ -100,11 +100,62 @@ router.get('/popups', async (req, res) => {
 // Admin: Create popup
 router.post('/popups', async (req, res) => {
   try {
-    const popup = new Popup(req.body);
+    console.log('📤 Creating popup with data:', {
+      title: req.body.title,
+      hasImage: !!req.body.image,
+      startTime: req.body.startTime,
+      endTime: req.body.endTime,
+      popupType: req.body.popupType
+    });
+
+    // Validate required fields
+    if (!req.body.title || !req.body.description) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        message: 'Title and description are required' 
+      });
+    }
+
+    // Convert date strings to Date objects if needed
+    const popupData = {
+      ...req.body,
+      startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+      endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Validate dates
+    if (!popupData.startTime || isNaN(popupData.startTime.getTime())) {
+      return res.status(400).json({ 
+        error: 'Invalid start time', 
+        message: 'Start time must be a valid date' 
+      });
+    }
+    if (!popupData.endTime || isNaN(popupData.endTime.getTime())) {
+      return res.status(400).json({ 
+        error: 'Invalid end time', 
+        message: 'End time must be a valid date' 
+      });
+    }
+
+    const popup = new Popup(popupData);
     await popup.save();
+    
+    console.log('✅ Popup created successfully:', popup._id);
     res.json({ success: true, popup });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create popup', message: error.message });
+    console.error('❌ Error creating popup:', error);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to create popup', 
+      message: error.message,
+      details: error.name === 'ValidationError' ? error.errors : undefined
+    });
   }
 });
 
