@@ -2354,8 +2354,20 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       };
     });
 
-    // Get total count for pagination - use same query
-    const totalCount = await Template.countDocuments(query);
+    // Get total count for pagination
+    let totalCount;
+    try {
+      totalCount = await Template.countDocuments(query);
+    } catch (countError) {
+      console.error("❌ Count error:", countError);
+      // Try fallback count
+      totalCount = await Template.countDocuments({
+        savedBy: String(userId),
+        status: 'active',
+        approvalStatus: 'approved',
+        isPaused: { $ne: true }
+      });
+    }
 
     res.json({
       success: true,
