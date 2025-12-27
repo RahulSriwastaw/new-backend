@@ -2289,7 +2289,7 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     
     console.log('📥 Get Saved Templates - Request received');
     console.log('📥 User ID:', userId);
-    console.log('📥 User object:', JSON.stringify(req.user, null, 2));
+    console.log('📥 User object keys:', Object.keys(req.user || {}));
     
     if (!userId) {
       console.error("❌ User ID not found in req.user:", req.user);
