@@ -2302,9 +2302,9 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       : userId;
 
     // Find templates where user is in savedBy array
-    // savedBy is an array, so we need to check if userId is in the array using $in
+    // MongoDB automatically matches ObjectId in arrays with direct equality
     const query = {
-      savedBy: { $in: [userIdObj, String(userId), userId] }, // Try multiple formats
+      savedBy: userIdObj, // MongoDB will match this ObjectId in the savedBy array
       status: 'active',
       approvalStatus: 'approved',
       isPaused: { $ne: true }
