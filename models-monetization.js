@@ -3,11 +3,58 @@ const mongoose = require('mongoose');
 // Popup Notification Schema (Monetization Module 1)
 const popupSchema = new mongoose.Schema({
   // Legacy fields (for backward compatibility)
-  title: { type: String }, // Deprecated - use textContent.mainTitle
-  description: { type: String }, // Deprecated - use textContent.description
-  ctaText: { type: String, default: 'Get Started' }, // Deprecated - use textContent.ctaText
+  title: { type: String }, // Deprecated - use templateData or textContent.mainTitle
+  description: { type: String }, // Deprecated - use templateData or textContent.description
+  ctaText: { type: String, default: 'Get Started' }, // Deprecated - use templateData or textContent.ctaText
   
-  // Text Content Management System
+  // Template-Based System
+  templateId: { 
+    type: String, 
+    enum: ['OFFER_SPLIT_IMAGE_RIGHT_CONTENT', 'CENTER_MODAL', 'FULL_SCREEN', 'BOTTOM_SHEET', 'TOAST', 'EXIT_INTENT'],
+    default: 'CENTER_MODAL'
+  },
+  
+  // Template Data (for OFFER_SPLIT_IMAGE_RIGHT_CONTENT template)
+  templateData: {
+    // Left Side (Image)
+    leftImageUrl: { type: String },
+    leftOverlayText: { type: String }, // e.g. "81% OFF"
+    
+    // Right Side (Content)
+    tags: [{
+      text: { type: String, required: true },
+      color: { 
+        type: String, 
+        enum: ['red', 'orange', 'green', 'blue', 'yellow', 'purple', 'custom'],
+        default: 'red'
+      },
+      customColor: { type: String },
+      isEnabled: { type: Boolean, default: true },
+      order: { type: Number, default: 0 }
+    }],
+    mainHeading: { type: String }, // e.g. "CHRISTMAS SEASON"
+    subHeading: { type: String }, // e.g. "UP TO 81% OFF"
+    description: { type: String }, // Short marketing copy (1-2 lines)
+    features: [{
+      text: { type: String, required: true },
+      badgeType: { 
+        type: String, 
+        enum: ['unlimited', 'pro', 'included', ''],
+        default: ''
+      },
+      isEnabled: { type: Boolean, default: true },
+      order: { type: Number, default: 0 }
+    }],
+    ctaText: { type: String, default: 'Get Discount Now' },
+    ctaAction: { 
+      type: String, 
+      enum: ['apply_offer', 'buy_plan', 'watch_ad', 'custom_url'],
+      default: 'apply_offer'
+    },
+    ctaUrl: { type: String } // For custom_url action
+  },
+  
+  // Text Content Management System (for backward compatibility and other templates)
   textContent: {
     // Header / Brand Text
     brandText: { type: String, default: '' }, // e.g. "BORCELLE STORE"

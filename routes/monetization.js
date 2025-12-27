@@ -172,7 +172,41 @@ router.post('/popups', async (req, res) => {
       updatedAt: new Date()
     };
 
-    // Clean text content - trim and validate
+    // Clean template data for OFFER_SPLIT_IMAGE_RIGHT_CONTENT
+    if (popupData.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT' && popupData.templateData) {
+      if (popupData.templateData.mainHeading) {
+        popupData.templateData.mainHeading = popupData.templateData.mainHeading.trim().toUpperCase();
+      }
+      if (popupData.templateData.subHeading) {
+        popupData.templateData.subHeading = popupData.templateData.subHeading.trim().toUpperCase();
+      }
+      if (popupData.templateData.description) {
+        popupData.templateData.description = popupData.templateData.description.trim();
+      }
+      if (popupData.templateData.leftOverlayText) {
+        popupData.templateData.leftOverlayText = popupData.templateData.leftOverlayText.trim();
+      }
+      // Clean tags
+      if (popupData.templateData.tags) {
+        popupData.templateData.tags = popupData.templateData.tags
+          .map((tag) => ({
+            ...tag,
+            text: tag.text?.trim() || ''
+          }))
+          .filter((tag) => tag.text && tag.isEnabled);
+      }
+      // Clean features
+      if (popupData.templateData.features) {
+        popupData.templateData.features = popupData.templateData.features
+          .map((feature) => ({
+            ...feature,
+            text: feature.text?.trim() || ''
+          }))
+          .filter((feature) => feature.text && feature.isEnabled);
+      }
+    }
+
+    // Clean text content - trim and validate (for legacy templates)
     if (popupData.textContent) {
       if (popupData.textContent.mainTitle) {
         popupData.textContent.mainTitle = popupData.textContent.mainTitle.trim();
