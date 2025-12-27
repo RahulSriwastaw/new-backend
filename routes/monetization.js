@@ -189,13 +189,161 @@ router.post('/popups', async (req, res) => {
   }
 });
 
+// Admin: Get single popup by ID
+router.get('/popups/:id', async (req, res) => {
+  try {
+    const popup = await Popup.findById(req.params.id);
+    if (!popup) {
+      return res.status(404).json({ error: 'Popup not found' });
+    }
+    res.json({ success: true, popup });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch popup', message: error.message });
+  }
+});
+
 // Admin: Update popup
 router.put('/popups/:id', async (req, res) => {
   try {
-    const popup = await Popup.findByIdAndUpdate(req.params.id, { ...req.body, updatedAt: new Date() }, { new: true });
-    res.json({ success: true, popup });
+    console.log('📝 Updating popup:', req.params.id, {
+      title: req.body.title,
+      hasImage: !!req.body.image,
+      isEnabled: req.body.isEnabled
+    });
+
+    // Find existing popup
+    const existingPopup = await Popup.findById(req.params.id);
+    if (!existingPopup) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Popup not found',
+        message: 'Popup with this ID does not exist' 
+      });
+    }
+
+    // Validate required fields if provided
+    if (req.body.title !== undefined && !req.body.title) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Validation error',
+        message: 'Title is required and cannot be empty' 
+      });
+    }
+
+    // Prepare update data - only include defined fields
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    // Only update fields that are provided (not undefined)
+    if (req.body.title !== undefined) updateData.title = req.body.title;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.image !== undefined && req.body.image !== '') updateData.image = req.body.image;
+    if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
+    if (req.body.ctaAction !== undefined) updateData.ctaAction = req.body.ctaAction;
+    if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
+    if (req.body.popupType !== undefined) updateData.popupType = req.body.popupType;
+    if (req.body.targetUsers !== undefined) updateData.targetUsers = req.body.targetUsers;
+    if (req.body.frequency !== undefined) updateData.frequency = req.body.frequency;
+    if (req.body.frequencyHours !== undefined) {
+      updateData.frequencyHours = typeof req.body.frequencyHours === 'string' 
+        ? parseInt(req.body.frequencyHours) || 24 
+        : req.body.frequencyHours;
+    }
+    if (req.body.priority !== undefined) {
+      // Convert priority to number
+      const priority = typeof req.body.priority === 'string' 
+        ? parseInt(req.body.priority) 
+        : req.body.priority;
+      if (isNaN(priority) || priority < 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Priority must be a non-negative number' 
+        });
+      }
+      updateData.priority = priority;
+    }
+    if (req.body.isEnabled !== undefined) {
+      updateData.isEnabled = req.body.isEnabled === true || req.body.isEnabled === 'true';
+    }
+
+    // Handle dates
+    if (req.body.startTime !== undefined) {
+      const startTime = req.body.startTime ? new Date(req.body.startTime) : null;
+      if (!startTime || isNaN(startTime.getTime())) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Invalid start time format' 
+        });
+      }
+      updateData.startTime = startTime;
+    }
+
+    if (req.body.endTime !== undefined) {
+      const endTime = req.body.endTime ? new Date(req.body.endTime) : null;
+      if (!endTime || isNaN(endTime.getTime())) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Invalid end time format' 
+        });
+      }
+      updateData.endTime = endTime;
+    }
+
+    // Validate date range if both dates are being updated
+    if (updateData.startTime && updateData.endTime) {
+      if (updateData.startTime >= updateData.endTime) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Start time must be before end time' 
+        });
+      }
+    } else if (updateData.startTime && existingPopup.endTime) {
+      if (updateData.startTime >= existingPopup.endTime) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Start time must be before end time' 
+        });
+      }
+    } else if (updateData.endTime && existingPopup.startTime) {
+      if (existingPopup.startTime >= updateData.endTime) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Validation error',
+          message: 'Start time must be before end time' 
+        });
+      }
+    }
+
+    // Update popup
+    const updatedPopup = await Popup.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
+
+    console.log('✅ Popup updated successfully:', updatedPopup._id);
+    res.json({ success: true, popup: updatedPopup });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update popup', message: error.message });
+    console.error('❌ Error updating popup:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Validation error',
+        message: error.message,
+        details: error.errors 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update popup', 
+      message: error.message 
+    });
   }
 });
 
