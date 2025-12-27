@@ -8,11 +8,35 @@ const mongoose = require('mongoose');
 // MODULE 1: POPUP NOTIFICATION SYSTEM
 // ============================================
 
-// Get active popups for user (Frontend API)
+// Get active popups for user (Frontend API) - NO AUTH REQUIRED (public endpoint)
 router.get('/popups/active', async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId || req.user?._id;
+    // Try to get userId from token if available, but don't require it
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    let userId = null;
+    let user = null;
+    
+    if (token) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025');
+        userId = decoded.user?.id || decoded.user?.userId || decoded.user?._id;
+        if (userId) {
+          user = await User.findById(userId).lean();
+        }
+      } catch (tokenError) {
+        // Token invalid or missing - continue without user context
+        console.log('No valid token for popup request, showing to all users');
+      }
+    }
+    
     const now = new Date();
+    
+    console.log('📢 Fetching active popups:', {
+      userId,
+      hasUser: !!user,
+      now: now.toISOString()
+    });
     
     // Get all active popups within time window
     const popups = await Popup.find({
@@ -21,22 +45,23 @@ router.get('/popups/active', async (req, res) => {
       endTime: { $gte: now }
     }).sort({ priority: 1 }).lean();
 
+    console.log(`Found ${popups.length} active popups`);
+
     if (popups.length === 0) {
-      return res.json({ success: true, popups: [] });
+      return res.json({ success: true, popup: null });
     }
 
     // Filter by target users
-    let user = null;
-    if (userId) {
-      user = await User.findById(userId).lean();
-    }
-
     const filteredPopups = popups.filter(popup => {
       if (popup.targetUsers === 'all') return true;
-      if (!user) return false;
+      if (!user) {
+        // If no user, only show 'all' popups
+        return popup.targetUsers === 'all';
+      }
       
       if (popup.targetUsers === 'new') {
-        const daysSinceJoin = (now - new Date(user.joinedDate)) / (1000 * 60 * 60 * 24);
+        const joinedDate = user.createdAt || user.joinedDate || new Date();
+        const daysSinceJoin = (now.getTime() - new Date(joinedDate).getTime()) / (1000 * 60 * 60 * 24);
         return daysSinceJoin <= 7; // New user = joined within 7 days
       }
       
@@ -52,17 +77,22 @@ router.get('/popups/active', async (req, res) => {
       return true;
     });
 
+    console.log(`Filtered to ${filteredPopups.length} popups for user`);
+
     // Return highest priority popup only
     const topPopup = filteredPopups[0] || null;
     
     if (topPopup) {
       // Track impression
       await Popup.updateOne({ _id: topPopup._id }, { $inc: { impressions: 1 } });
+      console.log('✅ Returning popup:', topPopup._id, topPopup.title);
+    } else {
+      console.log('No popup matches user criteria');
     }
 
     res.json({ success: true, popup: topPopup });
   } catch (error) {
-    console.error('Error fetching active popups:', error);
+    console.error('❌ Error fetching active popups:', error);
     res.status(500).json({ error: 'Failed to fetch popups', message: error.message });
   }
 });
