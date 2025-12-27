@@ -123,7 +123,10 @@ const templateSchema = new mongoose.Schema({
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now },
   likeCount: { type: Number, default: 0 },
+  likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Track which users liked this template
   savesCount: { type: Number, default: 0 },
+  savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Track which users saved this template
+  shareCount: { type: Number, default: 0 },
   // Approval Workflow
   approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   rejectionReason: { type: String },

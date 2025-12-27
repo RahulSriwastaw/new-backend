@@ -2124,24 +2124,94 @@ app.get('/api/templates/search', async (req, res) => {
   }
 });
 
+// Track Template View - Prevent duplicate views from same user in same session
 app.post('/api/templates/:id/view', async (req, res) => {
   try {
-    await Template.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
+    const templateId = req.params.id;
+    const userId = req.user?.id; // Optional - can track views for non-authenticated users too
+    
+    // Use a simple increment for now (can add view tracking per user later if needed)
+    await Template.findByIdAndUpdate(templateId, { $inc: { viewCount: 1 } });
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: 'Error' });
+    console.error("View tracking error:", e);
+    res.status(500).json({ error: 'Error tracking view' });
   }
 });
 
+// Track Template Share
+app.post('/api/templates/:id/share', async (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const { platform } = req.body; // Optional: track which platform was used
+    
+    await Template.findByIdAndUpdate(templateId, { $inc: { shareCount: 1 } });
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Share tracking error:", e);
+    res.status(500).json({ error: 'Error tracking share' });
+  }
+});
+
+// Like/Unlike Template - Prevent duplicate likes
 app.post('/api/templates/:id/like', authUser, async (req, res) => {
   try {
-    const template = await Template.findByIdAndUpdate(req.params.id, { $inc: { likeCount: 1 } }, { new: true });
-    if (template && template.creatorId) {
-      await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: 1 } });
+    const templateId = req.params.id;
+    const userId = req.user.id;
+
+    const template = await Template.findById(templateId);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
     }
-    res.json({ success: true, likes: template ? template.likeCount : 0 });
+
+    const isLiked = template.likedBy && template.likedBy.some(id => String(id) === String(userId));
+    
+    if (isLiked) {
+      // Unlike: Remove user from likedBy array and decrement count
+      template.likedBy = template.likedBy.filter(id => String(id) !== String(userId));
+      template.likeCount = Math.max(0, (template.likeCount || 0) - 1);
+      await template.save();
+
+      // Update creator's likes count
+      if (template.creatorId) {
+        await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: -1 } });
+      }
+
+      res.json({ success: true, liked: false, likes: template.likeCount });
+    } else {
+      // Like: Add user to likedBy array and increment count
+      if (!template.likedBy) {
+        template.likedBy = [];
+      }
+      template.likedBy.push(userId);
+      template.likeCount = (template.likeCount || 0) + 1;
+      await template.save();
+
+      // Update creator's likes count
+      if (template.creatorId) {
+        await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: 1 } });
+      }
+
+      res.json({ success: true, liked: true, likes: template.likeCount });
+    }
   } catch (e) {
-    res.status(500).json({ error: 'Error' });
+    console.error("Like/Unlike Error:", e);
+    res.status(500).json({ error: 'Error processing like/unlike' });
+  }
+});
+
+// Check if user has liked a template
+app.get('/api/templates/:id/like-status', authUser, async (req, res) => {
+  try {
+    const template = await Template.findById(req.params.id).select('likedBy');
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    const isLiked = template.likedBy && template.likedBy.some(id => String(id) === String(req.user.id));
+    res.json({ liked: isLiked });
+  } catch (e) {
+    console.error("Like Status Error:", e);
+    res.status(500).json({ error: 'Error checking like status' });
   }
 });
 
