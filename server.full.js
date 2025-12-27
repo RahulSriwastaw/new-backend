@@ -2302,16 +2302,22 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       : userId;
 
     // Find templates where user is in savedBy array
-    const savedTemplates = await Template.find({
-      savedBy: userIdObj,
+    // savedBy is an array, so we need to check if userId is in the array using $in
+    const query = {
+      savedBy: { $in: [userIdObj, String(userId), userId] }, // Try multiple formats
       status: 'active',
       approvalStatus: 'approved',
-      isPaused: false
-    })
+      isPaused: { $ne: true }
+    };
+
+    console.log('📋 Query:', JSON.stringify(query, null, 2));
+
+    const savedTemplates = await Template.find(query)
       .populate('creatorId', 'name username email photoURL isVerified')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum);
+      .limit(limitNum)
+      .lean(); // Use lean() for better performance
 
     // Map templates with creator info and like status
     const templatesWithInfo = savedTemplates.map(t => {
