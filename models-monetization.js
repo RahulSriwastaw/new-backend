@@ -125,10 +125,70 @@ promoCodeSchema.index({ 'usedBy.userId': 1 });
 adLogSchema.index({ userId: 1, watchedAt: -1 });
 adLogSchema.index({ userId: 1, watchedAt: 1 }); // For daily limit queries
 
+// Top Promotional Banner Schema
+const topBannerSchema = new mongoose.Schema({
+  titleText: { type: String, required: true },
+  highlightTags: [{ type: String }], // e.g., ["LAST CHANCE", "LIMITED OFFER"]
+  backgroundStyle: { 
+    type: String, 
+    default: 'gradient',
+    enum: ['solid', 'gradient', 'pattern']
+  },
+  backgroundColor: { type: String, default: '#dc2626' }, // Red default
+  gradientColors: {
+    from: { type: String, default: '#dc2626' },
+    to: { type: String, default: '#b91c1c' }
+  },
+  textColor: { type: String, default: '#ffffff' },
+  iconLeft: { type: String }, // Emoji or icon URL
+  iconRight: { type: String },
+  ctaText: { type: String, default: 'Upgrade Now' },
+  ctaAction: {
+    type: String,
+    enum: ['open_payment', 'open_pack_selector', 'apply_offer', 'redirect_url'],
+    default: 'open_payment'
+  },
+  ctaPayload: { type: mongoose.Schema.Types.Mixed }, // Additional data for CTA
+  ctaUrl: { type: String }, // For redirect_url action
+  countdownEnabled: { type: Boolean, default: false },
+  countdownEndDate: { type: Date },
+  startAt: { type: Date, required: true },
+  endAt: { type: Date, required: true },
+  priority: { type: Number, default: 0 }, // Higher = more priority
+  allowedUserSegments: {
+    type: [String],
+    enum: ['all', 'new', 'logged_in', 'low_balance', 'premium'],
+    default: ['all']
+  },
+  allowDismiss: { type: Boolean, default: true },
+  deviceTargeting: {
+    type: [String],
+    enum: ['desktop', 'mobile', 'both'],
+    default: ['both']
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  },
+  // Analytics
+  views: { type: Number, default: 0 },
+  clicks: { type: Number, default: 0 },
+  dismissals: { type: Number, default: 0 },
+  revenueGenerated: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// Index for efficient queries
+topBannerSchema.index({ status: 1, startAt: 1, endAt: 1, priority: -1 });
+topBannerSchema.index({ status: 1, priority: -1 });
+
 module.exports = {
   Popup: mongoose.model('Popup', popupSchema),
   Offer: mongoose.model('Offer', offerSchema),
   PromoCode: mongoose.model('PromoCode', promoCodeSchema),
-  AdLog: mongoose.model('AdLog', adLogSchema)
+  AdLog: mongoose.model('AdLog', adLogSchema),
+  TopBanner: mongoose.model('TopBanner', topBannerSchema)
 };
 

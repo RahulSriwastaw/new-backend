@@ -4998,6 +4998,11 @@ const monetizationRoutes = require('./routes/monetization');
 app.use('/api/monetization', monetizationRoutes); // Public routes (popups/active, offers/active, etc.)
 app.use('/api/admin/monetization', authUser, monetizationRoutes); // Admin routes (require auth)
 
+// Import and mount Top Banner routes
+const topBannerRoutes = require('./routes/topBanners');
+app.use('/api/banners/top', topBannerRoutes); // Public routes (active banner, tracking)
+app.use('/api/admin/banners/top', authUser, topBannerRoutes); // Admin routes (require auth)
+
 // Admin logs endpoint
 app.get('/api/admin/logs', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '10', 10), 100);
