@@ -2327,11 +2327,11 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     } catch (queryError) {
       console.error("❌ Query error:", queryError);
       console.error("❌ Query error stack:", queryError.stack);
-      // Try fallback query with string userId
+      // Try fallback query with $in operator and string userId
       try {
-        console.log('🔄 Trying fallback query with string userId...');
+        console.log('🔄 Trying fallback query with $in operator...');
         savedTemplates = await Template.find({
-          savedBy: String(userId),
+          savedBy: { $in: [String(userId), userId] },
           status: 'active',
           approvalStatus: 'approved',
           isPaused: { $ne: true }
@@ -2344,6 +2344,7 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
         console.log(`✅ Found ${savedTemplates.length} saved templates (fallback)`);
       } catch (fallbackError) {
         console.error("❌ Fallback query also failed:", fallbackError);
+        console.error("❌ Fallback error stack:", fallbackError.stack);
         // Return empty array instead of failing
         savedTemplates = [];
       }
