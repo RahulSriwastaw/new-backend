@@ -14,7 +14,7 @@ const fs = require('fs');
 const {
   User, CreatorApplication, Transaction, AIModel, Template, Category,
   PointsPackage, PaymentGateway, FinanceConfig, HistoryRetentionConfig, Admin, Notification, Generation, ToolConfig, FilterConfig, AdsConfig,
-  Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule
+  Withdrawal, CreatorNotification, CreatorEarning, GenerationGuardRule, TemplateSave
 } = require('./models');
 
 // AI Providers (Modular System)
@@ -2723,20 +2723,92 @@ app.post('/api/admin/users', async (req, res) => {
   });
 });
 app.put('/api/admin/users/:id', async (req, res) => {
-  const u = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  if (!u) return res.status(404).json({ error: 'Not found' });
-  res.json({
-    id: u._id,
-    name: u.name,
-    email: u.email,
-    role: u.role,
-    points: u.points,
-    status: u.status,
-    joinedDate: u.joinedDate,
-    avatar: u.photoURL || '',
-    isVerified: u.isVerified || false,
-    isWalletFrozen: u.isWalletFrozen || false
-  });
+  try {
+    const u = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!u) return res.status(404).json({ error: 'Not found' });
+    res.json({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      points: u.points,
+      status: u.status,
+      joinedDate: u.joinedDate,
+      avatar: u.photoURL || '',
+      isVerified: u.isVerified || false,
+      isWalletFrozen: u.isWalletFrozen || false
+    });
+  } catch (e) {
+    console.error("❌ Update user error:", e);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Delete User
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent deleting super admin
+    if (user.role === 'super_admin') {
+      return res.status(403).json({ error: 'Cannot delete super admin' });
+    }
+
+    // Delete related data
+    // Delete user's generations
+    await Generation.deleteMany({ userId: userId });
+    
+    // Delete user's template saves
+    await TemplateSave.deleteMany({ userId: userId });
+    
+    // Remove user from template likedBy arrays
+    await Template.updateMany(
+      { likedBy: userId },
+      { $pull: { likedBy: userId }, $inc: { likeCount: -1 } }
+    );
+    
+    // Remove user from template savedBy arrays
+    await Template.updateMany(
+      { savedBy: userId },
+      { $pull: { savedBy: userId }, $inc: { savesCount: -1 } }
+    );
+    
+    // Delete user's creator application if exists
+    await CreatorApplication.deleteMany({ userId: userId });
+    
+    // Delete user's transactions
+    await Transaction.deleteMany({ userId: userId });
+    
+    // Delete user's withdrawals
+    await Withdrawal.deleteMany({ userId: userId });
+    
+    // Finally, delete the user
+    await User.findByIdAndDelete(userId);
+    
+    console.log(`✅ User deleted: ${user.email} (${userId})`);
+    
+    res.json({ 
+      success: true, 
+      message: 'User deleted successfully',
+      deletedUserId: userId
+    });
+  } catch (e) {
+    console.error("❌ Delete user error:", e);
+    res.status(500).json({ 
+      error: 'Failed to delete user',
+      message: e.message || String(e)
+    });
+  }
 });
 
 app.post('/api/admin/users/:id/login-as', async (req, res) => {
