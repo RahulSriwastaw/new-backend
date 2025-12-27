@@ -2157,46 +2157,88 @@ app.post('/api/templates/:id/share', async (req, res) => {
 app.post('/api/templates/:id/like', authUser, async (req, res) => {
   try {
     const templateId = req.params.id;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      console.error("❌ User ID not found in req.user:", req.user);
+      return res.status(401).json({ error: 'User ID not found' });
+    }
+
+    if (!templateId || !templateId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ error: 'Invalid template ID' });
+    }
 
     const template = await Template.findById(templateId);
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    const isLiked = template.likedBy && template.likedBy.some(id => String(id) === String(userId));
+    // Initialize likedBy array if it doesn't exist
+    if (!template.likedBy || !Array.isArray(template.likedBy)) {
+      template.likedBy = [];
+    }
+
+    // Convert userId to ObjectId for comparison
+    const userIdStr = String(userId);
+    const isLiked = template.likedBy.some(id => String(id) === userIdStr);
     
     if (isLiked) {
       // Unlike: Remove user from likedBy array and decrement count
-      template.likedBy = template.likedBy.filter(id => String(id) !== String(userId));
+      template.likedBy = template.likedBy.filter(id => String(id) !== userIdStr);
       template.likeCount = Math.max(0, (template.likeCount || 0) - 1);
-      await template.save();
+      
+      try {
+        await template.save();
+        console.log(`✅ Unlike successful: Template ${templateId}, User ${userId}, New count: ${template.likeCount}`);
+      } catch (saveError) {
+        console.error("❌ Template save error on unlike:", saveError);
+        throw saveError;
+      }
 
-      // Update creator's likes count
+      // Update creator's likes count (non-blocking)
       if (template.creatorId) {
-        await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: -1 } });
+        User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: -1 } })
+          .catch(err => console.error("Failed to update creator likes count:", err));
       }
 
       res.json({ success: true, liked: false, likes: template.likeCount });
     } else {
       // Like: Add user to likedBy array and increment count
-      if (!template.likedBy) {
-        template.likedBy = [];
-      }
-      template.likedBy.push(userId);
-      template.likeCount = (template.likeCount || 0) + 1;
-      await template.save();
+      // Check if userId is already in array (double-check)
+      const alreadyLiked = template.likedBy.some(id => String(id) === userIdStr);
+      if (!alreadyLiked) {
+        template.likedBy.push(userId);
+        template.likeCount = (template.likeCount || 0) + 1;
+        
+        try {
+          await template.save();
+          console.log(`✅ Like successful: Template ${templateId}, User ${userId}, New count: ${template.likeCount}`);
+        } catch (saveError) {
+          console.error("❌ Template save error on like:", saveError);
+          throw saveError;
+        }
 
-      // Update creator's likes count
-      if (template.creatorId) {
-        await User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: 1 } });
-      }
+        // Update creator's likes count (non-blocking)
+        if (template.creatorId) {
+          User.findByIdAndUpdate(template.creatorId, { $inc: { likesCount: 1 } })
+            .catch(err => console.error("Failed to update creator likes count:", err));
+        }
 
-      res.json({ success: true, liked: true, likes: template.likeCount });
+        res.json({ success: true, liked: true, likes: template.likeCount });
+      } else {
+        // Already liked, return current state
+        res.json({ success: true, liked: true, likes: template.likeCount });
+      }
     }
   } catch (e) {
-    console.error("Like/Unlike Error:", e);
-    res.status(500).json({ error: 'Error processing like/unlike' });
+    console.error("❌ Like/Unlike Error:", e);
+    console.error("Error stack:", e.stack);
+    console.error("Request params:", req.params);
+    console.error("Request user:", req.user);
+    res.status(500).json({ 
+      error: 'Error processing like/unlike',
+      message: e.message || String(e)
+    });
   }
 });
 
