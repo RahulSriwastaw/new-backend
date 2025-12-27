@@ -2196,6 +2196,7 @@ app.post('/api/templates/:id/like', authUser, async (req, res) => {
     }
 
     // Fix source field if it's invalid (e.g., 'manual' should be 'creator' or 'admin')
+    // Do this BEFORE any operations to prevent validation errors
     if (template.source && !['admin', 'creator'].includes(template.source)) {
       // Default to 'creator' if source is invalid
       template.source = template.creatorId ? 'creator' : 'admin';
@@ -2212,11 +2213,28 @@ app.post('/api/templates/:id/like', authUser, async (req, res) => {
       template.likeCount = Math.max(0, (template.likeCount || 0) - 1);
       
       try {
-        await template.save();
+        // Use updateOne to avoid full document validation if needed
+        await Template.updateOne(
+          { _id: templateId },
+          { 
+            $set: { 
+              likedBy: template.likedBy,
+              likeCount: template.likeCount,
+              source: template.source // Ensure valid source is saved
+            }
+          }
+        );
         console.log(`✅ Unlike successful: Template ${templateId}, User ${userId}, New count: ${template.likeCount}`);
       } catch (saveError) {
         console.error("❌ Template save error on unlike:", saveError);
-        throw saveError;
+        // Fallback to save() if updateOne fails
+        try {
+          await template.save();
+          console.log(`✅ Unlike successful (fallback): Template ${templateId}, User ${userId}`);
+        } catch (fallbackError) {
+          console.error("❌ Template save error on unlike (fallback):", fallbackError);
+          throw fallbackError;
+        }
       }
 
       // Update creator's likes count (non-blocking)
@@ -2235,22 +2253,27 @@ app.post('/api/templates/:id/like', authUser, async (req, res) => {
         template.likeCount = (template.likeCount || 0) + 1;
         
         try {
-          await template.save();
+          // Use updateOne to avoid full document validation if needed
+          await Template.updateOne(
+            { _id: templateId },
+            { 
+              $set: { 
+                likedBy: template.likedBy,
+                likeCount: template.likeCount,
+                source: template.source // Ensure valid source is saved
+              }
+            }
+          );
           console.log(`✅ Like successful: Template ${templateId}, User ${userId}, New count: ${template.likeCount}`);
         } catch (saveError) {
           console.error("❌ Template save error on like:", saveError);
-          // If save fails due to validation, try to fix and retry
-          if (saveError.message && saveError.message.includes('source')) {
-            template.source = template.creatorId ? 'creator' : 'admin';
-            try {
-              await template.save();
-              console.log(`✅ Like successful after fixing source: Template ${templateId}, User ${userId}`);
-            } catch (retryError) {
-              console.error("❌ Template save error after retry:", retryError);
-              throw retryError;
-            }
-          } else {
-            throw saveError;
+          // Fallback to save() if updateOne fails
+          try {
+            await template.save();
+            console.log(`✅ Like successful (fallback): Template ${templateId}, User ${userId}`);
+          } catch (fallbackError) {
+            console.error("❌ Template save error on like (fallback):", fallbackError);
+            throw fallbackError;
           }
         }
 
