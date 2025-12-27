@@ -2337,6 +2337,7 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
+        .lean() // Use lean() to get plain objects
         .exec();
       console.log(`✅ Found ${savedTemplates.length} saved templates`);
     } catch (queryError) {
