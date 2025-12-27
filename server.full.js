@@ -2170,6 +2170,174 @@ app.post('/api/templates/:id/share', async (req, res) => {
   }
 });
 
+// Save/Unsave Template - Prevent duplicate saves
+app.post('/api/templates/:id/save', authUser, async (req, res) => {
+  try {
+    const templateId = req.params.id;
+    const userId = req.user?.id || req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      console.error("❌ User ID not found in req.user:", req.user);
+      return res.status(401).json({ error: 'User ID not found' });
+    }
+
+    if (!templateId || !templateId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ error: 'Invalid template ID' });
+    }
+
+    const template = await Template.findById(templateId);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Fix source field if it's invalid
+    if (template.source && !['admin', 'creator'].includes(template.source)) {
+      template.source = template.creatorId ? 'creator' : 'admin';
+    }
+
+    // Initialize savedBy array if it doesn't exist
+    if (!template.savedBy || !Array.isArray(template.savedBy)) {
+      template.savedBy = [];
+    }
+
+    // Convert userId to ObjectId for comparison
+    const userIdStr = String(userId);
+    const isSaved = template.savedBy.some(id => String(id) === userIdStr);
+    
+    if (isSaved) {
+      // Unsave: Remove user from savedBy array and decrement count
+      template.savedBy = template.savedBy.filter(id => String(id) !== userIdStr);
+      template.savesCount = Math.max(0, (template.savesCount || 0) - 1);
+      
+      try {
+        await Template.updateOne(
+          { _id: templateId },
+          { 
+            $set: { 
+              savedBy: template.savedBy,
+              savesCount: template.savesCount,
+              source: template.source
+            }
+          }
+        );
+        console.log(`✅ Unsave successful: Template ${templateId}, User ${userId}, New count: ${template.savesCount}`);
+      } catch (saveError) {
+        console.error("❌ Template save error on unsave:", saveError);
+        try {
+          await template.save();
+          console.log(`✅ Unsave successful (fallback): Template ${templateId}, User ${userId}`);
+        } catch (fallbackError) {
+          console.error("❌ Template save error on unsave (fallback):", fallbackError);
+          throw fallbackError;
+        }
+      }
+
+      res.json({ success: true, saved: false, saves: template.savesCount });
+    } else {
+      // Save: Add user to savedBy array and increment count
+      const alreadySaved = template.savedBy.some(id => String(id) === userIdStr);
+      if (!alreadySaved) {
+        template.savedBy.push(userId);
+        template.savesCount = (template.savesCount || 0) + 1;
+        
+        try {
+          await Template.updateOne(
+            { _id: templateId },
+            { 
+              $set: { 
+                savedBy: template.savedBy,
+                savesCount: template.savesCount,
+                source: template.source
+              }
+            }
+          );
+          console.log(`✅ Save successful: Template ${templateId}, User ${userId}, New count: ${template.savesCount}`);
+        } catch (saveError) {
+          console.error("❌ Template save error on save:", saveError);
+          try {
+            await template.save();
+            console.log(`✅ Save successful (fallback): Template ${templateId}, User ${userId}`);
+          } catch (fallbackError) {
+            console.error("❌ Template save error on save (fallback):", fallbackError);
+            throw fallbackError;
+          }
+        }
+
+        res.json({ success: true, saved: true, saves: template.savesCount });
+      } else {
+        // Already saved, return current state
+        res.json({ success: true, saved: true, saves: template.savesCount });
+      }
+    }
+  } catch (e) {
+    console.error("❌ Save/Unsave Error:", e);
+    console.error("Error stack:", e.stack);
+    console.error("Request params:", req.params);
+    console.error("Request user:", req.user);
+    res.status(500).json({ 
+      error: 'Error processing save/unsave',
+      message: e.message || String(e)
+    });
+  }
+});
+
+// Get User's Saved Templates
+app.get('/api/templates/saved', authUser, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || req.user?._id;
+    const { page = 1, limit = 50 } = req.query;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User ID not found' });
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Find templates where user is in savedBy array
+    const savedTemplates = await Template.find({
+      savedBy: userId,
+      status: 'active',
+      approvalStatus: 'approved',
+      isPaused: false
+    })
+      .populate('creatorId', 'name username email photoURL isVerified')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    // Map templates with creator info and like status
+    const templatesWithInfo = savedTemplates.map(t => {
+      const template = t.toObject();
+      const userIdStr = String(userId);
+      const isLiked = t.likedBy && t.likedBy.some(id => String(id) === userIdStr);
+      const isSaved = true; // User saved these templates
+      
+      return {
+        ...template,
+        id: t._id,
+        creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
+        creatorAvatar: t.creatorId?.photoURL || '',
+        creatorVerified: t.creatorId?.isVerified || false,
+        isLiked: isLiked,
+        isSaved: isSaved
+      };
+    });
+
+    res.json({
+      success: true,
+      templates: templatesWithInfo,
+      total: savedTemplates.length,
+      page: pageNum,
+      limit: limitNum
+    });
+  } catch (e) {
+    console.error("❌ Get Saved Templates Error:", e);
+    res.status(500).json({ error: 'Error fetching saved templates' });
+  }
+});
+
 // Like/Unlike Template - Prevent duplicate likes
 app.post('/api/templates/:id/like', authUser, async (req, res) => {
   try {
