@@ -2366,39 +2366,57 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     }
 
     // Map templates with creator info and like status
+    // savedTemplates are plain objects (from .lean() or .toObject())
     const templatesWithInfo = savedTemplates.map(t => {
-      const template = t.toObject ? t.toObject() : t; // Handle both Mongoose documents and plain objects
-      const userIdStr = String(userId);
-      const isLiked = t.likedBy && Array.isArray(t.likedBy) && t.likedBy.some(id => String(id) === userIdStr);
-      const isSaved = true; // User saved these templates
-      
-      return {
-        ...template,
-        id: String(t._id),
-        demoImage: t.imageUrl || '',
-        imageUrl: t.imageUrl || '',
-        image: t.imageUrl || '',
-        inputImage: t.inputImage || '',
-        creatorName: t.creatorId?.name || t.creatorId?.username || (t.creatorId?.email ? t.creatorId.email.split('@')[0] : 'Creator') || 'Creator',
-        creatorAvatar: t.creatorId?.photoURL || '',
-        creatorVerified: t.creatorId?.isVerified || false,
-        isLiked: isLiked || false,
-        isSaved: isSaved,
-        likeCount: t.likeCount || 0,
-        saveCount: t.savesCount || 0,
-        usageCount: t.useCount || 0,
-        category: t.category || 'General',
-        subCategory: t.subCategory || '',
-        tags: t.tags || [],
-        isFree: !t.isPremium,
-        pointsCost: t.pointsCost || 0,
-        hiddenPrompt: t.prompt || t.hiddenPrompt || '',
-        visiblePrompt: t.visiblePrompt || '',
-        negativePrompt: t.negativePrompt || '',
-        approvalStatus: t.approvalStatus || 'approved',
-        rating: t.rating || 4.5,
-        ratingCount: t.ratingCount || 0
-      };
+      try {
+        const userIdStr = String(userId);
+        const isLiked = t.likedBy && Array.isArray(t.likedBy) && t.likedBy.some(id => String(id) === userIdStr);
+        const isSaved = true; // User saved these templates
+        
+        return {
+          ...t,
+          id: String(t._id),
+          demoImage: t.imageUrl || '',
+          imageUrl: t.imageUrl || '',
+          image: t.imageUrl || '',
+          inputImage: t.inputImage || '',
+          creatorName: t.creatorId?.name || t.creatorId?.username || (t.creatorId?.email ? t.creatorId.email.split('@')[0] : 'Creator') || 'Creator',
+          creatorAvatar: t.creatorId?.photoURL || '',
+          creatorVerified: t.creatorId?.isVerified || false,
+          isLiked: isLiked || false,
+          isSaved: isSaved,
+          likeCount: t.likeCount || 0,
+          saveCount: t.savesCount || 0,
+          usageCount: t.useCount || 0,
+          category: t.category || 'General',
+          subCategory: t.subCategory || '',
+          tags: t.tags || [],
+          isFree: !t.isPremium,
+          pointsCost: t.pointsCost || 0,
+          hiddenPrompt: t.prompt || t.hiddenPrompt || '',
+          visiblePrompt: t.visiblePrompt || '',
+          negativePrompt: t.negativePrompt || '',
+          approvalStatus: t.approvalStatus || 'approved',
+          rating: t.rating || 4.5,
+          ratingCount: t.ratingCount || 0
+        };
+      } catch (mapError) {
+        console.error("❌ Error mapping template:", mapError);
+        console.error("❌ Template _id:", t._id);
+        // Return minimal template data on mapping error
+        return {
+          id: String(t._id),
+          title: t.title || 'Untitled',
+          description: t.description || '',
+          demoImage: t.imageUrl || '',
+          imageUrl: t.imageUrl || '',
+          isSaved: true,
+          isLiked: false,
+          likeCount: 0,
+          saveCount: 0,
+          usageCount: 0
+        };
+      }
     });
 
     // Get total count for pagination - use same query
