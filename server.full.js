@@ -970,81 +970,137 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
 
 
 
-    // Create Record
-    const gen = await Generation.create({
+    // Create Record (with error handling)
+    let gen;
+    try {
+      gen = await Generation.create({
+        userId: user._id,
+        templateId: template?._id,
+        templateName: template?.title,
+        prompt: finalPrompt,
+        negativePrompt: negativePrompt || '',
+        uploadedImages: safeUploadedImages,
+        generatedImage: imageUrl,
+        quality,
+        aspectRatio,
+        pointsSpent: cost,
+        status: 'completed'
+      });
+      console.log("✅ Generation record created:", gen._id);
+    } catch (dbError) {
+      console.error("❌ Failed to create generation record:", dbError);
+      // Still return the image even if DB save fails
+      return res.status(200).json({
+        id: 'temp-' + Date.now(),
+        generatedImage: imageUrl,
+        visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
+        quality: quality,
+        aspectRatio: aspectRatio,
+        pointsSpent: cost,
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+        isFavorite: false,
+        downloadCount: 0,
+        shareCount: 0,
+        warning: 'Image generated but failed to save to database'
+      });
+    }
 
-      userId: user._id,
-      templateId: template?._id,
-      templateName: template?.title,
-      prompt: finalPrompt,
-      negativePrompt: negativePrompt || '',
-      uploadedImages: safeUploadedImages,
-      generatedImage: imageUrl,
-      quality,
-      aspectRatio,
-      pointsSpent: cost,
-      status: 'completed'
-    });
+    // Deduct Points (with error handling)
+    try {
+      user.points -= cost;
+      user.usesCount = (user.usesCount || 0) + 1;
+      await user.save();
+      console.log("✅ Points deducted, user saved");
+    } catch (pointsError) {
+      console.error("❌ Failed to deduct points:", pointsError);
+      // Continue even if points deduction fails - we'll handle it separately
+    }
 
-    // Deduct Points
-    user.points -= cost;
-    user.usesCount = (user.usesCount || 0) + 1;
-    await user.save();
+    // Create Transaction (with error handling)
+    try {
+      await Transaction.create({
+        userId: user._id,
+        amount: cost,
+        type: 'debit',
+        description: `Image generation (${quality})`,
+        gateway: 'System',
+        status: 'success',
+        date: new Date()
+      });
+      console.log("✅ Transaction record created");
+    } catch (txError) {
+      console.error("❌ Failed to create transaction:", txError);
+      // Continue even if transaction creation fails
+    }
 
-    await Transaction.create({
-      userId: user._id,
-      amount: cost,
-      type: 'debit',
-      description: `Image generation (${quality})`,
-      gateway: 'System',
-      status: 'success',
-      date: new Date()
-    });
-
+    // Update template stats (with error handling)
     if (template) {
-      template.useCount = (template.useCount || 0) + 1;
-      await template.save();
+      try {
+        template.useCount = (template.useCount || 0) + 1;
+        await template.save();
+        console.log("✅ Template use count updated");
 
-      // Track creator earnings if template has a creator
-      if (template.creatorId) {
-        const financeConfig = await FinanceConfig.findOne() || { creatorPayoutPerPoint: 0.10 };
-        const creatorEarning = cost * financeConfig.creatorPayoutPerPoint;
+        // Track creator earnings if template has a creator
+        if (template.creatorId) {
+          try {
+            const financeConfig = await FinanceConfig.findOne() || { creatorPayoutPerPoint: 0.10 };
+            const creatorEarning = cost * financeConfig.creatorPayoutPerPoint;
 
-        if (creatorEarning > 0) {
-          await CreatorEarning.create({
-            creatorId: template.creatorId,
-            templateId: template._id,
-            amount: creatorEarning,
-            usageCount: 1,
-            date: new Date()
-          });
+            if (creatorEarning > 0) {
+              await CreatorEarning.create({
+                creatorId: template.creatorId,
+                templateId: template._id,
+                amount: creatorEarning,
+                usageCount: 1,
+                date: new Date()
+              });
 
-          // Send notification to creator
-          await CreatorNotification.create({
-            creatorId: template.creatorId,
-            type: 'earning',
-            title: 'New Earning!',
-            message: `You earned $${creatorEarning.toFixed(2)} from "${template.title}" usage.`,
-            relatedId: template._id
-          });
+              // Send notification to creator
+              await CreatorNotification.create({
+                creatorId: template.creatorId,
+                type: 'earning',
+                title: 'New Earning!',
+                message: `You earned $${creatorEarning.toFixed(2)} from "${template.title}" usage.`,
+                relatedId: template._id
+              });
+              console.log("✅ Creator earnings tracked");
+            }
+          } catch (earningError) {
+            console.error("❌ Failed to track creator earnings:", earningError);
+            // Continue even if earnings tracking fails
+          }
         }
+      } catch (templateError) {
+        console.error("❌ Failed to update template stats:", templateError);
+        // Continue even if template update fails
       }
     }
 
+    // Build response (ensure all fields are present)
     const response = {
       id: String(gen._id),
-      generatedImage: gen.generatedImage,
+      generatedImage: gen.generatedImage || imageUrl, // Fallback to imageUrl if gen.generatedImage is missing
       visiblePrompt: template ? (template.title || 'AI Generated Image') : 'AI Generated Image',
-      quality: gen.quality,
-      aspectRatio: gen.aspectRatio,
-      pointsSpent: gen.pointsSpent,
-      status: gen.status,
-      createdAt: gen.createdAt.toISOString(),
-      isFavorite: gen.isFavorite,
-      downloadCount: gen.downloadCount,
-      shareCount: gen.shareCount
+      quality: gen.quality || quality,
+      aspectRatio: gen.aspectRatio || aspectRatio,
+      pointsSpent: gen.pointsSpent || cost,
+      status: gen.status || 'completed',
+      createdAt: gen.createdAt ? gen.createdAt.toISOString() : new Date().toISOString(),
+      isFavorite: gen.isFavorite || false,
+      downloadCount: gen.downloadCount || 0,
+      shareCount: gen.shareCount || 0
     };
-    res.json(response);
+
+    console.log("✅ Generation successful, returning response:", {
+      id: response.id,
+      hasImage: !!response.generatedImage,
+      imageLength: response.generatedImage?.length || 0,
+      status: response.status
+    });
+
+    // Always return 200 with the image, even if some DB operations failed
+    res.status(200).json(response);
   } catch (err) {
     const errorMsg = String(err && err.message ? err.message : String(err));
     console.error("❌ Generation Error:", err);
@@ -1064,6 +1120,11 @@ app.post('/api/generation/generate', authUser, async (req, res) => {
       // Extract Replicate-specific error message
       const replicateError = errorMsg.replace('Replicate:', '').trim();
       userFriendlyError = `Replicate error: ${replicateError}`;
+    } else if (errorMsg.includes('Gemini') || errorMsg.includes('Image Extraction')) {
+      // Extract Gemini-specific error message
+      userFriendlyError = errorMsg.includes('safety filters') 
+        ? 'Content was blocked by safety filters. Please try a different prompt.'
+        : `Gemini error: ${errorMsg.replace('Gemini', '').replace('Error:', '').trim()}`;
     }
 
     // Return user-friendly error message with details

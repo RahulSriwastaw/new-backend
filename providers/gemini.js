@@ -87,10 +87,21 @@ async function generateTextToImage({ prompt, negativePrompt, apiKey, modelConfig
 
         const data = await response.json();
         console.log("📦 Gemini T2I Response Keys:", Object.keys(data));
-        return extractImageFromResponse(data, 'T2I');
+        console.log("📦 Gemini T2I Response Structure:", JSON.stringify(data, null, 2).substring(0, 2000));
+        
+        try {
+            const imageUrl = extractImageFromResponse(data, 'T2I');
+            console.log("✅ Gemini T2I: Image extracted successfully, length:", imageUrl?.length || 0);
+            return imageUrl;
+        } catch (extractError) {
+            console.error("❌ Gemini T2I: Image extraction failed:", extractError.message);
+            console.error("❌ Full response data:", JSON.stringify(data, null, 2));
+            throw new Error(`Gemini T2I Image Extraction Failed: ${extractError.message}`);
+        }
 
     } catch (error) {
         console.error("❌ Gemini T2I Generation Failed:", error);
+        console.error("❌ Error stack:", error.stack);
         throw error;
     }
 }
@@ -171,10 +182,21 @@ async function generateImageToImage({ prompt, negativePrompt, uploadedImages, ap
 
         const data = await response.json();
         console.log("📦 Gemini I2I Response Keys:", Object.keys(data));
-        return extractImageFromResponse(data, 'I2I');
+        console.log("📦 Gemini I2I Response Structure:", JSON.stringify(data, null, 2).substring(0, 2000));
+        
+        try {
+            const imageUrl = extractImageFromResponse(data, 'I2I');
+            console.log("✅ Gemini I2I: Image extracted successfully, length:", imageUrl?.length || 0);
+            return imageUrl;
+        } catch (extractError) {
+            console.error("❌ Gemini I2I: Image extraction failed:", extractError.message);
+            console.error("❌ Full response data:", JSON.stringify(data, null, 2));
+            throw new Error(`Gemini I2I Image Extraction Failed: ${extractError.message}`);
+        }
 
     } catch (error) {
         console.error("❌ Gemini I2I Generation Failed:", error);
+        console.error("❌ Error stack:", error.stack);
         throw error;
     }
 }
@@ -187,13 +209,31 @@ function extractImageFromResponse(responseData, mode) {
     try {
         console.log(`🔍 Extracting image from ${mode} response...`);
 
+        // Check for safety blocks first
+        if (responseData.candidates && responseData.candidates[0]?.finishReason) {
+            const finishReason = responseData.candidates[0].finishReason;
+            if (finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+                console.warn(`⚠️ Gemini ${mode}: Finish reason: ${finishReason}`);
+                if (finishReason === 'SAFETY') {
+                    throw new Error('Content was blocked by safety filters. Please try a different prompt.');
+                }
+            }
+        }
+
         const candidates = responseData.candidates;
         if (!candidates || candidates.length === 0) {
+            console.error("❌ No candidates in response");
             throw new Error('No candidates returned in response');
+        }
+
+        if (!candidates[0]?.content) {
+            console.error("❌ No content in first candidate");
+            throw new Error('No content in response candidate');
         }
 
         const parts = candidates[0].content.parts;
         if (!parts || parts.length === 0) {
+            console.error("❌ No parts in response content");
             throw new Error('No parts in response');
         }
 
