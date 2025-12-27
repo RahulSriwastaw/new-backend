@@ -146,6 +146,23 @@ router.post('/popups', async (req, res) => {
       });
     }
 
+    // Auto-generate validity text if enabled
+    if (req.body.textContent?.autoGenerateValidity && req.body.endTime) {
+      const endDate = new Date(req.body.endTime);
+      const day = endDate.getDate();
+      const month = endDate.toLocaleString('en-US', { month: 'short' });
+      const ordinalSuffix = (d: number) => {
+        if (d > 3 && d < 21) return 'th';
+        switch (d % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      };
+      req.body.textContent.validityText = `Limited-time offer — ends ${day}${ordinalSuffix(day)} ${month}`;
+    }
+
     // Convert date strings to Date objects if needed
     const popupData = {
       ...req.body,
@@ -154,6 +171,34 @@ router.post('/popups', async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+
+    // Clean text content - trim and validate
+    if (popupData.textContent) {
+      if (popupData.textContent.mainTitle) {
+        popupData.textContent.mainTitle = popupData.textContent.mainTitle.trim();
+      }
+      if (popupData.textContent.description) {
+        popupData.textContent.description = popupData.textContent.description.trim();
+      }
+      // Clean tags
+      if (popupData.textContent.tags) {
+        popupData.textContent.tags = popupData.textContent.tags
+          .map((tag: any) => ({
+            ...tag,
+            text: tag.text?.trim() || ''
+          }))
+          .filter((tag: any) => tag.text);
+      }
+      // Clean features
+      if (popupData.textContent.features) {
+        popupData.textContent.features = popupData.textContent.features
+          .map((feature: any) => ({
+            ...feature,
+            text: feature.text?.trim() || ''
+          }))
+          .filter((feature: any) => feature.text);
+      }
+    }
 
     // Validate dates
     if (!popupData.startTime || isNaN(popupData.startTime.getTime())) {
@@ -291,6 +336,90 @@ router.put('/popups/:id', async (req, res) => {
         });
       }
       updateData.endTime = endTime;
+    }
+
+    // Handle textContent updates
+    if (req.body.textContent !== undefined) {
+      // Auto-generate validity text if enabled
+      if (req.body.textContent.autoGenerateValidity && updateData.endTime) {
+        const endDate = updateData.endTime;
+        const day = endDate.getDate();
+        const month = endDate.toLocaleString('en-US', { month: 'short' });
+        const ordinalSuffix = (d: number) => {
+          if (d > 3 && d < 21) return 'th';
+          switch (d % 10) {
+            case 1: return 'st';
+            case 2: return 'nd';
+            case 3: return 'rd';
+            default: return 'th';
+          }
+        };
+        req.body.textContent.validityText = `Limited-time offer — ends ${day}${ordinalSuffix(day)} ${month}`;
+      }
+
+      // Clean and validate text content
+      const cleanedTextContent: any = {};
+      if (req.body.textContent.mainTitle !== undefined) {
+        cleanedTextContent.mainTitle = req.body.textContent.mainTitle?.trim() || '';
+      }
+      if (req.body.textContent.description !== undefined) {
+        cleanedTextContent.description = req.body.textContent.description?.trim() || '';
+      }
+      if (req.body.textContent.brandText !== undefined) {
+        cleanedTextContent.brandText = req.body.textContent.brandText?.trim() || '';
+      }
+      if (req.body.textContent.subTitle !== undefined) {
+        cleanedTextContent.subTitle = req.body.textContent.subTitle?.trim() || '';
+      }
+      if (req.body.textContent.validityText !== undefined) {
+        cleanedTextContent.validityText = req.body.textContent.validityText?.trim() || '';
+      }
+      if (req.body.textContent.ctaText !== undefined) {
+        cleanedTextContent.ctaText = req.body.textContent.ctaText?.trim() || '';
+      }
+      if (req.body.textContent.ctaSubText !== undefined) {
+        cleanedTextContent.ctaSubText = req.body.textContent.ctaSubText?.trim() || '';
+      }
+      if (req.body.textContent.couponText !== undefined) {
+        cleanedTextContent.couponText = req.body.textContent.couponText?.trim() || '';
+      }
+      if (req.body.textContent.showBrandText !== undefined) {
+        cleanedTextContent.showBrandText = req.body.textContent.showBrandText;
+      }
+      if (req.body.textContent.autoUppercase !== undefined) {
+        cleanedTextContent.autoUppercase = req.body.textContent.autoUppercase;
+      }
+      if (req.body.textContent.autoGenerateValidity !== undefined) {
+        cleanedTextContent.autoGenerateValidity = req.body.textContent.autoGenerateValidity;
+      }
+      if (req.body.textContent.showCoupon !== undefined) {
+        cleanedTextContent.showCoupon = req.body.textContent.showCoupon;
+      }
+      if (req.body.textContent.maxDescriptionLength !== undefined) {
+        cleanedTextContent.maxDescriptionLength = req.body.textContent.maxDescriptionLength;
+      }
+      if (req.body.textContent.tags !== undefined) {
+        cleanedTextContent.tags = req.body.textContent.tags
+          .map((tag: any) => ({
+            ...tag,
+            text: tag.text?.trim() || ''
+          }))
+          .filter((tag: any) => tag.text);
+      }
+      if (req.body.textContent.features !== undefined) {
+        cleanedTextContent.features = req.body.textContent.features
+          .map((feature: any) => ({
+            ...feature,
+            text: feature.text?.trim() || ''
+          }))
+          .filter((feature: any) => feature.text);
+      }
+
+      // Merge with existing textContent
+      updateData.textContent = {
+        ...existingPopup.textContent,
+        ...cleanedTextContent
+      };
     }
 
     // Validate date range if both dates are being updated

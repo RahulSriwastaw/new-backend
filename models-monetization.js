@@ -2,10 +2,68 @@ const mongoose = require('mongoose');
 
 // Popup Notification Schema (Monetization Module 1)
 const popupSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
+  // Legacy fields (for backward compatibility)
+  title: { type: String }, // Deprecated - use textContent.mainTitle
+  description: { type: String }, // Deprecated - use textContent.description
+  ctaText: { type: String, default: 'Get Started' }, // Deprecated - use textContent.ctaText
+  
+  // Text Content Management System
+  textContent: {
+    // Header / Brand Text
+    brandText: { type: String, default: '' }, // e.g. "BORCELLE STORE"
+    showBrandText: { type: Boolean, default: false },
+    
+    // Tags / Badges (Top Right)
+    tags: [{
+      text: { type: String, required: true }, // e.g. "Limited Offer"
+      color: { 
+        type: String, 
+        enum: ['red', 'orange', 'green', 'blue', 'yellow', 'purple', 'custom'],
+        default: 'red'
+      },
+      customColor: { type: String }, // For custom color
+      isEnabled: { type: Boolean, default: true },
+      order: { type: Number, default: 0 }
+    }],
+    
+    // Main Title Section
+    mainTitle: { type: String, default: '' }, // e.g. "UP TO 81% OFF"
+    subTitle: { type: String, default: '' }, // e.g. "SPECIAL OFFER"
+    autoUppercase: { type: Boolean, default: true },
+    
+    // Description / Short Copy
+    description: { type: String, default: '' },
+    maxDescriptionLength: { type: Number, default: 200 },
+    
+    // Validity / Urgency Line
+    validityText: { type: String, default: '' }, // e.g. "Limited-time offer — ends 28th Dec"
+    autoGenerateValidity: { type: Boolean, default: false }, // Auto-generate from endTime
+    
+    // Feature List (Green Tick Points)
+    features: [{
+      text: { type: String, required: true }, // e.g. "Seedance Pro Fast"
+      badge: { 
+        type: String, 
+        enum: ['unlimited', 'pro', 'premium', 'custom', ''],
+        default: ''
+      },
+      badgeText: { type: String }, // Custom badge text
+      tooltip: { type: String }, // Optional tooltip info
+      isEnabled: { type: Boolean, default: true },
+      order: { type: Number, default: 0 }
+    }],
+    
+    // CTA Button Text
+    ctaText: { type: String, default: 'Get Started' },
+    ctaSubText: { type: String, default: '' }, // Optional subtext below button
+    
+    // Secondary Text (Optional)
+    couponText: { type: String, default: '' }, // e.g. "Use code SALE30"
+    showCoupon: { type: Boolean, default: false }
+  },
+  
+  // Image and Layout
   image: { type: String }, // Cloudinary URL
-  ctaText: { type: String, default: 'Get Started' },
   ctaAction: { 
     type: String, 
     enum: ['buy_pack', 'watch_ad', 'apply_offer', 'custom_url'], 
