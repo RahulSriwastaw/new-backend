@@ -2316,18 +2316,17 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       .populate('creatorId', 'name username email photoURL isVerified')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum)
-      .lean(); // Use lean() for better performance
+      .limit(limitNum);
 
     // Map templates with creator info and like status
     const templatesWithInfo = savedTemplates.map(t => {
-      // t is already a plain object due to .lean()
+      const template = t.toObject ? t.toObject() : t; // Handle both Mongoose documents and plain objects
       const userIdStr = String(userId);
       const isLiked = t.likedBy && Array.isArray(t.likedBy) && t.likedBy.some(id => String(id) === userIdStr);
       const isSaved = true; // User saved these templates
       
       return {
-        ...t,
+        ...template,
         id: String(t._id),
         demoImage: t.imageUrl || '',
         imageUrl: t.imageUrl || '',
