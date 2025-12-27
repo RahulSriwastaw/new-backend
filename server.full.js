@@ -4995,8 +4995,8 @@ app.use('/api/creator/templates', creatorTemplateRoutes); // Also support withou
 
 // Import and mount Monetization routes
 const monetizationRoutes = require('./routes/monetization');
-app.use('/api/monetization', monetizationRoutes);
-app.use('/api/admin/monetization', monetizationRoutes);
+app.use('/api/monetization', monetizationRoutes); // Public routes (popups/active, offers/active, etc.)
+app.use('/api/admin/monetization', authUser, monetizationRoutes); // Admin routes (require auth)
 
 // Admin logs endpoint
 app.get('/api/admin/logs', (req, res) => {
