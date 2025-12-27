@@ -2287,19 +2287,33 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const { page = 1, limit = 50 } = req.query;
     
+    console.log('📥 Get Saved Templates - Request received');
+    console.log('📥 User ID:', userId);
+    console.log('📥 User object:', JSON.stringify(req.user, null, 2));
+    
     if (!userId) {
       console.error("❌ User ID not found in req.user:", req.user);
       return res.status(401).json({ error: 'User ID not found' });
     }
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 50;
     const skip = (pageNum - 1) * limitNum;
 
     // Convert userId to ObjectId for query
-    const userIdObj = mongoose.Types.ObjectId.isValid(userId) 
-      ? new mongoose.Types.ObjectId(userId) 
-      : userId;
+    let userIdObj;
+    try {
+      if (mongoose.Types.ObjectId.isValid(userId)) {
+        userIdObj = new mongoose.Types.ObjectId(userId);
+        console.log('✅ Converted userId to ObjectId:', userIdObj);
+      } else {
+        userIdObj = userId;
+        console.log('⚠️ userId is not a valid ObjectId, using as-is:', userId);
+      }
+    } catch (convertError) {
+      console.error("❌ Error converting userId:", convertError);
+      userIdObj = userId;
+    }
 
     // Find templates where user is in savedBy array
     // MongoDB automatically matches when you use direct equality on array fields
