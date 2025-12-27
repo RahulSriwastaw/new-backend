@@ -2378,7 +2378,14 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     });
   } catch (e) {
     console.error("❌ Get Saved Templates Error:", e);
-    res.status(500).json({ error: 'Error fetching saved templates' });
+    console.error("❌ Error stack:", e.stack);
+    console.error("❌ Error message:", e.message);
+    console.error("❌ Request user:", req.user);
+    console.error("❌ Request query:", req.query);
+    res.status(500).json({ 
+      error: 'Error fetching saved templates',
+      message: e.message || String(e)
+    });
   }
 });
 
