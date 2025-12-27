@@ -2317,24 +2317,50 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     const templatesWithInfo = savedTemplates.map(t => {
       const template = t.toObject();
       const userIdStr = String(userId);
-      const isLiked = t.likedBy && t.likedBy.some(id => String(id) === userIdStr);
+      const isLiked = t.likedBy && Array.isArray(t.likedBy) && t.likedBy.some(id => String(id) === userIdStr);
       const isSaved = true; // User saved these templates
       
       return {
         ...template,
-        id: t._id,
+        id: String(t._id),
+        demoImage: t.imageUrl || template.imageUrl || '',
+        imageUrl: t.imageUrl || template.imageUrl || '',
+        image: t.imageUrl || template.imageUrl || '',
+        inputImage: t.inputImage || template.inputImage || '',
         creatorName: t.creatorId?.name || t.creatorId?.username || t.creatorId?.email?.split('@')[0] || 'Creator',
         creatorAvatar: t.creatorId?.photoURL || '',
         creatorVerified: t.creatorId?.isVerified || false,
-        isLiked: isLiked,
-        isSaved: isSaved
+        isLiked: isLiked || false,
+        isSaved: isSaved,
+        likeCount: t.likeCount || template.likeCount || 0,
+        saveCount: t.savesCount || template.savesCount || 0,
+        usageCount: t.useCount || template.useCount || 0,
+        category: t.category || template.category || 'General',
+        subCategory: t.subCategory || template.subCategory || '',
+        tags: t.tags || template.tags || [],
+        isFree: !t.isPremium && !template.isPremium,
+        pointsCost: t.pointsCost || template.pointsCost || 0,
+        hiddenPrompt: t.prompt || template.prompt || t.hiddenPrompt || template.hiddenPrompt || '',
+        visiblePrompt: t.visiblePrompt || template.visiblePrompt || '',
+        negativePrompt: t.negativePrompt || template.negativePrompt || '',
+        approvalStatus: t.approvalStatus || template.approvalStatus || 'approved',
+        rating: template.rating || 4.5,
+        ratingCount: template.ratingCount || 0
       };
+    });
+
+    // Get total count for pagination
+    const totalCount = await Template.countDocuments({
+      savedBy: userIdObj,
+      status: 'active',
+      approvalStatus: 'approved',
+      isPaused: false
     });
 
     res.json({
       success: true,
       templates: templatesWithInfo,
-      total: savedTemplates.length,
+      total: totalCount,
       page: pageNum,
       limit: limitNum
     });
