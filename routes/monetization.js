@@ -88,7 +88,7 @@ router.post('/popups/:id/close', async (req, res) => {
 });
 
 // Admin: Get all popups
-router.get('/admin/popups', async (req, res) => {
+router.get('/popups', async (req, res) => {
   try {
     const popups = await Popup.find().sort({ createdAt: -1 });
     res.json({ success: true, popups });
@@ -98,7 +98,7 @@ router.get('/admin/popups', async (req, res) => {
 });
 
 // Admin: Create popup
-router.post('/admin/popups', async (req, res) => {
+router.post('/popups', async (req, res) => {
   try {
     const popup = new Popup(req.body);
     await popup.save();
@@ -109,7 +109,7 @@ router.post('/admin/popups', async (req, res) => {
 });
 
 // Admin: Update popup
-router.put('/admin/popups/:id', async (req, res) => {
+router.put('/popups/:id', async (req, res) => {
   try {
     const popup = await Popup.findByIdAndUpdate(req.params.id, { ...req.body, updatedAt: new Date() }, { new: true });
     res.json({ success: true, popup });
@@ -119,7 +119,7 @@ router.put('/admin/popups/:id', async (req, res) => {
 });
 
 // Admin: Delete popup
-router.delete('/admin/popups/:id', async (req, res) => {
+router.delete('/popups/:id', async (req, res) => {
   try {
     await Popup.findByIdAndDelete(req.params.id);
     res.json({ success: true });
@@ -262,7 +262,7 @@ router.post('/promo/validate', async (req, res) => {
 });
 
 // Admin: Get all offers
-router.get('/admin/offers', async (req, res) => {
+router.get('/offers', async (req, res) => {
   try {
     const offers = await Offer.find().sort({ createdAt: -1 });
     res.json({ success: true, offers });
@@ -272,7 +272,7 @@ router.get('/admin/offers', async (req, res) => {
 });
 
 // Admin: Create offer
-router.post('/admin/offers', async (req, res) => {
+router.post('/offers', async (req, res) => {
   try {
     const offer = new Offer(req.body);
     await offer.save();
@@ -283,7 +283,7 @@ router.post('/admin/offers', async (req, res) => {
 });
 
 // Admin: Update offer
-router.put('/admin/offers/:id', async (req, res) => {
+router.put('/offers/:id', async (req, res) => {
   try {
     const offer = await Offer.findByIdAndUpdate(req.params.id, { ...req.body, updatedAt: new Date() }, { new: true });
     res.json({ success: true, offer });
@@ -293,7 +293,7 @@ router.put('/admin/offers/:id', async (req, res) => {
 });
 
 // Admin: Delete offer
-router.delete('/admin/offers/:id', async (req, res) => {
+router.delete('/offers/:id', async (req, res) => {
   try {
     await Offer.findByIdAndDelete(req.params.id);
     res.json({ success: true });
@@ -303,7 +303,7 @@ router.delete('/admin/offers/:id', async (req, res) => {
 });
 
 // Admin: Get all promo codes
-router.get('/admin/promo-codes', async (req, res) => {
+router.get('/promo-codes', async (req, res) => {
   try {
     const promoCodes = await PromoCode.find().sort({ createdAt: -1 });
     res.json({ success: true, promoCodes });
@@ -313,7 +313,7 @@ router.get('/admin/promo-codes', async (req, res) => {
 });
 
 // Admin: Create promo code
-router.post('/admin/promo-codes', async (req, res) => {
+router.post('/promo-codes', async (req, res) => {
   try {
     const promoCode = new PromoCode({ ...req.body, code: req.body.code.toUpperCase() });
     await promoCode.save();
@@ -324,7 +324,7 @@ router.post('/admin/promo-codes', async (req, res) => {
 });
 
 // Admin: Update promo code
-router.put('/admin/promo-codes/:id', async (req, res) => {
+router.put('/promo-codes/:id', async (req, res) => {
   try {
     const updateData = { ...req.body, updatedAt: new Date() };
     if (updateData.code) updateData.code = updateData.code.toUpperCase();
@@ -336,7 +336,7 @@ router.put('/admin/promo-codes/:id', async (req, res) => {
 });
 
 // Admin: Delete promo code
-router.delete('/admin/promo-codes/:id', async (req, res) => {
+router.delete('/promo-codes/:id', async (req, res) => {
   try {
     await PromoCode.findByIdAndDelete(req.params.id);
     res.json({ success: true });
