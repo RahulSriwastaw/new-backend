@@ -2302,9 +2302,10 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       : userId;
 
     // Find templates where user is in savedBy array
-    // Use $in operator to match ObjectId in array (works for both ObjectId and string)
-    const query = {
-      savedBy: { $in: [userIdObj, String(userId), userId] }, // Try all formats
+    // MongoDB automatically matches when you use direct equality on array fields
+    // Try ObjectId first, then fallback to string if needed
+    let query = {
+      savedBy: userIdObj, // MongoDB will check if userIdObj is in the savedBy array
       status: 'active',
       approvalStatus: 'approved',
       isPaused: { $ne: true }
@@ -2327,11 +2328,11 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
     } catch (queryError) {
       console.error("❌ Query error:", queryError);
       console.error("❌ Query error stack:", queryError.stack);
-      // Try fallback query with $in operator and string userId
+      // Try fallback query with string userId
       try {
-        console.log('🔄 Trying fallback query with $in operator...');
+        console.log('🔄 Trying fallback query with string userId...');
         savedTemplates = await Template.find({
-          savedBy: { $in: [String(userId), userId] },
+          savedBy: String(userId), // Try string format
           status: 'active',
           approvalStatus: 'approved',
           isPaused: { $ne: true }
@@ -2386,17 +2387,17 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
       };
     });
 
-    // Get total count for pagination - use same query format
+    // Get total count for pagination - use same query
     let totalCount = 0;
     try {
       totalCount = await Template.countDocuments(query);
       console.log(`✅ Total count: ${totalCount}`);
     } catch (countError) {
       console.error("❌ Count error:", countError);
-      // Try fallback count with $in
+      // Try fallback count with string userId
       try {
         totalCount = await Template.countDocuments({
-          savedBy: { $in: [String(userId), userId] },
+          savedBy: String(userId),
           status: 'active',
           approvalStatus: 'approved',
           isPaused: { $ne: true }
