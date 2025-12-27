@@ -2312,11 +2312,40 @@ app.get('/api/templates/saved', authUser, async (req, res) => {
 
     console.log('📋 Query:', JSON.stringify(query, null, 2));
 
-    const savedTemplates = await Template.find(query)
-      .populate('creatorId', 'name username email photoURL isVerified')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limitNum);
+    let savedTemplates = [];
+    try {
+      console.log('🔍 Executing query...');
+      savedTemplates = await Template.find(query)
+        .populate('creatorId', 'name username email photoURL isVerified')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .exec();
+      console.log(`✅ Found ${savedTemplates.length} saved templates`);
+    } catch (queryError) {
+      console.error("❌ Query error:", queryError);
+      console.error("❌ Query error stack:", queryError.stack);
+      // Try fallback query with string userId
+      try {
+        console.log('🔄 Trying fallback query with string userId...');
+        savedTemplates = await Template.find({
+          savedBy: String(userId),
+          status: 'active',
+          approvalStatus: 'approved',
+          isPaused: { $ne: true }
+        })
+          .populate('creatorId', 'name username email photoURL isVerified')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .exec();
+        console.log(`✅ Found ${savedTemplates.length} saved templates (fallback)`);
+      } catch (fallbackError) {
+        console.error("❌ Fallback query also failed:", fallbackError);
+        // Return empty array instead of failing
+        savedTemplates = [];
+      }
+    }
 
     // Map templates with creator info and like status
     const templatesWithInfo = savedTemplates.map(t => {
