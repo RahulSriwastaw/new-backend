@@ -1315,8 +1315,11 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           throw new Error('Replicate API key is not configured');
         }
         
+        // Use the same Replicate instance pattern as in providers/replicate.js
         const Replicate = require("replicate");
-        const replicate = new Replicate({ auth: apiKey.trim() });
+        const replicate = new Replicate({
+          auth: apiKey.trim()
+        });
         
         console.log(`🔑 Replicate API initialized (key length: ${apiKey.length})`);
 
