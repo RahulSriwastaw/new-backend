@@ -1443,17 +1443,39 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             if (resultUrl && typeof resultUrl !== 'string') {
               resultUrl = String(resultUrl);
             }
+            
+            // Log final resultUrl for debugging
+            console.log(`🔍 Final resultUrl:`, {
+              hasValue: !!resultUrl,
+              type: typeof resultUrl,
+              length: resultUrl ? resultUrl.length : 0,
+              preview: resultUrl ? resultUrl.substring(0, 100) : 'N/A',
+              isDifferent: resultUrl !== imageUrl
+            });
 
-            if (resultUrl && resultUrl !== imageUrl) {
-              // Ensure resultUrl is a string before calling substring
-              const resultUrlStr = typeof resultUrl === 'string' ? resultUrl : String(resultUrl);
-              console.log(`✅ Replicate Tool Success: ${resultUrlStr.substring(0, 100)}...`);
-              resultUrl = resultUrlStr; // Update resultUrl to be a string
-              success = true;
+            if (resultUrl && typeof resultUrl === 'string' && resultUrl.trim() !== '' && resultUrl !== imageUrl) {
+              // Validate it's a valid URL or data URL
+              const isValidUrl = resultUrl.startsWith('http://') || 
+                               resultUrl.startsWith('https://') || 
+                               resultUrl.startsWith('data:');
+              
+              if (isValidUrl) {
+                console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
+                success = true;
+              } else {
+                console.error(`❌ Replicate Tool: Invalid URL format: ${resultUrl.substring(0, 100)}`);
+                throw new Error(`Replicate: Invalid image URL format in output: ${resultUrl.substring(0, 50)}...`);
+              }
             } else {
               console.error(`❌ Replicate Tool: No valid output URL received`);
-              console.error(`❌ Output type: ${typeof output}, value:`, output);
-              throw new Error('Replicate: No valid image URL in output');
+              console.error(`❌ Output details:`, {
+                outputType: typeof output,
+                outputValue: output,
+                resultUrlType: typeof resultUrl,
+                resultUrlValue: resultUrl,
+                imageUrl: imageUrl.substring(0, 50) + '...'
+              });
+              throw new Error('Replicate: No valid image URL in output. Check Replicate API response format.');
             }
           } catch (replicateError) {
             console.error(`❌ Replicate SDK Error:`, replicateError);
