@@ -349,7 +349,19 @@ router.put('/popups/:id', async (req, res) => {
       updateData.templateData.leftImageUrl = req.body.templateImage; // Can be null to clear
     }
     if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
-    if (req.body.ctaAction !== undefined) updateData.ctaAction = req.body.ctaAction;
+    
+    // Validate ctaAction enum
+    const ALLOWED_CTA_ACTIONS = ['apply_offer', 'buy_plan', 'open_payment', 'redirect'];
+    if (req.body.ctaAction !== undefined) {
+      if (!ALLOWED_CTA_ACTIONS.includes(req.body.ctaAction)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation error',
+          message: `Invalid ctaAction: ${req.body.ctaAction}. Allowed values: ${ALLOWED_CTA_ACTIONS.join(', ')}`
+        });
+      }
+      updateData.ctaAction = req.body.ctaAction;
+    }
     if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
     if (req.body.popupType !== undefined) updateData.popupType = req.body.popupType;
     if (req.body.targetUsers !== undefined) updateData.targetUsers = req.body.targetUsers;

@@ -48,7 +48,7 @@ const popupSchema = new mongoose.Schema({
     ctaText: { type: String, default: 'Get Discount Now' },
     ctaAction: { 
       type: String, 
-      enum: ['apply_offer', 'buy_plan', 'watch_ad', 'custom_url'],
+      enum: ['apply_offer', 'buy_plan', 'open_payment', 'redirect'],
       default: 'apply_offer'
     },
     ctaUrl: { type: String } // For custom_url action
@@ -113,8 +113,8 @@ const popupSchema = new mongoose.Schema({
   image: { type: String }, // Cloudinary URL
   ctaAction: { 
     type: String, 
-    enum: ['buy_pack', 'watch_ad', 'apply_offer', 'custom_url'], 
-    default: 'buy_pack' 
+    enum: ['apply_offer', 'buy_plan', 'open_payment', 'redirect'], 
+    default: 'apply_offer' 
   },
   ctaUrl: { type: String }, // For custom_url action
   popupType: { 
