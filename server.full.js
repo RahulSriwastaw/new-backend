@@ -1314,19 +1314,22 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         const Replicate = require("replicate");
         const replicate = new Replicate({ auth: apiKey });
 
-        // Map actions to Replicate models
-        let modelIdentifier = '';
-        if (action === 'remove-bg') {
-          // Use lucataco/remove-bg model - fast and accurate background removal
-          modelIdentifier = 'lucataco/remove-bg';
-        } else if (action === 'upscale') {
-          modelIdentifier = 'nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5477e7d31e05b2292c8fdc35f51e4e59b0e5c';
-        } else if (action === 'face-enhance' || action === 'enhance') {
-          modelIdentifier = 'tencentarc/gfpgan:9283608cc6b7be6b65a8e44983db012355fde4132009bf99d976b2f0896856a3';
-        } else if (action === 'colorize') {
-          modelIdentifier = 'jantic/deoldify:33a5c7b8b5c8b5c8b5c8b5c8b5c8b5c8b5c8b5c8';
-        } else if (action === 'style') {
-          modelIdentifier = 'lucataco/anime-line-drawing:75d0f574e3b7c4b1ec47b893ff2b0c0e5c8b5c8b5c8b5c8';
+        // Map actions to Replicate models - use modelIdentifier from config if available, otherwise use defaults
+        let modelIdentifier = tool.modelIdentifier || '';
+        if (!modelIdentifier) {
+          // Fallback to default models if not configured
+          if (action === 'remove-bg') {
+            // Default to lucataco/remove-bg model - fast and accurate background removal
+            modelIdentifier = 'lucataco/remove-bg';
+          } else if (action === 'upscale') {
+            modelIdentifier = 'nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5477e7d31e05b2292c8fdc35f51e4e59b0e5c';
+          } else if (action === 'face-enhance' || action === 'enhance') {
+            modelIdentifier = 'tencentarc/gfpgan:9283608cc6b7be6b65a8e44983db012355fde4132009bf99d976b2f0896856a3';
+          } else if (action === 'colorize') {
+            modelIdentifier = 'jantic/deoldify:33a5c7b8b5c8b5c8b5c8b5c8b5c8b5c8b5c8b5c8';
+          } else if (action === 'style') {
+            modelIdentifier = 'lucataco/anime-line-drawing:75d0f574e3b7c4b1ec47b893ff2b0c0e5c8b5c8b5c8b5c8';
+          }
         }
 
         if (modelIdentifier) {

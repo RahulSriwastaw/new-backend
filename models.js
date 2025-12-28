@@ -254,7 +254,8 @@ const toolConfigSchema = new mongoose.Schema({
       cost: { type: Number, default: 1 },
       isActive: { type: Boolean, default: true },
       provider: { type: String, default: 'System' },
-      apiKey: { type: String }
+      apiKey: { type: String },
+      modelIdentifier: { type: String } // For Replicate: e.g., 'lucataco/remove-bg'
     }
   ],
   updatedAt: { type: Date, default: Date.now }
