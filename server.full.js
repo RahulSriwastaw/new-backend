@@ -1704,14 +1704,16 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                     console.log(`✅ Fallback: Converted ReadableStream to data URL (length: ${resultUrl.length})`);
                     console.log(`✅ Data URL will be returned to frontend - Cloudinary upload not required`);
                   }
-                } else {
+                } else if (output.on && typeof output.on === 'function') {
                   // Node.js stream API
-                  const buffer = await new Promise((resolve, reject) => {
+                  console.log(`📦 Using Node.js stream API...`);
+                  buffer = await new Promise((resolve, reject) => {
                     const chunks = [];
-                    output.on('data', (chunk) => chunks.push(chunk));
+                    output.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
                     output.on('end', () => resolve(Buffer.concat(chunks)));
                     output.on('error', reject);
                   });
+                  console.log(`✅ Read Node.js stream, buffer size: ${buffer.length} bytes`);
                 } else {
                   // Unknown stream type - try to fetch as URL if it has a URL property
                   console.warn(`⚠️ Unknown stream type, checking for URL property...`);
@@ -1723,7 +1725,7 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                   }
                 }
                 
-                // Upload buffer to Cloudinary if we have a buffer
+                // Upload buffer to Cloudinary if we have a buffer (for both Web and Node.js streams)
                 if (buffer && Buffer.isBuffer(buffer)) {
                   try {
                     let cloudinary;
