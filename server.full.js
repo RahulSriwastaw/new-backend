@@ -1498,19 +1498,23 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             });
             
             // CRITICAL: Early check - if output is same as input, fail immediately
-            if (typeof output === 'string' && output === imageUrl) {
-              console.error(`❌ CRITICAL: Replicate returned same URL as input immediately!`);
-              console.error(`❌ Input: ${imageUrl.substring(0, 150)}...`);
-              console.error(`❌ Output: ${output.substring(0, 150)}...`);
-              throw new Error('Replicate API returned the same URL as input. The model did not process the image. Please verify: 1) Model identifier is correct (lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1), 2) API key has access to this model, 3) Input image format is supported (HTTP URL or data URL).');
-            }
+            // Compare with imageInput (which might be Cloudinary URL) not original imageUrl
+            const outputString = typeof output === 'string' ? output : (Array.isArray(output) && output.length > 0 ? String(output[0]) : '');
             
-            // Also check if output is an array with same URL
-            if (Array.isArray(output) && output.length > 0 && String(output[0]) === imageUrl) {
-              console.error(`❌ CRITICAL: Replicate returned same URL in array!`);
-              console.error(`❌ Input: ${imageUrl.substring(0, 150)}...`);
-              console.error(`❌ Output[0]: ${String(output[0]).substring(0, 150)}...`);
-              throw new Error('Replicate API returned the same URL as input in array. The model did not process the image.');
+            if (outputString && (outputString === imageUrl || outputString === imageInput)) {
+              console.error(`❌ CRITICAL: Replicate returned same URL as input!`);
+              console.error(`❌ Original Input: ${imageUrl.substring(0, 150)}...`);
+              console.error(`❌ Processed Input: ${imageInput.substring(0, 150)}...`);
+              console.error(`❌ Output: ${outputString.substring(0, 150)}...`);
+              console.error(`❌ Output matches input: ${outputString === imageUrl || outputString === imageInput}`);
+              
+              // Additional check: if output URL is from Replicate CDN, it should be different
+              const isReplicateUrl = outputString.includes('replicate.delivery') || outputString.includes('replicate.com');
+              const isInputReplicateUrl = imageInput.includes('replicate.delivery') || imageInput.includes('replicate.com');
+              
+              if (!isReplicateUrl && (outputString === imageUrl || outputString === imageInput)) {
+                throw new Error('Replicate: Background removal failed - output is same as input. Please check Replicate API response and model configuration.');
+              }
             }
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
@@ -1634,12 +1638,24 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             }
             
             // CRITICAL: Reject if resultUrl is same as input - this means background removal didn't work
-            if (resultUrl === imageUrl) {
-              console.error(`❌ Replicate Tool: resultUrl is same as input imageUrl - background removal failed!`);
-              console.error(`❌ Input: ${imageUrl.substring(0, 100)}...`);
+            // Check against both original imageUrl and processed imageInput
+            const isSameAsInput = resultUrl === imageUrl || resultUrl === imageInput;
+            const isReplicateUrl = resultUrl.includes('replicate.delivery') || resultUrl.includes('pbxt.replicate.delivery');
+            
+            if (isSameAsInput && !isReplicateUrl) {
+              console.error(`❌ Replicate Tool: resultUrl is same as input - background removal failed!`);
+              console.error(`❌ Original Input: ${imageUrl.substring(0, 100)}...`);
+              console.error(`❌ Processed Input: ${imageInput.substring(0, 100)}...`);
               console.error(`❌ Output: ${resultUrl.substring(0, 100)}...`);
+              console.error(`❌ Is Replicate URL: ${isReplicateUrl}`);
               console.error(`❌ Replicate output was:`, JSON.stringify(output, null, 2));
               throw new Error('Replicate: Background removal failed - output is same as input. Please check Replicate API response and model configuration.');
+            }
+            
+            // Additional validation: Replicate URLs should be from their CDN
+            if (!isReplicateUrl && !resultUrl.startsWith('data:')) {
+              console.warn(`⚠️ Output URL is not from Replicate CDN: ${resultUrl.substring(0, 100)}...`);
+              // Don't fail here, but log warning - might be valid if using custom endpoint
             }
             
             // Validate it's a valid URL or data URL
