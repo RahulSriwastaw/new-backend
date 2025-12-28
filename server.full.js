@@ -1401,20 +1401,47 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
 
             // Handle output - can be array or single URL
-            if (Array.isArray(output)) {
-              resultUrl = output[0];
+            // Replicate models typically return a string URL or array of URLs
+            console.log(`🔍 Processing Replicate output:`, {
+              type: typeof output,
+              isArray: Array.isArray(output),
+              isString: typeof output === 'string',
+              hasUrl: output && typeof output === 'object' && 'url' in output,
+              keys: output && typeof output === 'object' ? Object.keys(output) : 'N/A'
+            });
+            
+            if (Array.isArray(output) && output.length > 0) {
+              resultUrl = String(output[0]); // Ensure it's a string
             } else if (typeof output === 'string') {
               resultUrl = output;
-            } else if (output && output.url) {
-              resultUrl = output.url;
             } else if (output && typeof output === 'object') {
-              // Some models return object with output property
-              const outputValue = output.output || output.result || output.image;
-              if (Array.isArray(outputValue)) {
-                resultUrl = outputValue[0];
-              } else if (typeof outputValue === 'string') {
-                resultUrl = outputValue;
+              // Check for common output properties
+              if (output.url && typeof output.url === 'string') {
+                resultUrl = output.url;
+              } else if (output.output) {
+                // Handle nested output
+                const outputValue = output.output;
+                if (Array.isArray(outputValue) && outputValue.length > 0) {
+                  resultUrl = String(outputValue[0]);
+                } else if (typeof outputValue === 'string') {
+                  resultUrl = outputValue;
+                }
+              } else if (output.result && typeof output.result === 'string') {
+                resultUrl = output.result;
+              } else if (output.image && typeof output.image === 'string') {
+                resultUrl = output.image;
+              } else {
+                // Try to stringify the first value if it's an object
+                const firstKey = Object.keys(output)[0];
+                if (firstKey && output[firstKey]) {
+                  resultUrl = String(output[firstKey]);
+                }
               }
+            }
+            
+            // Ensure resultUrl is always a string
+            if (resultUrl && typeof resultUrl !== 'string') {
+              resultUrl = String(resultUrl);
             }
 
             if (resultUrl && resultUrl !== imageUrl) {
