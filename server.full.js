@@ -1418,10 +1418,14 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             }
 
             if (resultUrl && resultUrl !== imageUrl) {
-              console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
+              // Ensure resultUrl is a string before calling substring
+              const resultUrlStr = typeof resultUrl === 'string' ? resultUrl : String(resultUrl);
+              console.log(`✅ Replicate Tool Success: ${resultUrlStr.substring(0, 100)}...`);
+              resultUrl = resultUrlStr; // Update resultUrl to be a string
               success = true;
             } else {
               console.error(`❌ Replicate Tool: No valid output URL received`);
+              console.error(`❌ Output type: ${typeof output}, value:`, output);
               throw new Error('Replicate: No valid image URL in output');
             }
           } catch (replicateError) {
