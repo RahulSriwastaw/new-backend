@@ -1303,8 +1303,56 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
       const activeModel = await AIModel.findOne({ provider: 'Stability' }).select('+apiKey');
       apiKey = activeModel?.apiKey;
     }
+    if (!apiKey && tool.provider === 'Replicate') {
+      const activeModel = await AIModel.findOne({ provider: 'Replicate' }).select('+apiKey');
+      apiKey = activeModel?.config?.apiKey || activeModel?.apiKey;
+    }
 
-    if (tool.provider === 'Stability' || (['remove-bg', 'upscale', 'enhance'].includes(action) && apiKey)) {
+    // Replicate API for Quick Tools
+    if (tool.provider === 'Replicate' && apiKey) {
+      try {
+        const Replicate = require("replicate");
+        const replicate = new Replicate({ auth: apiKey });
+
+        // Map actions to Replicate models
+        let modelIdentifier = '';
+        if (action === 'remove-bg') {
+          modelIdentifier = 'cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003';
+        } else if (action === 'upscale') {
+          modelIdentifier = 'nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5477e7d31e05b2292c8fdc35f51e4e59b0e5c';
+        } else if (action === 'face-enhance' || action === 'enhance') {
+          modelIdentifier = 'tencentarc/gfpgan:9283608cc6b7be6b65a8e44983db012355fde4132009bf99d976b2f0896856a3';
+        } else if (action === 'colorize') {
+          modelIdentifier = 'jantic/deoldify:33a5c7b8b5c8b5c8b5c8b5c8b5c8b5c8b5c8b5c8';
+        } else if (action === 'style') {
+          modelIdentifier = 'lucataco/anime-line-drawing:75d0f574e3b7c4b1ec47b893ff2b0c0e5c8b5c8b5c8b5c8';
+        }
+
+        if (modelIdentifier) {
+          const output = await replicate.run(modelIdentifier, {
+            input: { image: imageUrl }
+          });
+
+          // Handle output - can be array or single URL
+          if (Array.isArray(output)) {
+            resultUrl = output[0];
+          } else if (typeof output === 'string') {
+            resultUrl = output;
+          } else if (output && output.url) {
+            resultUrl = output.url;
+          }
+
+          if (resultUrl && resultUrl !== imageUrl) {
+            success = true;
+          }
+        }
+      } catch (err) {
+        console.error(`Replicate API Error (${action}):`, err);
+        throw new Error(`Replicate tool error: ${err.message}`);
+      }
+    }
+    // Stability AI implementation
+    else if (tool.provider === 'Stability' || (['remove-bg', 'upscale', 'enhance'].includes(action) && apiKey && !tool.provider)) {
       // Fetch source image
       const imgRes = await fetch(imageUrl);
       if (!imgRes.ok) throw new Error('Failed to fetch source image');
@@ -3783,8 +3831,8 @@ app.get('/api/payment/active-gateway', async (req, res) => {
 
 app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser, async (req, res) => {
   try {
-    console.log('Payment create-order request:', { packageId: req.body?.packageId, gateway: req.body?.gateway, userId: req.user?.id });
-    const { packageId, gateway = 'razorpay' } = req.body || {};
+    console.log('Payment create-order request:', { packageId: req.body?.packageId, gateway: req.body?.gateway, promoCode: req.body?.promoCode, userId: req.user?.id });
+    const { packageId, gateway = 'razorpay', promoCode } = req.body || {};
     if (!packageId) {
       console.error('Package ID missing in request');
       return res.status(400).json({ msg: 'Package ID is required' });
@@ -3801,6 +3849,75 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
     if (!pkg.price || pkg.price <= 0) {
       console.error('Package price is invalid:', pkg.price);
       return res.status(400).json({ msg: 'Package price must be greater than 0' });
+    }
+
+    // Validate and apply promo code if provided
+    let finalAmount = pkg.price;
+    let appliedPromoCode = null;
+    let discountAmount = 0;
+    let bonusPoints = 0;
+    
+    if (promoCode && promoCode.trim()) {
+      try {
+        const { PromoCode } = require('./models-monetization');
+        const now = new Date();
+        const promo = await PromoCode.findOne({ 
+          code: promoCode.toUpperCase().trim(), 
+          isEnabled: true,
+          startTime: { $lte: now },
+          endTime: { $gte: now }
+        });
+
+        if (promo) {
+          // Check usage limits
+          if (promo.usageLimit && promo.totalUses >= promo.usageLimit) {
+            return res.status(400).json({ msg: 'Promo code usage limit reached' });
+          }
+
+          // Check per user limit
+          const userId = req.user?.id || req.user?.userId || req.user?._id;
+          if (userId) {
+            const userUsageCount = promo.usedBy.filter(u => String(u.userId) === String(userId)).length;
+            if (userUsageCount >= promo.perUserLimit) {
+              return res.status(400).json({ msg: 'You have already used this promo code' });
+            }
+          }
+
+          // Check applicable packs
+          if (promo.applicablePacks && promo.applicablePacks.length > 0) {
+            if (!promo.applicablePacks.some(id => String(id) === String(packageId))) {
+              return res.status(400).json({ msg: 'Promo code not applicable to this package' });
+            }
+          }
+
+          // Check minimum purchase amount
+          if (pkg.price < promo.minPurchaseAmount) {
+            return res.status(400).json({ 
+              msg: `Minimum purchase amount of ₹${promo.minPurchaseAmount} required for this promo code` 
+            });
+          }
+
+          // Calculate discount
+          if (promo.discountType === 'percentage') {
+            discountAmount = (pkg.price * promo.discountValue) / 100;
+            finalAmount = Math.max(0, pkg.price - discountAmount);
+          } else if (promo.discountType === 'flat') {
+            discountAmount = promo.discountValue;
+            finalAmount = Math.max(0, pkg.price - discountAmount);
+          } else if (promo.discountType === 'bonus_points') {
+            bonusPoints = promo.discountValue;
+            // For bonus points, amount remains same
+          }
+
+          appliedPromoCode = promo.code;
+          console.log('✅ Promo code applied:', { code: promo.code, discountAmount, bonusPoints, finalAmount });
+        } else {
+          return res.status(400).json({ msg: 'Invalid or expired promo code' });
+        }
+      } catch (promoError) {
+        console.error('Promo code validation error:', promoError);
+        return res.status(400).json({ msg: 'Failed to validate promo code', error: promoError.message });
+      }
     }
 
     // --- STRIPE LOGIC ---
@@ -3831,14 +3948,20 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
           price_data: {
             currency: 'inr',
             product_data: { name: pkg.name },
-            unit_amount: Math.round(pkg.price * 100),
+            unit_amount: Math.round(finalAmount * 100), // Use discounted amount
           },
           quantity: 1,
         }],
         mode: 'payment',
         success_url: `${req.headers.origin || process.env.FRONTEND_URL || 'https://rupantara-fronted.vercel.app'}/pro?payment_success=true&session_id={CHECKOUT_SESSION_ID}&gateway=stripe`,
         cancel_url: `${req.headers.origin || process.env.FRONTEND_URL || 'https://rupantara-fronted.vercel.app'}/pro`,
-        metadata: { userId: req.user.id, packageId: packageId },
+        metadata: { 
+          userId: req.user.id, 
+          packageId: packageId,
+          promoCode: appliedPromoCode || '',
+          discountAmount: discountAmount.toString(),
+          bonusPoints: bonusPoints.toString()
+        },
       });
 
       return res.json({
@@ -3928,9 +4051,9 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
         });
       }
 
-      const amountInPaise = Math.round(pkg.price * 100);
+      const amountInPaise = Math.round(finalAmount * 100); // Use discounted amount
       if (amountInPaise <= 0) {
-        console.error('Invalid amount calculated:', { price: pkg.price, amountInPaise });
+        console.error('Invalid amount calculated:', { price: pkg.price, finalAmount, amountInPaise });
         return res.status(400).json({ msg: 'Invalid package price. Amount must be greater than 0.' });
       }
 
@@ -3942,12 +4065,16 @@ app.post(['/api/payment/create-order', '/api/v1/payment/create-order'], authUser
       const receipt = `${timestamp}${userId.slice(-12)}${packageIdStr.slice(-8)}`;
       
       const options = {
-        amount: amountInPaise, // Amount in paise (integer)
+        amount: amountInPaise, // Amount in paise (integer) - already discounted
         currency: "INR",
         receipt: receipt, // Max 40 characters as per Razorpay requirement
         notes: {
           userId: String(req.user.id),
-          packageId: String(packageId)
+          packageId: String(packageId),
+          promoCode: appliedPromoCode || '',
+          discountAmount: discountAmount.toString(),
+          bonusPoints: bonusPoints.toString(),
+          originalPrice: pkg.price.toString()
         }
       };
 
@@ -4069,7 +4196,39 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
       const pkg = await PointsPackage.findById(packageId);
       if (!pkg) return res.status(404).json({ msg: 'Package not found' });
 
-      const pointsToAdd = pkg.points + (pkg.bonusPoints || 0);
+      // Get promo code from Razorpay order notes
+      let promoBonusPoints = 0;
+      try {
+        const instance = new Razorpay({ 
+          key_id: process.env.RAZORPAY_KEY_ID || '', 
+          key_secret: key_secret 
+        });
+        const order = await instance.orders.fetch(razorpay_order_id);
+        const promoCode = order.notes?.promoCode;
+        const bonusPoints = order.notes?.bonusPoints;
+        
+        if (promoCode && bonusPoints) {
+          promoBonusPoints = parseInt(bonusPoints) || 0;
+          // Update promo code usage
+          const { PromoCode } = require('./models-monetization');
+          const promo = await PromoCode.findOne({ code: promoCode });
+          if (promo) {
+            promo.totalUses = (promo.totalUses || 0) + 1;
+            promo.totalRevenue = (promo.totalRevenue || 0) + (parseFloat(order.notes?.originalPrice || '0') || 0);
+            promo.usedBy.push({
+              userId: req.user.id,
+              usedAt: new Date(),
+              orderId: razorpay_order_id
+            });
+            await promo.save();
+          }
+        }
+      } catch (promoError) {
+        console.error('Error processing promo code:', promoError);
+        // Continue with payment even if promo code processing fails
+      }
+
+      const pointsToAdd = pkg.points + (pkg.bonusPoints || 0) + promoBonusPoints;
 
       const user = await User.findById(req.user.id);
       user.points += pointsToAdd;
@@ -4080,7 +4239,7 @@ app.post('/api/payment/verify-razorpay', authUser, async (req, res) => {
         userId: user._id,
         amount: pointsToAdd,
         type: 'credit',
-        description: `Purchased ${pkg.name}`,
+        description: `Purchased ${pkg.name}${promoBonusPoints > 0 ? ` (Promo: +${promoBonusPoints} bonus)` : ''}`,
         gateway: 'razorpay',
         status: 'success',
         date: new Date()
