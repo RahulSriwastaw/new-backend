@@ -1371,12 +1371,27 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             console.log(`🚀 Starting Replicate prediction with model: ${modelIdentifier}`);
             
             // Build input object - some models expect different input formats
+            // lucataco/remove-bg expects 'image' parameter and can accept:
+            // - HTTP/HTTPS URL
+            // - Data URL (data:image/...)
+            // - File object
             const inputParams = { image: imageInput };
             
             // For remove-bg model, ensure we're using the correct input format
             if (action === 'remove-bg') {
               // lucataco/remove-bg expects 'image' parameter
+              // If imageInput is a data URL, use it directly
+              // If it's an HTTP URL, Replicate will fetch it
               inputParams.image = imageInput;
+              
+              // Log input format for debugging
+              if (imageInput.startsWith('data:')) {
+                console.log(`📸 Input: Data URL (length: ${imageInput.length})`);
+              } else if (imageInput.startsWith('http')) {
+                console.log(`📸 Input: HTTP URL: ${imageInput.substring(0, 100)}...`);
+              } else {
+                console.log(`📸 Input: Unknown format: ${imageInput.substring(0, 50)}...`);
+              }
             }
             
             console.log(`📝 Input params keys:`, Object.keys(inputParams));
