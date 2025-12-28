@@ -368,6 +368,61 @@ router.put('/popups/:id', async (req, res) => {
       updateData.templateData.leftImageUrl = req.body.templateData.leftImageUrl;
       console.log('🖼️ Setting templateData.leftImageUrl directly:', req.body.templateData.leftImageUrl);
     }
+    
+    // Handle full templateData object if provided (for OFFER_SPLIT_IMAGE_RIGHT_CONTENT)
+    if (req.body.templateData !== undefined && typeof req.body.templateData === 'object') {
+      if (!updateData.templateData) {
+        updateData.templateData = {};
+      }
+      // Merge templateData fields
+      if (req.body.templateData.mainHeading !== undefined) {
+        updateData.templateData.mainHeading = req.body.templateData.mainHeading.trim().toUpperCase();
+      }
+      if (req.body.templateData.subHeading !== undefined) {
+        updateData.templateData.subHeading = req.body.templateData.subHeading.trim().toUpperCase();
+      }
+      if (req.body.templateData.description !== undefined) {
+        updateData.templateData.description = req.body.templateData.description.trim();
+      }
+      if (req.body.templateData.leftOverlayText !== undefined) {
+        updateData.templateData.leftOverlayText = req.body.templateData.leftOverlayText.trim();
+      }
+      if (req.body.templateData.tags !== undefined) {
+        updateData.templateData.tags = req.body.templateData.tags
+          .map((tag) => ({
+            ...tag,
+            text: tag.text?.trim() || ''
+          }))
+          .filter((tag) => tag.text && tag.isEnabled);
+      }
+      if (req.body.templateData.features !== undefined) {
+        updateData.templateData.features = req.body.templateData.features
+          .map((feature) => ({
+            ...feature,
+            text: feature.text?.trim() || ''
+          }))
+          .filter((feature) => feature.text && feature.isEnabled);
+      }
+      if (req.body.templateData.ctaText !== undefined) {
+        updateData.templateData.ctaText = req.body.templateData.ctaText.trim();
+      }
+      if (req.body.templateData.ctaAction !== undefined) {
+        const ALLOWED_CTA_ACTIONS = ['apply_offer', 'buy_plan', 'open_payment', 'redirect'];
+        if (!ALLOWED_CTA_ACTIONS.includes(req.body.templateData.ctaAction)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Validation error',
+            message: `Invalid templateData.ctaAction: ${req.body.templateData.ctaAction}. Allowed values: ${ALLOWED_CTA_ACTIONS.join(', ')}`
+          });
+        }
+        updateData.templateData.ctaAction = req.body.templateData.ctaAction;
+      }
+      if (req.body.templateData.ctaUrl !== undefined) {
+        updateData.templateData.ctaUrl = req.body.templateData.ctaUrl.trim();
+      }
+      console.log('📦 Updated full templateData object');
+    }
+    
     // For OFFER_SPLIT_IMAGE_RIGHT_CONTENT template, ignore legacy fields
     const isTemplatePopup = req.body.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT' || existingPopup.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT';
     
