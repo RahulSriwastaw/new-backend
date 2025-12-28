@@ -1328,8 +1328,9 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         if (!modelIdentifier) {
           // Fallback to default models if not configured
           if (action === 'remove-bg') {
-            // Default to lucataco/remove-bg model - fast and accurate background removal
-            modelIdentifier = 'lucataco/remove-bg';
+            // Default to lucataco/remove-bg model with version - fast and accurate background removal
+            // Format: owner/model:version_hash
+            modelIdentifier = 'lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1';
           } else if (action === 'upscale') {
             modelIdentifier = 'nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5477e7d31e05b2292c8fdc35f51e4e59b0e5c';
           } else if (action === 'face-enhance' || action === 'enhance') {
