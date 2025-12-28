@@ -1443,7 +1443,8 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
 
   } catch (err) {
     console.error("Tool Error:", err);
-    res.status(500).json({ error: 'Server Error' });
+    const errorMessage = err.message || 'Server Error';
+    res.status(500).json({ error: errorMessage, success: false });
   }
 });
 
