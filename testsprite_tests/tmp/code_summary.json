@@ -1,53 +1,228 @@
 {
-    "tech_stack": [
-        "javascript",
-        "express",
-        "mongoose",
-        "node-fetch"
-    ],
-    "features": [
-        {
-            "name": "Generate Image",
-            "description": "Generates AI image using configured provider (MiniMax, Stability, OpenAI) or falls back to Pollinations.",
-            "files": [
-                "server.full.js",
-                "models.js"
-            ],
-            "api_doc": {
-                "openapi": "3.0.0",
-                "paths": {
-                    "/api/generation/generate": {
-                        "post": {
-                            "summary": "Generate Image",
-                            "requestBody": {
-                                "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "type": "object",
-                                            "properties": {
-                                                "prompt": {
-                                                    "type": "string"
-                                                },
-                                                "userPrompt": {
-                                                    "type": "string"
-                                                },
-                                                "templateId": {
-                                                    "type": "string"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "responses": {
-                                "200": {
-                                    "description": "Success"
-                                }
-                            }
-                        }
-                    }
+  "tech_stack": [
+    "Node.js",
+    "Express",
+    "MongoDB",
+    "Mongoose",
+    "JWT",
+    "Razorpay",
+    "Stripe",
+    "Replicate",
+    "Stability AI",
+    "OpenAI",
+    "Google Gemini",
+    "MiniMax"
+  ],
+  "features": [
+    {
+      "name": "Quick Tools API",
+      "description": "API endpoint for image processing tools like remove background (using lucataco/remove-bg model), upscale, face enhance, colorize, and style transfer. Supports multiple providers (Replicate, Stability AI).",
+      "files": [
+        "server.full.js",
+        "providers/replicate.js"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Quick Tools API",
+          "version": "1.0.0",
+          "description": "Image processing tools API with Replicate and Stability AI support"
+        },
+        "paths": {
+          "/api/tools/{action}": {
+            "post": {
+              "summary": "Process image with specified tool",
+              "description": "Processes an image using the specified tool (remove-bg, upscale, face-enhance, colorize, style). Supports Replicate and Stability AI providers.",
+              "parameters": [
+                {
+                  "name": "action",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["remove-bg", "upscale", "face-enhance", "enhance", "colorize", "style", "compress"]
+                  },
+                  "description": "The tool action to perform"
                 }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["imageUrl"],
+                      "properties": {
+                        "imageUrl": {
+                          "type": "string",
+                          "description": "Image URL or data URL to process"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Success",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "result": {
+                            "type": "string",
+                            "description": "Processed image URL"
+                          },
+                          "imageUrl": {
+                            "type": "string",
+                            "description": "Processed image URL (backward compatibility)"
+                          },
+                          "points": {
+                            "type": "number",
+                            "description": "User's remaining points after cost deduction"
+                          },
+                          "success": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "400": {
+                  "description": "Bad request - Tool not active, insufficient points, or missing image URL"
+                },
+                "500": {
+                  "description": "Server error - Tool processing failed"
+                }
+              },
+              "security": [
+                {
+                  "bearerAuth": []
+                }
+              ]
             }
+          },
+          "/api/admin/tools/config": {
+            "get": {
+              "summary": "Get tools configuration",
+              "description": "Retrieves the current tools configuration including all tools, their costs, providers, and API keys",
+              "responses": {
+                "200": {
+                  "description": "Success",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "tools": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "key": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "cost": {
+                                  "type": "number"
+                                },
+                                "isActive": {
+                                  "type": "boolean"
+                                },
+                                "provider": {
+                                  "type": "string",
+                                  "enum": ["System", "OpenAI", "Google", "Stability", "MiniMax", "Replicate"]
+                                },
+                                "apiKey": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "security": [
+                {
+                  "bearerAuth": []
+                }
+              ]
+            },
+            "put": {
+              "summary": "Update tools configuration",
+              "description": "Updates the tools configuration with new settings",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "required": ["tools"],
+                      "properties": {
+                        "tools": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "cost": {
+                                "type": "number"
+                              },
+                              "isActive": {
+                                "type": "boolean"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "apiKey": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Success"
+                }
+              },
+              "security": [
+                {
+                  "bearerAuth": []
+                }
+              ]
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "bearerAuth": {
+              "type": "http",
+              "scheme": "bearer",
+              "bearerFormat": "JWT"
+            }
+          }
         }
-    ]
+      }
+    }
+  ]
 }
