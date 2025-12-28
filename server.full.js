@@ -1358,8 +1358,23 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           console.log(`📤 Image input type: ${imageInput.substring(0, 50)}...`);
           
           try {
+            // Replicate SDK expects the model in format: owner/model or owner/model:version
+            // For lucataco/remove-bg, we need to ensure it's the correct format
+            console.log(`🚀 Starting Replicate prediction with model: ${modelIdentifier}`);
+            
+            // Build input object - some models expect different input formats
+            const inputParams = { image: imageInput };
+            
+            // For remove-bg model, ensure we're using the correct input format
+            if (action === 'remove-bg') {
+              // lucataco/remove-bg expects 'image' parameter
+              inputParams.image = imageInput;
+            }
+            
+            console.log(`📝 Input params keys:`, Object.keys(inputParams));
+            
             const output = await replicate.run(modelIdentifier, {
-              input: { image: imageInput }
+              input: inputParams
             });
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
