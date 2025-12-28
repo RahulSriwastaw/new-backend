@@ -1317,7 +1317,8 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         // Map actions to Replicate models
         let modelIdentifier = '';
         if (action === 'remove-bg') {
-          modelIdentifier = 'cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003';
+          // Use lucataco/remove-bg model - fast and accurate background removal
+          modelIdentifier = 'lucataco/remove-bg';
         } else if (action === 'upscale') {
           modelIdentifier = 'nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5477e7d31e05b2292c8fdc35f51e4e59b0e5c';
         } else if (action === 'face-enhance' || action === 'enhance') {
