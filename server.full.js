@@ -1357,7 +1357,15 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           if (imageUrl.startsWith('data:')) {
             console.log(`📸 Input is data URL, uploading to Cloudinary first...`);
             try {
-              const cloudinary = require('cloudinary').v2;
+              // Use existing cloudinary instance if available, otherwise require it
+              let cloudinary;
+              try {
+                cloudinary = require('cloudinary').v2;
+              } catch (e) {
+                // If not available, try to get from global
+                cloudinary = global.cloudinary || require('cloudinary').v2;
+              }
+              
               cloudinary.config({
                 cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
                 api_key: process.env.CLOUDINARY_API_KEY,
