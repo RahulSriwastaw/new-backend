@@ -1530,8 +1530,13 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               throw new Error('Replicate: No valid image URL in output. The API returned an empty or invalid result.');
             }
             
+            // CRITICAL: Reject if resultUrl is same as input - this means background removal didn't work
             if (resultUrl === imageUrl) {
-              console.warn(`⚠️ resultUrl is same as input imageUrl, this might indicate an error`);
+              console.error(`❌ Replicate Tool: resultUrl is same as input imageUrl - background removal failed!`);
+              console.error(`❌ Input: ${imageUrl.substring(0, 100)}...`);
+              console.error(`❌ Output: ${resultUrl.substring(0, 100)}...`);
+              console.error(`❌ Replicate output was:`, JSON.stringify(output, null, 2));
+              throw new Error('Replicate: Background removal failed - output is same as input. Please check Replicate API response and model configuration.');
             }
             
             // Validate it's a valid URL or data URL
@@ -1541,6 +1546,9 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             
             if (isValidUrl) {
               console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
+              console.log(`✅ Input URL: ${imageUrl.substring(0, 100)}...`);
+              console.log(`✅ Output URL: ${resultUrl.substring(0, 100)}...`);
+              console.log(`✅ URLs are different: ${resultUrl !== imageUrl}`);
               success = true;
             } else {
               console.error(`❌ Replicate Tool: Invalid URL format`);
