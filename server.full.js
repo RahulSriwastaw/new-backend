@@ -1349,13 +1349,44 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         if (modelIdentifier) {
           console.log(`🔄 Replicate Tool: ${action} with model ${modelIdentifier}`);
           
-          // Handle data URLs - Replicate SDK accepts data URLs directly
+          // Handle data URLs - Replicate may not accept data URLs directly
+          // Convert data URLs to HTTP URLs by uploading to Cloudinary first
           let imageInput = imageUrl;
           
-          // Ensure data URLs are properly formatted
+          // If input is a data URL, upload to Cloudinary first to get HTTP URL
           if (imageUrl.startsWith('data:')) {
-            imageInput = imageUrl;
-            console.log(`📸 Using data URL (length: ${imageUrl.length})`);
+            console.log(`📸 Input is data URL, uploading to Cloudinary first...`);
+            try {
+              const cloudinary = require('cloudinary').v2;
+              cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET
+              });
+              
+              // Extract base64 data from data URL
+              const base64Data = imageUrl.split(',')[1];
+              const buffer = Buffer.from(base64Data, 'base64');
+              
+              // Upload to Cloudinary
+              const uploadResult = await new Promise((resolve, reject) => {
+                cloudinary.uploader.upload_stream(
+                  { resource_type: 'image', folder: 'tools-input' },
+                  (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                  }
+                ).end(buffer);
+              });
+              
+              imageInput = uploadResult.secure_url;
+              console.log(`✅ Image uploaded to Cloudinary: ${imageInput.substring(0, 100)}...`);
+            } catch (cloudinaryError) {
+              console.error(`❌ Cloudinary upload failed:`, cloudinaryError);
+              // Fallback: try using data URL directly (might work for some models)
+              console.log(`⚠️ Falling back to data URL...`);
+              imageInput = imageUrl;
+            }
           } else if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
             // If it's not a URL, assume it's base64 and add data URL prefix
             imageInput = `data:image/png;base64,${imageUrl}`;
@@ -1363,7 +1394,7 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           }
           
           console.log(`📤 Calling Replicate with model: ${modelIdentifier}`);
-          console.log(`📤 Image input type: ${imageInput.substring(0, 50)}...`);
+          console.log(`📤 Image input type: ${imageInput.startsWith('http') ? 'HTTP URL' : 'Data URL'}, preview: ${imageInput.substring(0, 100)}...`);
           
           try {
             // Replicate SDK expects the model in format: owner/model or owner/model:version
