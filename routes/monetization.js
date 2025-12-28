@@ -358,22 +358,35 @@ router.put('/popups/:id', async (req, res) => {
       }
       updateData.templateData.leftImageUrl = req.body.templateImage; // Can be null to clear
     }
-    if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
+    // For OFFER_SPLIT_IMAGE_RIGHT_CONTENT template, ignore legacy fields
+    const isTemplatePopup = req.body.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT' || existingPopup.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT';
     
-    // Validate ctaAction enum
-    const ALLOWED_CTA_ACTIONS = ['apply_offer', 'buy_plan', 'open_payment', 'redirect'];
-    if (req.body.ctaAction !== undefined) {
-      if (!ALLOWED_CTA_ACTIONS.includes(req.body.ctaAction)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Validation error',
-          message: `Invalid ctaAction: ${req.body.ctaAction}. Allowed values: ${ALLOWED_CTA_ACTIONS.join(', ')}`
-        });
+    if (!isTemplatePopup) {
+      // Legacy popup - handle legacy fields
+      if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
+      
+      // Validate ctaAction enum
+      const ALLOWED_CTA_ACTIONS = ['apply_offer', 'buy_plan', 'open_payment', 'redirect'];
+      if (req.body.ctaAction !== undefined) {
+        if (!ALLOWED_CTA_ACTIONS.includes(req.body.ctaAction)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Validation error',
+            message: `Invalid ctaAction: ${req.body.ctaAction}. Allowed values: ${ALLOWED_CTA_ACTIONS.join(', ')}`
+          });
+        }
+        updateData.ctaAction = req.body.ctaAction;
       }
-      updateData.ctaAction = req.body.ctaAction;
+      if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
+      if (req.body.popupType !== undefined) updateData.popupType = req.body.popupType;
+    } else {
+      // Template popup - ignore legacy popupType, use templateData.ctaAction
+      // Legacy ctaText/ctaAction/ctaUrl are set from templateData for backward compatibility only
+      if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
+      if (req.body.ctaAction !== undefined) updateData.ctaAction = req.body.ctaAction;
+      if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
+      // DO NOT update popupType for template popups
     }
-    if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
-    if (req.body.popupType !== undefined) updateData.popupType = req.body.popupType;
     if (req.body.targetUsers !== undefined) updateData.targetUsers = req.body.targetUsers;
     if (req.body.frequency !== undefined) updateData.frequency = req.body.frequency;
     if (req.body.frequencyHours !== undefined) {
