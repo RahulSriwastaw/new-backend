@@ -1469,11 +1469,37 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             // const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
             // const output = await replicate.run(model, { input: { param: value } });
             // For lucataco/remove-bg, the input parameter is 'image'
-            const output = await replicate.run(modelIdentifier, {
-              input: {
-                image: imageInput  // lucataco/remove-bg expects 'image' parameter
+            let output;
+            try {
+              output = await replicate.run(modelIdentifier, {
+                input: {
+                  image: imageInput  // lucataco/remove-bg expects 'image' parameter
+                }
+              });
+            } catch (replicateError) {
+              console.error(`❌ Replicate SDK Error:`, replicateError);
+              console.error(`❌ Error details:`, {
+                message: replicateError.message,
+                status: replicateError.status,
+                statusText: replicateError.statusText,
+                response: replicateError.response
+              });
+              
+              // Handle specific Replicate API errors
+              if (replicateError.message && replicateError.message.includes('404 Not Found')) {
+                throw new Error(`Replicate API error: Model '${modelIdentifier}' not found or accessible. Please verify the model identifier and API key permissions in the Admin Panel. Ensure the API key starts with 'r8_'.`);
+              } else if (replicateError.message && replicateError.message.includes('401')) {
+                throw new Error(`Replicate API error: Unauthorized. Please check your Replicate API key in the Admin Panel. The API key should start with 'r8_'.`);
+              } else if (replicateError.message && replicateError.message.includes('429')) {
+                throw new Error(`Replicate API error: Rate limit exceeded. Please try again later.`);
+              } else if (replicateError.message) {
+                throw new Error(`Replicate API error: ${replicateError.message}`);
+              } else if (replicateError.status) {
+                throw new Error(`Replicate API error: HTTP ${replicateError.status} - ${replicateError.statusText || 'Unknown error'}`);
+              } else {
+                throw new Error(`Replicate API error: ${replicateError.toString()}`);
               }
-            });
+            }
             
             const duration = Date.now() - startTime;
             console.log(`⏱️ Replicate processing time: ${duration}ms (${(duration/1000).toFixed(2)}s)`);
