@@ -1629,28 +1629,39 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               throw new Error('Replicate: API returned null or undefined output');
             }
             
-            // Check if output is a ReadableStream (Node.js stream)
+            // Check if output is a ReadableStream (Web or Node.js stream)
+            // Replicate SDK may return ReadableStream for file outputs
             const isReadableStream = output && typeof output === 'object' && 
               (output.constructor?.name === 'ReadableStream' || 
+               (output.locked !== undefined && output.state !== undefined) || // Web ReadableStream
                typeof output.read === 'function' || 
                typeof output.pipe === 'function' ||
-               (output._readableState !== undefined));
+               (output._readableState !== undefined)); // Node.js stream
             
-            if (isReadableStream) {
-              console.log(`📦 Replicate returned ReadableStream - converting to buffer...`);
+            // Also check if it's an object with no enumerable keys but has stream-like properties
+            const hasStreamProperties = output && typeof output === 'object' && 
+              Object.keys(output).length === 0 && 
+              (output.locked !== undefined || output.state !== undefined || output._readableState !== undefined);
+            
+            if (isReadableStream || hasStreamProperties) {
+              console.log(`📦 Replicate returned ReadableStream/Stream - converting to buffer...`);
+              console.log(`📦 Stream type: ${output.constructor?.name || 'Unknown'}, locked: ${output.locked}, state: ${output.state}`);
               try {
-                // Convert ReadableStream to buffer
-                const chunks = [];
-                const reader = output.getReader ? output.getReader() : null;
+                let buffer;
                 
-                if (reader) {
-                  // Web ReadableStream API
+                // Try Web ReadableStream API first
+                if (output.getReader && typeof output.getReader === 'function') {
+                  console.log(`📦 Using Web ReadableStream API...`);
+                  const chunks = [];
+                  const reader = output.getReader();
+                  
                   while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    chunks.push(value);
+                    chunks.push(Buffer.from(value));
                   }
-                  const buffer = Buffer.concat(chunks);
+                  buffer = Buffer.concat(chunks);
+                  console.log(`✅ Read Web ReadableStream, buffer size: ${buffer.length} bytes`);
                   
                   // Upload buffer to Cloudinary to get HTTP URL
                   try {
@@ -1694,8 +1705,19 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                     output.on('end', () => resolve(Buffer.concat(chunks)));
                     output.on('error', reject);
                   });
-                  
-                  // Upload to Cloudinary
+                } else {
+                  // Unknown stream type - try to fetch as URL if it has a URL property
+                  console.warn(`⚠️ Unknown stream type, checking for URL property...`);
+                  if (output.url && typeof output.url === 'string') {
+                    resultUrl = output.url;
+                    console.log(`✅ Found URL property in stream object: ${resultUrl.substring(0, 100)}...`);
+                  } else {
+                    throw new Error('Cannot process stream: Unknown stream type, no getReader() or on() method available');
+                  }
+                }
+                
+                // Upload buffer to Cloudinary if we have a buffer
+                if (buffer && Buffer.isBuffer(buffer)) {
                   try {
                     let cloudinary;
                     try {
@@ -1721,13 +1743,13 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                     });
                     
                     resultUrl = uploadResult.secure_url;
-                    console.log(`✅ Node.js stream converted and uploaded to Cloudinary: ${resultUrl.substring(0, 100)}...`);
+                    console.log(`✅ Stream converted and uploaded to Cloudinary: ${resultUrl.substring(0, 100)}...`);
                   } catch (cloudinaryError) {
-                    console.error(`❌ Cloudinary upload failed for Node.js stream:`, cloudinaryError);
+                    console.error(`❌ Cloudinary upload failed:`, cloudinaryError);
                     // Fallback: convert buffer to data URL
                     const base64 = buffer.toString('base64');
                     resultUrl = `data:image/png;base64,${base64}`;
-                    console.log(`⚠️ Fallback: Converted Node.js stream to data URL (length: ${resultUrl.length})`);
+                    console.log(`⚠️ Fallback: Converted stream to data URL (length: ${resultUrl.length})`);
                   }
                 }
               } catch (streamError) {
