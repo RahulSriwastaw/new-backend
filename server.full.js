@@ -1672,6 +1672,12 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                       cloudinary = global.cloudinary || require('cloudinary').v2;
                     }
                     
+                    // Check if Cloudinary is configured
+                    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+                      console.warn(`⚠️ Cloudinary not configured - using data URL fallback`);
+                      throw new Error('Cloudinary not configured');
+                    }
+                    
                     cloudinary.config({
                       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
                       api_key: process.env.CLOUDINARY_API_KEY,
@@ -1691,11 +1697,12 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                     resultUrl = uploadResult.secure_url;
                     console.log(`✅ ReadableStream converted and uploaded to Cloudinary: ${resultUrl.substring(0, 100)}...`);
                   } catch (cloudinaryError) {
-                    console.error(`❌ Cloudinary upload failed for ReadableStream:`, cloudinaryError);
-                    // Fallback: convert buffer to data URL
+                    console.error(`❌ Cloudinary upload failed for ReadableStream:`, cloudinaryError.message || cloudinaryError);
+                    // Fallback: convert buffer to data URL (this works even without Cloudinary)
                     const base64 = buffer.toString('base64');
                     resultUrl = `data:image/png;base64,${base64}`;
-                    console.log(`⚠️ Fallback: Converted ReadableStream to data URL (length: ${resultUrl.length})`);
+                    console.log(`✅ Fallback: Converted ReadableStream to data URL (length: ${resultUrl.length})`);
+                    console.log(`✅ Data URL will be returned to frontend - Cloudinary upload not required`);
                   }
                 } else {
                   // Node.js stream API
