@@ -1431,8 +1431,25 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               preview: typeof output === 'string' ? output.substring(0, 100) : 
                       Array.isArray(output) && output.length > 0 ? String(output[0]).substring(0, 100) : 
                       output && typeof output === 'object' ? JSON.stringify(output).substring(0, 200) : 'N/A',
-              fullOutput: output // Log full output for debugging
+              fullOutput: output, // Log full output for debugging
+              inputImageUrl: imageUrl.substring(0, 100) // Log input for comparison
             });
+            
+            // CRITICAL: Early check - if output is same as input, fail immediately
+            if (typeof output === 'string' && output === imageUrl) {
+              console.error(`❌ CRITICAL: Replicate returned same URL as input immediately!`);
+              console.error(`❌ Input: ${imageUrl.substring(0, 150)}...`);
+              console.error(`❌ Output: ${output.substring(0, 150)}...`);
+              throw new Error('Replicate API returned the same URL as input. The model did not process the image. Please verify: 1) Model identifier is correct (lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1), 2) API key has access to this model, 3) Input image format is supported (HTTP URL or data URL).');
+            }
+            
+            // Also check if output is an array with same URL
+            if (Array.isArray(output) && output.length > 0 && String(output[0]) === imageUrl) {
+              console.error(`❌ CRITICAL: Replicate returned same URL in array!`);
+              console.error(`❌ Input: ${imageUrl.substring(0, 150)}...`);
+              console.error(`❌ Output[0]: ${String(output[0]).substring(0, 150)}...`);
+              throw new Error('Replicate API returned the same URL as input in array. The model did not process the image.');
+            }
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
 
