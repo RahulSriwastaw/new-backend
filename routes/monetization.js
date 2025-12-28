@@ -204,6 +204,16 @@ router.post('/popups', async (req, res) => {
           }))
           .filter((feature) => feature.text && feature.isEnabled);
       }
+      
+      // Validate templateData.ctaAction enum
+      const ALLOWED_CTA_ACTIONS = ['apply_offer', 'buy_plan', 'open_payment', 'redirect'];
+      if (popupData.templateData.ctaAction && !ALLOWED_CTA_ACTIONS.includes(popupData.templateData.ctaAction)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Validation error',
+          message: `Invalid templateData.ctaAction: ${popupData.templateData.ctaAction}. Allowed values: ${ALLOWED_CTA_ACTIONS.join(', ')}`
+        });
+      }
     }
 
     // Clean text content - trim and validate (for legacy templates)
