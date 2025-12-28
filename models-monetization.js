@@ -16,9 +16,16 @@ const popupSchema = new mongoose.Schema({
   
   // Template Data (for OFFER_SPLIT_IMAGE_RIGHT_CONTENT template)
   templateData: {
-    // Left Side (Image)
+    // Left Side (Image + Content)
     leftImageUrl: { type: String },
     leftOverlayText: { type: String }, // e.g. "81% OFF"
+    leftBrandText: { type: String }, // e.g. "BORCELLE STORE"
+    leftMainText: { type: String }, // e.g. "SPECIAL OFFER"
+    leftDescription: { type: String }, // e.g. "Enjoy up to 30% OFF everything in-store!"
+    leftPromoCode: { type: String }, // e.g. "Code : SALE30"
+    leftUrgencyText: { type: String }, // e.g. "Hurry, this deal won't last long!"
+    leftCtaText: { type: String }, // e.g. "SHOP NOW"
+    leftBackgroundColor: { type: String, default: '#FFA500' }, // Orange/yellow background
     
     // Right Side (Content)
     tags: [{
@@ -137,6 +144,8 @@ const popupSchema = new mongoose.Schema({
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
   isEnabled: { type: Boolean, default: true },
+  // Associated Promo Code (for apply_offer action)
+  promoCode: { type: String }, // Promo code to auto-apply when user clicks CTA
   // Analytics
   impressions: { type: Number, default: 0 },
   clicks: { type: Number, default: 0 },
