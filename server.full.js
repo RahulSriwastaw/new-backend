@@ -1679,20 +1679,21 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             // CRITICAL: Reject if resultUrl is same as input - this means background removal didn't work
             // Check against both original imageUrl and processed imageInput
             const isSameAsInput = resultUrl === imageUrl || resultUrl === imageInput;
-            const isReplicateUrl = resultUrl.includes('replicate.delivery') || resultUrl.includes('pbxt.replicate.delivery');
+            // Re-check isReplicateUrl for resultUrl (variable already declared earlier)
+            const isReplicateUrlResult = resultUrl.includes('replicate.delivery') || resultUrl.includes('pbxt.replicate.delivery');
             
-            if (isSameAsInput && !isReplicateUrl) {
+            if (isSameAsInput && !isReplicateUrlResult) {
               console.error(`❌ Replicate Tool: resultUrl is same as input - background removal failed!`);
               console.error(`❌ Original Input: ${imageUrl.substring(0, 100)}...`);
               console.error(`❌ Processed Input: ${imageInput.substring(0, 100)}...`);
               console.error(`❌ Output: ${resultUrl.substring(0, 100)}...`);
-              console.error(`❌ Is Replicate URL: ${isReplicateUrl}`);
+              console.error(`❌ Is Replicate URL: ${isReplicateUrlResult}`);
               console.error(`❌ Replicate output was:`, JSON.stringify(output, null, 2));
               throw new Error('Replicate: Background removal failed - output is same as input. Please check Replicate API response and model configuration.');
             }
             
             // Additional validation: Replicate URLs should be from their CDN
-            if (!isReplicateUrl && !resultUrl.startsWith('data:')) {
+            if (!isReplicateUrlResult && !resultUrl.startsWith('data:')) {
               console.warn(`⚠️ Output URL is not from Replicate CDN: ${resultUrl.substring(0, 100)}...`);
               // Don't fail here, but log warning - might be valid if using custom endpoint
             }
