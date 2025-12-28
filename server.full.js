@@ -1425,14 +1425,33 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             }
           } catch (replicateError) {
             console.error(`❌ Replicate SDK Error:`, replicateError);
+            console.error(`❌ Error details:`, {
+              message: replicateError.message,
+              status: replicateError.status,
+              statusText: replicateError.statusText,
+              body: replicateError.body,
+              requestUrl: replicateError.request?.url || replicateError.url
+            });
+            
             // Provide more detailed error message
-            if (replicateError.message) {
-              throw new Error(`Replicate API error: ${replicateError.message}`);
+            let errorMessage = 'Replicate API error';
+            if (replicateError.status === 404) {
+              errorMessage = `Replicate model not found (404). Please verify:
+1. Model identifier is correct: "${modelIdentifier}"
+2. API key is valid and has access to this model (format: r8_...)
+3. Model exists on Replicate: https://replicate.com/${modelIdentifier}
+4. Check Admin Panel → AI Config → Quick Tools → BG Remove → Replicate API Key`;
+            } else if (replicateError.status === 401 || replicateError.status === 403) {
+              errorMessage = `Replicate API authentication failed (${replicateError.status}). Please check your API key is valid.`;
+            } else if (replicateError.message) {
+              errorMessage = `Replicate API error: ${replicateError.message}`;
             } else if (replicateError.status) {
-              throw new Error(`Replicate API error: HTTP ${replicateError.status} - ${replicateError.statusText || 'Unknown error'}`);
+              errorMessage = `Replicate API error: HTTP ${replicateError.status} - ${replicateError.statusText || 'Unknown error'}`;
             } else {
-              throw new Error(`Replicate API error: ${replicateError.toString()}`);
+              errorMessage = `Replicate API error: ${replicateError.toString()}`;
             }
+            
+            throw new Error(errorMessage);
           }
         } else {
           throw new Error(`Replicate: No model configured for action: ${action}`);
