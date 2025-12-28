@@ -1452,11 +1452,18 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             
             const startTime = Date.now();
             
-            // According to Replicate docs: replicate.run(model, { input: { param: value } })
-            // For lucataco/remove-bg, the input parameter is 'image'
-            // The model accepts: HTTP/HTTPS URLs, data URLs, or file paths
-            console.log(`📞 Calling replicate.run('${modelIdentifier}', { input: { image: '${imageInput.substring(0, 50)}...' } })`);
+            // According to Replicate documentation (https://replicate.com/lucataco/remove-bg):
+            // - Model: lucataco/remove-bg
+            // - Input parameter: 'image' (HTTP/HTTPS URL, data URL, or file path)
+            // - Output: URL to transparent PNG with background removed
+            // - Typical runtime: ~2 seconds on Nvidia T4 GPU
+            // - Cost: ~$0.00044 per run
             
+            console.log(`📞 Calling replicate.run('${modelIdentifier}', { input: { image: '${imageInput.substring(0, 50)}...' } })`);
+            console.log(`📋 Model docs: https://replicate.com/lucataco/remove-bg`);
+            
+            // Replicate SDK format: replicate.run(model, { input: { param: value } })
+            // For lucataco/remove-bg, the input parameter is 'image'
             const output = await replicate.run(modelIdentifier, {
               input: {
                 image: imageInput  // lucataco/remove-bg expects 'image' parameter
@@ -1464,6 +1471,7 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             });
             
             const duration = Date.now() - startTime;
+            console.log(`⏱️ Replicate processing time: ${duration}ms (${(duration/1000).toFixed(2)}s)`);
             
             console.log(`✅ Replicate API call completed in ${duration}ms (${(duration/1000).toFixed(1)}s)`);
             
