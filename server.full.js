@@ -1391,11 +1391,19 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               input: inputParams
             });
             
+            // Log full output for debugging
             console.log(`📥 Replicate response received:`, {
               type: typeof output,
               isArray: Array.isArray(output),
-              hasUrl: output && typeof output === 'object' && output.url,
-              preview: typeof output === 'string' ? output.substring(0, 100) : 'N/A'
+              isNull: output === null,
+              isUndefined: output === undefined,
+              hasUrl: output && typeof output === 'object' && 'url' in output,
+              keys: output && typeof output === 'object' ? Object.keys(output) : 'N/A',
+              arrayLength: Array.isArray(output) ? output.length : 'N/A',
+              preview: typeof output === 'string' ? output.substring(0, 100) : 
+                      Array.isArray(output) && output.length > 0 ? String(output[0]).substring(0, 100) : 
+                      output && typeof output === 'object' ? JSON.stringify(output).substring(0, 200) : 'N/A',
+              fullOutput: output // Log full output for debugging
             });
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
