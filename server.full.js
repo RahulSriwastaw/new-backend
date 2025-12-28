@@ -1527,20 +1527,33 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             // Compare with imageInput (which might be Cloudinary URL) not original imageUrl
             const outputString = typeof output === 'string' ? output : (Array.isArray(output) && output.length > 0 ? String(output[0]) : '');
             
-            if (outputString && (outputString === imageUrl || outputString === imageInput)) {
+            // Check if output is from Replicate CDN (indicates successful processing)
+            const isReplicateUrl = outputString && (
+              outputString.includes('replicate.delivery') || 
+              outputString.includes('pbxt.replicate.delivery') || 
+              outputString.includes('replicate.com/files') ||
+              outputString.startsWith('https://replicate.delivery/') ||
+              outputString.startsWith('https://pbxt.replicate.delivery/')
+            );
+            
+            // If output is same as input AND not from Replicate CDN, it's a failure
+            if (outputString && (outputString === imageUrl || outputString === imageInput) && !isReplicateUrl) {
               console.error(`❌ CRITICAL: Replicate returned same URL as input!`);
               console.error(`❌ Original Input: ${imageUrl.substring(0, 150)}...`);
               console.error(`❌ Processed Input: ${imageInput.substring(0, 150)}...`);
               console.error(`❌ Output: ${outputString.substring(0, 150)}...`);
-              console.error(`❌ Output matches input: ${outputString === imageUrl || outputString === imageInput}`);
+              console.error(`❌ Is Replicate CDN URL: ${isReplicateUrl}`);
+              console.error(`❌ Model Identifier: ${modelIdentifier}`);
+              console.error(`❌ API Key configured: ${!!apiKey && apiKey.length > 0}`);
+              console.error(`❌ API Key format: ${apiKey ? (apiKey.startsWith('r8_') ? 'Valid (r8_...)' : 'Invalid format') : 'Not set'}`);
               
-              // Additional check: if output URL is from Replicate CDN, it should be different
-              const isReplicateUrl = outputString.includes('replicate.delivery') || outputString.includes('replicate.com');
-              const isInputReplicateUrl = imageInput.includes('replicate.delivery') || imageInput.includes('replicate.com');
-              
-              if (!isReplicateUrl && (outputString === imageUrl || outputString === imageInput)) {
-                throw new Error('Replicate: Background removal failed - output is same as input. Please check Replicate API response and model configuration.');
-              }
+              throw new Error('Replicate: Background removal failed - output is same as input. This usually means: 1) The model did not process the image, 2) API key may not have access to this model, 3) Model identifier may be incorrect. Please verify the Replicate API key and model configuration in the Admin Panel.');
+            }
+            
+            // Log if output is from Replicate CDN (good sign)
+            if (isReplicateUrl) {
+              console.log(`✅ Output is from Replicate CDN - processing successful`);
+              console.log(`✅ Replicate URL: ${outputString.substring(0, 100)}...`);
             }
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
