@@ -1482,10 +1482,28 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             // For lucataco/remove-bg, the input parameter is 'image'
             let output;
             try {
+              // Log input details before calling API
+              console.log(`📤 Replicate API Call Details:`, {
+                model: modelIdentifier,
+                inputType: imageInput.startsWith('http') ? 'HTTP URL' : imageInput.startsWith('data:') ? 'Data URL' : 'Unknown',
+                inputLength: imageInput.length,
+                inputPreview: imageInput.substring(0, 100) + '...',
+                apiKeyFormat: trimmedKey.startsWith('r8_') ? 'Valid' : 'Invalid',
+                apiKeyLength: trimmedKey.length
+              });
+              
               output = await replicate.run(modelIdentifier, {
                 input: {
                   image: imageInput  // lucataco/remove-bg expects 'image' parameter
                 }
+              });
+              
+              // Log raw output immediately
+              console.log(`📥 Raw Replicate Output:`, {
+                type: typeof output,
+                isArray: Array.isArray(output),
+                value: output,
+                stringified: JSON.stringify(output).substring(0, 200)
               });
             } catch (replicateError) {
               console.error(`❌ Replicate SDK Error:`, replicateError);
