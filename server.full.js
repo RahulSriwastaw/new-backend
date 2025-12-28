@@ -1288,7 +1288,21 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
 
     const toolCfg = await ToolConfig.findOne();
     const tool = toolCfg?.tools.find(t => t.key === action);
-    if (!tool || !tool.isActive) return res.status(400).json({ error: 'Tool not active' });
+    if (!tool || !tool.isActive) {
+      return res.status(400).json({ error: `Tool '${action}' is not active. Please activate it in Admin Panel → Quick Tools Configuration.` });
+    }
+    
+    // Log tool configuration for debugging
+    console.log(`🔧 Tool Configuration:`, {
+      key: tool.key,
+      name: tool.name,
+      provider: tool.provider || 'Not set',
+      hasApiKey: !!tool.apiKey,
+      apiKeyLength: tool.apiKey ? tool.apiKey.length : 0,
+      modelIdentifier: tool.modelIdentifier || 'Not set',
+      cost: tool.cost,
+      isActive: tool.isActive
+    });
 
     const user = await User.findById(req.user.id);
     const cost = tool.cost || 0;
