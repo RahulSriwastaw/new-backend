@@ -1311,8 +1311,14 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
     // Replicate API for Quick Tools
     if (tool.provider === 'Replicate' && apiKey) {
       try {
+        if (!apiKey || apiKey.trim() === '') {
+          throw new Error('Replicate API key is not configured');
+        }
+        
         const Replicate = require("replicate");
-        const replicate = new Replicate({ auth: apiKey });
+        const replicate = new Replicate({ auth: apiKey.trim() });
+        
+        console.log(`🔑 Replicate API initialized (key length: ${apiKey.length})`);
 
         // Map actions to Replicate models - use modelIdentifier from config if available, otherwise use defaults
         let modelIdentifier = tool.modelIdentifier || '';
