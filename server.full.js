@@ -1277,6 +1277,10 @@ app.post('/api/generate', authUser, async (req, res) => {
 
 // --- Quick Tools Routes ---
 app.post('/api/tools/:action', authUser, async (req, res) => {
+  // Set longer timeout for Replicate API calls (can take 60-120 seconds)
+  req.setTimeout(180000); // 3 minutes
+  res.setTimeout(180000); // 3 minutes
+  
   try {
     const { action } = req.params; // remove-bg, upscale, face-enhance, compress
     const { imageUrl } = req.body;
