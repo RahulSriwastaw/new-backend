@@ -309,6 +309,23 @@ router.put('/popups/:id', async (req, res) => {
       });
     }
 
+    // BACKEND SAFETY VALIDATION: Reject if multiple image fields present
+    const imageFields = ['image', 'templateImage', 'templateData'];
+    const imageFieldCount = imageFields.filter(field => {
+      if (field === 'templateData') {
+        return req.body.templateData?.leftImageUrl !== undefined;
+      }
+      return req.body[field] !== undefined;
+    }).length;
+    
+    if (imageFieldCount > 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: 'Only one image source allowed. Cannot send multiple image fields together.'
+      });
+    }
+
     // Prepare update data - only include defined fields
     const updateData = {
       updatedAt: new Date()
@@ -317,14 +334,19 @@ router.put('/popups/:id', async (req, res) => {
     // Only update fields that are provided (not undefined)
     if (req.body.title !== undefined) updateData.title = req.body.title;
     if (req.body.description !== undefined) updateData.description = req.body.description;
-    // Handle image update safely - only update if explicitly provided (not undefined)
-    // Allow null to clear image, but ignore empty strings
-    if (req.body.image !== undefined) {
-      if (req.body.image === null || req.body.image === '') {
-        updateData.image = null; // Explicitly clear image
-      } else {
-        updateData.image = req.body.image; // Set new image URL
+    
+    // Handle image update - ONLY if key exists in body
+    if ('image' in req.body) {
+      updateData.image = req.body.image; // Can be null to clear
+    }
+    
+    // Handle templateImage update - ONLY if key exists in body
+    if ('templateImage' in req.body) {
+      // This will be handled in templateData section below
+      if (!updateData.templateData) {
+        updateData.templateData = {};
       }
+      updateData.templateData.leftImageUrl = req.body.templateImage; // Can be null to clear
     }
     if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
     if (req.body.ctaAction !== undefined) updateData.ctaAction = req.body.ctaAction;
