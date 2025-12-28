@@ -1329,9 +1329,21 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         }
 
         if (modelIdentifier) {
+          console.log(`🔄 Replicate Tool: ${action} with model ${modelIdentifier}`);
+          
+          // Handle data URLs - Replicate needs actual image URL or file
+          let imageInput = imageUrl;
+          if (imageUrl.startsWith('data:')) {
+            // For data URLs, we need to upload to a temporary location or use directly
+            // Replicate SDK can handle data URLs for some models
+            imageInput = imageUrl;
+          }
+          
           const output = await replicate.run(modelIdentifier, {
-            input: { image: imageUrl }
+            input: { image: imageInput }
           });
+
+          console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
 
           // Handle output - can be array or single URL
           if (Array.isArray(output)) {
@@ -1340,11 +1352,25 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             resultUrl = output;
           } else if (output && output.url) {
             resultUrl = output.url;
+          } else if (output && typeof output === 'object') {
+            // Some models return object with output property
+            const outputValue = output.output || output.result || output.image;
+            if (Array.isArray(outputValue)) {
+              resultUrl = outputValue[0];
+            } else if (typeof outputValue === 'string') {
+              resultUrl = outputValue;
+            }
           }
 
           if (resultUrl && resultUrl !== imageUrl) {
+            console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
             success = true;
+          } else {
+            console.error(`❌ Replicate Tool: No valid output URL received`);
+            throw new Error('Replicate: No valid image URL in output');
           }
+        } else {
+          throw new Error(`Replicate: No model configured for action: ${action}`);
         }
       } catch (err) {
         console.error(`Replicate API Error (${action}):`, err);
@@ -1405,9 +1431,14 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           status: 'success'
         });
       }
-      res.json({ result: resultUrl, points: user.points });
+      res.json({ 
+        result: resultUrl, 
+        imageUrl: resultUrl, // Also include imageUrl for backward compatibility
+        points: user.points,
+        success: true 
+      });
     } else {
-      res.status(500).json({ error: 'Tool processing failed' });
+      res.status(500).json({ error: 'Tool processing failed', success: false });
     }
 
   } catch (err) {
