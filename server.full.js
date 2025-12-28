@@ -1451,9 +1451,18 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             console.log(`⏳ This may take 30-60 seconds...`);
             
             const startTime = Date.now();
+            
+            // According to Replicate docs: replicate.run(model, { input: { param: value } })
+            // For lucataco/remove-bg, the input parameter is 'image'
+            // The model accepts: HTTP/HTTPS URLs, data URLs, or file paths
+            console.log(`📞 Calling replicate.run('${modelIdentifier}', { input: { image: '${imageInput.substring(0, 50)}...' } })`);
+            
             const output = await replicate.run(modelIdentifier, {
-              input: inputParams
+              input: {
+                image: imageInput  // lucataco/remove-bg expects 'image' parameter
+              }
             });
+            
             const duration = Date.now() - startTime;
             
             console.log(`✅ Replicate API call completed in ${duration}ms (${(duration/1000).toFixed(1)}s)`);
