@@ -1476,15 +1476,32 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
                 }
               }
             } else {
-              // Unexpected type
-              console.error(`❌ Unexpected output type: ${typeof output}`);
-              throw new Error(`Replicate: Unexpected output type: ${typeof output}`);
+              // Unexpected type - try to convert to string anyway
+              console.warn(`⚠️ Unexpected output type: ${typeof output}, attempting conversion...`);
+              try {
+                resultUrl = String(output);
+                if (!resultUrl || resultUrl === 'null' || resultUrl === 'undefined') {
+                  throw new Error(`Replicate: Output is ${typeof output} and cannot be converted to URL`);
+                }
+              } catch (convError) {
+                console.error(`❌ Cannot convert output to string:`, convError);
+                throw new Error(`Replicate: Unexpected output type: ${typeof output}. Expected string URL, array, or object with URL property.`);
+              }
             }
             
-            // Ensure resultUrl is always a string
-            if (resultUrl && typeof resultUrl !== 'string') {
+            // Ensure resultUrl is always a string and not empty
+            if (!resultUrl) {
+              console.error(`❌ resultUrl is empty after processing`);
+              console.error(`❌ Original output:`, JSON.stringify(output, null, 2));
+              throw new Error('Replicate: No valid image URL extracted from output');
+            }
+            
+            if (typeof resultUrl !== 'string') {
               resultUrl = String(resultUrl);
             }
+            
+            // Trim whitespace
+            resultUrl = resultUrl.trim();
             
             // Log final resultUrl for debugging
             console.log(`🔍 Final resultUrl:`, {
@@ -1492,32 +1509,40 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               type: typeof resultUrl,
               length: resultUrl ? resultUrl.length : 0,
               preview: resultUrl ? resultUrl.substring(0, 100) : 'N/A',
-              isDifferent: resultUrl !== imageUrl
+              isDifferent: resultUrl !== imageUrl,
+              isEmpty: resultUrl === ''
             });
 
-            if (resultUrl && typeof resultUrl === 'string' && resultUrl.trim() !== '' && resultUrl !== imageUrl) {
-              // Validate it's a valid URL or data URL
-              const isValidUrl = resultUrl.startsWith('http://') || 
-                               resultUrl.startsWith('https://') || 
-                               resultUrl.startsWith('data:');
-              
-              if (isValidUrl) {
-                console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
-                success = true;
-              } else {
-                console.error(`❌ Replicate Tool: Invalid URL format: ${resultUrl.substring(0, 100)}`);
-                throw new Error(`Replicate: Invalid image URL format in output: ${resultUrl.substring(0, 50)}...`);
-              }
-            } else {
-              console.error(`❌ Replicate Tool: No valid output URL received`);
+            // Validate resultUrl
+            if (!resultUrl || resultUrl === '' || resultUrl === 'null' || resultUrl === 'undefined') {
+              console.error(`❌ Replicate Tool: resultUrl is empty or invalid`);
               console.error(`❌ Output details:`, {
                 outputType: typeof output,
                 outputValue: output,
                 resultUrlType: typeof resultUrl,
                 resultUrlValue: resultUrl,
-                imageUrl: imageUrl.substring(0, 50) + '...'
+                imageUrl: imageUrl ? imageUrl.substring(0, 50) + '...' : 'N/A'
               });
-              throw new Error('Replicate: No valid image URL in output. Check Replicate API response format.');
+              throw new Error('Replicate: No valid image URL in output. The API returned an empty or invalid result.');
+            }
+            
+            if (resultUrl === imageUrl) {
+              console.warn(`⚠️ resultUrl is same as input imageUrl, this might indicate an error`);
+            }
+            
+            // Validate it's a valid URL or data URL
+            const isValidUrl = resultUrl.startsWith('http://') || 
+                             resultUrl.startsWith('https://') || 
+                             resultUrl.startsWith('data:');
+            
+            if (isValidUrl) {
+              console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
+              success = true;
+            } else {
+              console.error(`❌ Replicate Tool: Invalid URL format`);
+              console.error(`❌ resultUrl: ${resultUrl.substring(0, 200)}`);
+              console.error(`❌ Full output:`, JSON.stringify(output, null, 2));
+              throw new Error(`Replicate: Invalid image URL format in output. Expected http://, https://, or data: URL, but got: ${resultUrl.substring(0, 50)}...`);
             }
           } catch (replicateError) {
             console.error(`❌ Replicate SDK Error:`, replicateError);
