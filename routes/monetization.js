@@ -199,8 +199,10 @@ router.post('/popups', async (req, res) => {
       if (popupData.templateData.features) {
         popupData.templateData.features = popupData.templateData.features
           .map((feature) => ({
-            ...feature,
-            text: feature.text?.trim() || ''
+            text: feature.text?.trim() || '',
+            badgeType: feature.badgeType || 'unlimited', // Preserve badgeType, default to unlimited
+            isEnabled: feature.isEnabled !== false,
+            order: feature.order || 0
           }))
           .filter((feature) => feature.text && feature.isEnabled);
       }
@@ -398,8 +400,10 @@ router.put('/popups/:id', async (req, res) => {
       if (req.body.templateData.features !== undefined) {
         updateData.templateData.features = req.body.templateData.features
           .map((feature) => ({
-            ...feature,
-            text: feature.text?.trim() || ''
+            text: feature.text?.trim() || '',
+            badgeType: feature.badgeType || 'unlimited', // Preserve badgeType, default to unlimited
+            isEnabled: feature.isEnabled !== false,
+            order: feature.order || 0
           }))
           .filter((feature) => feature.text && feature.isEnabled);
       }
