@@ -1321,11 +1321,22 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         
         // Use the same Replicate instance pattern as in providers/replicate.js
         const Replicate = require("replicate");
+        
+        // Validate API key format
+        if (!apiKey || !apiKey.trim()) {
+          throw new Error('Replicate API key is not configured. Please set it in Admin Panel → Quick Tools → BG Remove → Replicate API Key');
+        }
+        
+        const trimmedKey = apiKey.trim();
+        if (!trimmedKey.startsWith('r8_')) {
+          console.warn(`⚠️ Replicate API key format may be incorrect. Expected format: r8_... (got: ${trimmedKey.substring(0, 5)}...)`);
+        }
+        
         const replicate = new Replicate({
-          auth: apiKey.trim()
+          auth: trimmedKey
         });
         
-        console.log(`🔑 Replicate API initialized (key length: ${apiKey.length})`);
+        console.log(`🔑 Replicate API initialized (key length: ${trimmedKey.length}, format: ${trimmedKey.startsWith('r8_') ? 'Valid' : 'Invalid'})`);
 
         // Map actions to Replicate models - use modelIdentifier from config if available, otherwise use defaults
         let modelIdentifier = tool.modelIdentifier || '';
