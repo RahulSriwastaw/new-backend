@@ -1324,6 +1324,17 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
     if (!apiKey && tool.provider === 'Replicate') {
       const activeModel = await AIModel.findOne({ provider: 'Replicate' }).select('+apiKey');
       apiKey = activeModel?.config?.apiKey || activeModel?.apiKey;
+      if (apiKey) {
+        console.log(`🔑 Using Replicate API key from AIModel config (fallback)`);
+      }
+    }
+    
+    // Final check: if provider is Replicate but no API key, throw error
+    if (tool.provider === 'Replicate' && !apiKey) {
+      console.error(`❌ Replicate tool '${tool.name}' requires API key but none is configured`);
+      return res.status(400).json({ 
+        error: `Replicate API key is not configured for '${tool.name}'. Please set it in Admin Panel → Quick Tools Configuration → ${tool.name} → Replicate API Key. The API key should start with 'r8_'.` 
+      });
     }
 
     // Replicate API for Quick Tools
