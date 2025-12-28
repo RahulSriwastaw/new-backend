@@ -1623,13 +1623,118 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             });
             
             // Handle all possible Replicate output formats
-            // lucataco/remove-bg typically returns a string URL directly
+            // lucataco/remove-bg typically returns a string URL directly, but may return ReadableStream
             if (output === null || output === undefined) {
               console.error(`❌ Replicate output is null or undefined`);
               throw new Error('Replicate: API returned null or undefined output');
             }
             
-            if (Array.isArray(output)) {
+            // Check if output is a ReadableStream (Node.js stream)
+            const isReadableStream = output && typeof output === 'object' && 
+              (output.constructor?.name === 'ReadableStream' || 
+               typeof output.read === 'function' || 
+               typeof output.pipe === 'function' ||
+               (output._readableState !== undefined));
+            
+            if (isReadableStream) {
+              console.log(`📦 Replicate returned ReadableStream - converting to buffer...`);
+              try {
+                // Convert ReadableStream to buffer
+                const chunks = [];
+                const reader = output.getReader ? output.getReader() : null;
+                
+                if (reader) {
+                  // Web ReadableStream API
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                  }
+                  const buffer = Buffer.concat(chunks);
+                  
+                  // Upload buffer to Cloudinary to get HTTP URL
+                  try {
+                    let cloudinary;
+                    try {
+                      cloudinary = require('cloudinary').v2;
+                    } catch (e) {
+                      cloudinary = global.cloudinary || require('cloudinary').v2;
+                    }
+                    
+                    cloudinary.config({
+                      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                      api_key: process.env.CLOUDINARY_API_KEY,
+                      api_secret: process.env.CLOUDINARY_API_SECRET
+                    });
+                    
+                    const uploadResult = await new Promise((resolve, reject) => {
+                      cloudinary.uploader.upload_stream(
+                        { resource_type: 'image', folder: 'tools-output', format: 'png' },
+                        (error, result) => {
+                          if (error) reject(error);
+                          else resolve(result);
+                        }
+                      ).end(buffer);
+                    });
+                    
+                    resultUrl = uploadResult.secure_url;
+                    console.log(`✅ ReadableStream converted and uploaded to Cloudinary: ${resultUrl.substring(0, 100)}...`);
+                  } catch (cloudinaryError) {
+                    console.error(`❌ Cloudinary upload failed for ReadableStream:`, cloudinaryError);
+                    // Fallback: convert buffer to data URL
+                    const base64 = buffer.toString('base64');
+                    resultUrl = `data:image/png;base64,${base64}`;
+                    console.log(`⚠️ Fallback: Converted ReadableStream to data URL (length: ${resultUrl.length})`);
+                  }
+                } else {
+                  // Node.js stream API
+                  const buffer = await new Promise((resolve, reject) => {
+                    const chunks = [];
+                    output.on('data', (chunk) => chunks.push(chunk));
+                    output.on('end', () => resolve(Buffer.concat(chunks)));
+                    output.on('error', reject);
+                  });
+                  
+                  // Upload to Cloudinary
+                  try {
+                    let cloudinary;
+                    try {
+                      cloudinary = require('cloudinary').v2;
+                    } catch (e) {
+                      cloudinary = global.cloudinary || require('cloudinary').v2;
+                    }
+                    
+                    cloudinary.config({
+                      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                      api_key: process.env.CLOUDINARY_API_KEY,
+                      api_secret: process.env.CLOUDINARY_API_SECRET
+                    });
+                    
+                    const uploadResult = await new Promise((resolve, reject) => {
+                      cloudinary.uploader.upload_stream(
+                        { resource_type: 'image', folder: 'tools-output', format: 'png' },
+                        (error, result) => {
+                          if (error) reject(error);
+                          else resolve(result);
+                        }
+                      ).end(buffer);
+                    });
+                    
+                    resultUrl = uploadResult.secure_url;
+                    console.log(`✅ Node.js stream converted and uploaded to Cloudinary: ${resultUrl.substring(0, 100)}...`);
+                  } catch (cloudinaryError) {
+                    console.error(`❌ Cloudinary upload failed for Node.js stream:`, cloudinaryError);
+                    // Fallback: convert buffer to data URL
+                    const base64 = buffer.toString('base64');
+                    resultUrl = `data:image/png;base64,${base64}`;
+                    console.log(`⚠️ Fallback: Converted Node.js stream to data URL (length: ${resultUrl.length})`);
+                  }
+                }
+              } catch (streamError) {
+                console.error(`❌ Failed to process ReadableStream:`, streamError);
+                throw new Error(`Replicate: Failed to process ReadableStream output. Error: ${streamError.message}`);
+              }
+            } else if (Array.isArray(output)) {
               // Array of URLs - take first one
               if (output.length > 0) {
                 resultUrl = String(output[0]);
