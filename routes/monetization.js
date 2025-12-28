@@ -317,7 +317,15 @@ router.put('/popups/:id', async (req, res) => {
     // Only update fields that are provided (not undefined)
     if (req.body.title !== undefined) updateData.title = req.body.title;
     if (req.body.description !== undefined) updateData.description = req.body.description;
-    if (req.body.image !== undefined && req.body.image !== '') updateData.image = req.body.image;
+    // Handle image update safely - only update if explicitly provided (not undefined)
+    // Allow null to clear image, but ignore empty strings
+    if (req.body.image !== undefined) {
+      if (req.body.image === null || req.body.image === '') {
+        updateData.image = null; // Explicitly clear image
+      } else {
+        updateData.image = req.body.image; // Set new image URL
+      }
+    }
     if (req.body.ctaText !== undefined) updateData.ctaText = req.body.ctaText;
     if (req.body.ctaAction !== undefined) updateData.ctaAction = req.body.ctaAction;
     if (req.body.ctaUrl !== undefined) updateData.ctaUrl = req.body.ctaUrl || '';
