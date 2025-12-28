@@ -357,6 +357,16 @@ router.put('/popups/:id', async (req, res) => {
         updateData.templateData = {};
       }
       updateData.templateData.leftImageUrl = req.body.templateImage; // Can be null to clear
+      console.log('🖼️ Setting templateImage (leftImageUrl):', req.body.templateImage);
+    }
+    
+    // Handle templateData.leftImageUrl directly if provided
+    if (req.body.templateData?.leftImageUrl !== undefined) {
+      if (!updateData.templateData) {
+        updateData.templateData = {};
+      }
+      updateData.templateData.leftImageUrl = req.body.templateData.leftImageUrl;
+      console.log('🖼️ Setting templateData.leftImageUrl directly:', req.body.templateData.leftImageUrl);
     }
     // For OFFER_SPLIT_IMAGE_RIGHT_CONTENT template, ignore legacy fields
     const isTemplatePopup = req.body.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT' || existingPopup.templateId === 'OFFER_SPLIT_IMAGE_RIGHT_CONTENT';
