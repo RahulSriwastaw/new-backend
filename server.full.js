@@ -1418,33 +1418,67 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               keys: output && typeof output === 'object' ? Object.keys(output) : 'N/A'
             });
             
-            if (Array.isArray(output) && output.length > 0) {
-              resultUrl = String(output[0]); // Ensure it's a string
+            // Handle all possible Replicate output formats
+            // lucataco/remove-bg typically returns a string URL directly
+            if (output === null || output === undefined) {
+              console.error(`❌ Replicate output is null or undefined`);
+              throw new Error('Replicate: API returned null or undefined output');
+            }
+            
+            if (Array.isArray(output)) {
+              // Array of URLs - take first one
+              if (output.length > 0) {
+                resultUrl = String(output[0]);
+                console.log(`✅ Extracted URL from array: ${resultUrl.substring(0, 50)}...`);
+              } else {
+                throw new Error('Replicate: Output array is empty');
+              }
             } else if (typeof output === 'string') {
+              // Direct string URL
               resultUrl = output;
-            } else if (output && typeof output === 'object') {
-              // Check for common output properties
+              console.log(`✅ Direct string URL received: ${resultUrl.substring(0, 50)}...`);
+            } else if (typeof output === 'object') {
+              // Object with various possible structures
+              console.log(`🔍 Processing object output, keys:`, Object.keys(output));
+              
+              // Try common property names
               if (output.url && typeof output.url === 'string') {
                 resultUrl = output.url;
-              } else if (output.output) {
+              } else if (output.output !== undefined) {
                 // Handle nested output
                 const outputValue = output.output;
                 if (Array.isArray(outputValue) && outputValue.length > 0) {
                   resultUrl = String(outputValue[0]);
                 } else if (typeof outputValue === 'string') {
                   resultUrl = outputValue;
+                } else if (outputValue && typeof outputValue === 'object' && outputValue.url) {
+                  resultUrl = outputValue.url;
                 }
               } else if (output.result && typeof output.result === 'string') {
                 resultUrl = output.result;
               } else if (output.image && typeof output.image === 'string') {
                 resultUrl = output.image;
+              } else if (output.file && typeof output.file === 'string') {
+                resultUrl = output.file;
               } else {
-                // Try to stringify the first value if it's an object
-                const firstKey = Object.keys(output)[0];
-                if (firstKey && output[firstKey]) {
-                  resultUrl = String(output[firstKey]);
+                // Try to find any string value in the object
+                for (const key of Object.keys(output)) {
+                  const value = output[key];
+                  if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('data:'))) {
+                    resultUrl = value;
+                    console.log(`✅ Found URL in key '${key}': ${resultUrl.substring(0, 50)}...`);
+                    break;
+                  } else if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+                    resultUrl = String(value[0]);
+                    console.log(`✅ Found URL in array at key '${key}': ${resultUrl.substring(0, 50)}...`);
+                    break;
+                  }
                 }
               }
+            } else {
+              // Unexpected type
+              console.error(`❌ Unexpected output type: ${typeof output}`);
+              throw new Error(`Replicate: Unexpected output type: ${typeof output}`);
             }
             
             // Ensure resultUrl is always a string
