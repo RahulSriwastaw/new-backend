@@ -1645,6 +1645,7 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
     }
 
     if (success) {
+      // Deduct points and create transaction
       if (cost > 0) {
         user.points -= cost;
         await user.save();
@@ -1657,6 +1658,30 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
           status: 'success'
         });
       }
+      
+      // Save processed image to generation history
+      try {
+        const generation = await Generation.create({
+          userId: user._id,
+          templateId: null, // Tools don't use templates
+          templateName: null,
+          prompt: `${tool.name} - ${action}`, // e.g., "BG Remove - remove-bg"
+          negativePrompt: '',
+          uploadedImages: [imageUrl], // Original image
+          generatedImage: resultUrl, // Processed image
+          quality: 'HD', // Default quality for tools
+          aspectRatio: '1:1', // Default aspect ratio
+          pointsSpent: cost,
+          status: 'completed',
+          modelUsed: tool.provider === 'Replicate' ? (tool.modelIdentifier || `${action} model`) : tool.provider || 'System',
+          modelProvider: tool.provider || 'System'
+        });
+        console.log(`✅ Tool result saved to history: ${generation._id}`);
+      } catch (historyError) {
+        console.error(`❌ Failed to save tool result to history:`, historyError);
+        // Continue even if history save fails - tool still worked
+      }
+      
       res.json({ 
         result: resultUrl, 
         imageUrl: resultUrl, // Also include imageUrl for backward compatibility
