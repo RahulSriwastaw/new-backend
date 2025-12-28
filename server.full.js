@@ -1335,43 +1335,63 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
         if (modelIdentifier) {
           console.log(`🔄 Replicate Tool: ${action} with model ${modelIdentifier}`);
           
-          // Handle data URLs - Replicate needs actual image URL or file
+          // Handle data URLs - Replicate SDK accepts data URLs directly
           let imageInput = imageUrl;
+          
+          // Ensure data URLs are properly formatted
           if (imageUrl.startsWith('data:')) {
-            // For data URLs, we need to upload to a temporary location or use directly
-            // Replicate SDK can handle data URLs for some models
             imageInput = imageUrl;
+            console.log(`📸 Using data URL (length: ${imageUrl.length})`);
+          } else if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+            // If it's not a URL, assume it's base64 and add data URL prefix
+            imageInput = `data:image/png;base64,${imageUrl}`;
+            console.log(`📸 Converted to data URL`);
           }
           
-          const output = await replicate.run(modelIdentifier, {
-            input: { image: imageInput }
-          });
+          console.log(`📤 Calling Replicate with model: ${modelIdentifier}`);
+          console.log(`📤 Image input type: ${imageInput.substring(0, 50)}...`);
+          
+          try {
+            const output = await replicate.run(modelIdentifier, {
+              input: { image: imageInput }
+            });
 
-          console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
+            console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
 
-          // Handle output - can be array or single URL
-          if (Array.isArray(output)) {
-            resultUrl = output[0];
-          } else if (typeof output === 'string') {
-            resultUrl = output;
-          } else if (output && output.url) {
-            resultUrl = output.url;
-          } else if (output && typeof output === 'object') {
-            // Some models return object with output property
-            const outputValue = output.output || output.result || output.image;
-            if (Array.isArray(outputValue)) {
-              resultUrl = outputValue[0];
-            } else if (typeof outputValue === 'string') {
-              resultUrl = outputValue;
+            // Handle output - can be array or single URL
+            if (Array.isArray(output)) {
+              resultUrl = output[0];
+            } else if (typeof output === 'string') {
+              resultUrl = output;
+            } else if (output && output.url) {
+              resultUrl = output.url;
+            } else if (output && typeof output === 'object') {
+              // Some models return object with output property
+              const outputValue = output.output || output.result || output.image;
+              if (Array.isArray(outputValue)) {
+                resultUrl = outputValue[0];
+              } else if (typeof outputValue === 'string') {
+                resultUrl = outputValue;
+              }
             }
-          }
 
-          if (resultUrl && resultUrl !== imageUrl) {
-            console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
-            success = true;
-          } else {
-            console.error(`❌ Replicate Tool: No valid output URL received`);
-            throw new Error('Replicate: No valid image URL in output');
+            if (resultUrl && resultUrl !== imageUrl) {
+              console.log(`✅ Replicate Tool Success: ${resultUrl.substring(0, 100)}...`);
+              success = true;
+            } else {
+              console.error(`❌ Replicate Tool: No valid output URL received`);
+              throw new Error('Replicate: No valid image URL in output');
+            }
+          } catch (replicateError) {
+            console.error(`❌ Replicate SDK Error:`, replicateError);
+            // Provide more detailed error message
+            if (replicateError.message) {
+              throw new Error(`Replicate API error: ${replicateError.message}`);
+            } else if (replicateError.status) {
+              throw new Error(`Replicate API error: HTTP ${replicateError.status} - ${replicateError.statusText || 'Unknown error'}`);
+            } else {
+              throw new Error(`Replicate API error: ${replicateError.toString()}`);
+            }
           }
         } else {
           throw new Error(`Replicate: No model configured for action: ${action}`);
