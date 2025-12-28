@@ -1376,8 +1376,25 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
             
             console.log(`📝 Input params keys:`, Object.keys(inputParams));
             
+            // Replicate SDK: replicate.run(model, { input: {...} })
+            // The SDK automatically handles prediction creation and polling
+            // Format: replicate.run('owner/model', { input: { param: value } })
+            console.log(`📞 Calling replicate.run('${modelIdentifier}', { input: { image: ... } })`);
+            
+            // Verify model identifier format
+            if (!modelIdentifier.includes('/')) {
+              throw new Error(`Invalid model identifier format: ${modelIdentifier}. Expected format: owner/model`);
+            }
+            
             const output = await replicate.run(modelIdentifier, {
               input: inputParams
+            });
+            
+            console.log(`📥 Replicate response received:`, {
+              type: typeof output,
+              isArray: Array.isArray(output),
+              hasUrl: output && typeof output === 'object' && output.url,
+              preview: typeof output === 'string' ? output.substring(0, 100) : 'N/A'
             });
 
             console.log(`📦 Replicate Tool Output:`, typeof output, Array.isArray(output) ? `Array[${output.length}]` : output);
