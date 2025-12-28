@@ -1391,9 +1391,18 @@ app.post('/api/tools/:action', authUser, async (req, res) => {
               throw new Error(`Invalid model identifier format: ${modelIdentifier}. Expected format: owner/model`);
             }
             
+            // Call Replicate API with explicit logging
+            console.log(`⏳ Calling Replicate API with model: ${modelIdentifier}`);
+            console.log(`⏳ Input image type: ${imageInput.startsWith('data:') ? 'Data URL' : 'HTTP URL'}, length: ${imageInput.length}`);
+            console.log(`⏳ This may take 30-60 seconds...`);
+            
+            const startTime = Date.now();
             const output = await replicate.run(modelIdentifier, {
               input: inputParams
             });
+            const duration = Date.now() - startTime;
+            
+            console.log(`✅ Replicate API call completed in ${duration}ms (${(duration/1000).toFixed(1)}s)`);
             
             // Log full output for debugging
             console.log(`📥 Replicate response received:`, {
