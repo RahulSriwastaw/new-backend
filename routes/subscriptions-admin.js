@@ -10,11 +10,20 @@ try {
   User = models.User;
   PaymentGateway = models.PaymentGateway;
   
+  console.log('Models loaded:', {
+    SubscriptionPlan: !!SubscriptionPlan,
+    UserSubscription: !!UserSubscription,
+    User: !!User,
+    PaymentGateway: !!PaymentGateway
+  });
+  
   if (!SubscriptionPlan || !UserSubscription || !User) {
     console.error('Required models not found in models.js');
+    console.error('Available models:', Object.keys(models));
   }
 } catch (error) {
   console.error('Error importing models:', error);
+  console.error('Error stack:', error.stack);
 }
 
 // Auth middleware helper
