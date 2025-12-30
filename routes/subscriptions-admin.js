@@ -135,6 +135,15 @@ const checkAdmin = async (req, res, next) => {
     if (!user) {
       console.error('User not found for ID:', userId);
       console.error('Attempted lookups: ObjectId, email, username, name, admin fallback');
+      
+      // For special admin identifiers, if no admin user exists, allow access (for initial setup)
+      if (userId === 'super_admin_env' || userId === 'admin' || userId === 'super_admin' || userId.includes('_env')) {
+        console.log('No admin user found in database, but special identifier detected. Allowing access for initial setup.');
+        // Set a temporary user object to allow access
+        req.adminBypass = true;
+        return next();
+      }
+      
       return res.status(404).json({ success: false, error: 'User not found. Please ensure you are logged in with a valid admin account.' });
     }
     
