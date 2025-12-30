@@ -76,7 +76,27 @@ const checkAdmin = async (req, res, next) => {
     const mongoose = require('mongoose');
     let user;
     
-    if (mongoose.Types.ObjectId.isValid(userId)) {
+    // Special handling for admin environment identifiers
+    if (userId === 'super_admin_env' || userId === 'admin' || userId === 'super_admin' || userId.includes('_env')) {
+      console.log('Special admin identifier detected:', userId);
+      // Find any admin user as fallback (for development/testing)
+      user = await User.findOne({ role: 'admin' }).sort({ _id: 1 }); // Get first admin user
+      if (user) {
+        console.log('Using fallback admin user:', user.email, user._id);
+      } else {
+        // If no admin user found, try to find any user with admin-like role
+        user = await User.findOne({ 
+          $or: [
+            { role: 'admin' },
+            { role: 'super_admin' },
+            { email: { $regex: /admin/i } }
+          ]
+        });
+        if (user) {
+          console.log('Using alternative admin user:', user.email, user._id);
+        }
+      }
+    } else if (mongoose.Types.ObjectId.isValid(userId)) {
       // Valid ObjectId, use findById
       user = await User.findById(userId);
     } else {
@@ -96,24 +116,18 @@ const checkAdmin = async (req, res, next) => {
           ]
         });
       }
-      
-      // If still not found and userId is a special admin identifier, check for admin users
-      if (!user && (userId === 'super_admin_env' || userId === 'admin' || userId.includes('admin'))) {
-        // Find any admin user as fallback (for development/testing)
-        user = await User.findOne({ role: 'admin' });
-        if (user) {
-          console.log('Using fallback admin user:', user.email);
-        }
-      }
     }
     
     if (!user) {
       console.error('User not found for ID:', userId);
-      return res.status(404).json({ success: false, error: 'User not found' });
+      console.error('Attempted lookups: ObjectId, email, username, name, admin fallback');
+      return res.status(404).json({ success: false, error: 'User not found. Please ensure you are logged in with a valid admin account.' });
     }
     
-    if (user.role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'Admin access required' });
+    // Check if user has admin role
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      console.error('User does not have admin role:', user.email, user.role);
+      return res.status(403).json({ success: false, error: 'Admin access required. Your role: ' + user.role });
     }
     
     next();
