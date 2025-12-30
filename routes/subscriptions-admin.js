@@ -1,0 +1,194 @@
+const express = require('express');
+const router = express.Router();
+const { SubscriptionPlan, UserSubscription, User } = require('../models');
+const { PaymentGateway } = require('../models');
+
+// Auth middleware helper
+const authUser = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025');
+    req.user = decoded.user || decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  }
+};
+
+// All admin routes require auth
+router.use(authUser);
+
+// Helper to check admin role
+const checkAdmin = async (req, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || req.user?._id;
+    const user = await User.findById(userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Failed to verify admin access' });
+  }
+};
+
+// GET /api/admin/subscriptions/plans - Get all subscription plans (admin)
+router.get('/plans', checkAdmin, async (req, res) => {
+  try {
+    const plans = await SubscriptionPlan.find().sort({ displayOrder: 1 }).lean();
+    
+    res.json({
+      success: true,
+      plans: plans.map(plan => ({
+        _id: plan._id.toString(),
+        name: plan.name,
+        slug: plan.slug,
+        tagline: plan.tagline,
+        tag: plan.tag,
+        tagColor: plan.tagColor,
+        pricing: plan.pricing,
+        features: plan.features,
+        displayOrder: plan.displayOrder,
+        isActive: plan.isActive,
+        createdAt: plan.createdAt,
+        updatedAt: plan.updatedAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching subscription plans (admin):', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch subscription plans' });
+  }
+});
+
+// POST /api/admin/subscriptions/plans - Create subscription plan
+router.post('/plans', checkAdmin, async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.create(req.body);
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Error creating subscription plan:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to create plan' });
+  }
+});
+
+// PUT /api/admin/subscriptions/plans/:id - Update subscription plan
+router.put('/plans/:id', checkAdmin, async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!plan) {
+      return res.status(404).json({ success: false, error: 'Plan not found' });
+    }
+
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Error updating subscription plan:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to update plan' });
+  }
+});
+
+// DELETE /api/admin/subscriptions/plans/:id - Delete subscription plan
+router.delete('/plans/:id', checkAdmin, async (req, res) => {
+  try {
+    await SubscriptionPlan.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting subscription plan:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete plan' });
+  }
+});
+
+// GET /api/admin/subscriptions - Get all user subscriptions
+router.get('/', checkAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = status && status !== 'all' ? { status } : {};
+    
+    const subscriptions = await UserSubscription.find(query)
+      .populate('userId', 'name email')
+      .populate('planId')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      subscriptions: subscriptions.map(sub => ({
+        _id: sub._id.toString(),
+        userId: sub.userId?._id?.toString(),
+        planId: sub.planId?._id?.toString(),
+        planName: sub.planName,
+        billingCycle: sub.billingCycle,
+        status: sub.status,
+        paymentGateway: sub.paymentGateway,
+        startDate: sub.startDate,
+        endDate: sub.endDate,
+        nextBillingDate: sub.nextBillingDate,
+        creditsAllocated: sub.creditsAllocated,
+        creditsUsed: sub.creditsUsed,
+        autoRenew: sub.autoRenew,
+        user: sub.userId ? {
+          name: sub.userId.name,
+          email: sub.userId.email
+        } : null
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching subscriptions (admin):', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch subscriptions' });
+  }
+});
+
+// POST /api/admin/subscriptions/:id/cancel - Cancel user subscription (admin)
+router.post('/:id/cancel', checkAdmin, async (req, res) => {
+  try {
+    const subscription = await UserSubscription.findById(req.params.id);
+    if (!subscription) {
+      return res.status(404).json({ success: false, error: 'Subscription not found' });
+    }
+
+    // Cancel with payment gateway
+    if (subscription.paymentGateway === 'razorpay' && subscription.subscriptionId) {
+      try {
+        const Razorpay = require('razorpay');
+        const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
+          .select('+secretKey')
+          .sort({ isActive: -1, _id: -1 });
+        
+        if (config && config.isActive) {
+          const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID || config.publicKey,
+            key_secret: process.env.RAZORPAY_KEY_SECRET || config.secretKey
+          });
+          
+          await razorpay.subscriptions.cancel(subscription.subscriptionId);
+        }
+      } catch (razorpayError) {
+        console.error('Error canceling Razorpay subscription:', razorpayError);
+      }
+    } else if (subscription.paymentGateway === 'stripe' && subscription.subscriptionId) {
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        await stripe.subscriptions.cancel(subscription.subscriptionId);
+      } catch (stripeError) {
+        console.error('Error canceling Stripe subscription:', stripeError);
+      }
+    }
+
+    subscription.status = 'cancelled';
+    subscription.cancelledAt = new Date();
+    subscription.autoRenew = false;
+    await subscription.save();
+
+    res.json({ success: true, message: 'Subscription cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling subscription (admin):', error);
+    res.status(500).json({ success: false, error: 'Failed to cancel subscription' });
+  }
+});
+
+module.exports = router;
+
