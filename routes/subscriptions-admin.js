@@ -1,7 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { SubscriptionPlan, UserSubscription, User } = require('../models');
-const { PaymentGateway } = require('../models');
+
+// Import models with error handling
+let SubscriptionPlan, UserSubscription, User, PaymentGateway;
+try {
+  const models = require('../models');
+  SubscriptionPlan = models.SubscriptionPlan;
+  UserSubscription = models.UserSubscription;
+  User = models.User;
+  PaymentGateway = models.PaymentGateway;
+  
+  if (!SubscriptionPlan || !UserSubscription || !User) {
+    console.error('Required models not found in models.js');
+  }
+} catch (error) {
+  console.error('Error importing models:', error);
+}
 
 // Auth middleware helper
 const authUser = async (req, res, next) => {
@@ -26,14 +40,28 @@ router.use(authUser);
 // Helper to check admin role
 const checkAdmin = async (req, res, next) => {
   try {
+    if (!User) {
+      console.error('User model is not defined');
+      return res.status(500).json({ success: false, error: 'User model not found' });
+    }
+    
     const userId = req.user?.id || req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User ID not found in token' });
+    }
+    
     const user = await User.findById(userId);
-    if (!user || user.role !== 'admin') {
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    if (user.role !== 'admin') {
       return res.status(403).json({ success: false, error: 'Admin access required' });
     }
     next();
   } catch (error) {
-    return res.status(500).json({ success: false, error: 'Failed to verify admin access' });
+    console.error('Error in checkAdmin:', error);
+    return res.status(500).json({ success: false, error: 'Failed to verify admin access: ' + error.message });
   }
 };
 
@@ -46,7 +74,9 @@ router.get('/plans', checkAdmin, async (req, res) => {
       return res.status(500).json({ success: false, error: 'SubscriptionPlan model not found' });
     }
     
+    console.log('Fetching subscription plans...');
     const plans = await SubscriptionPlan.find().sort({ displayOrder: 1 }).lean();
+    console.log(`Found ${plans.length} subscription plans`);
     
     res.json({
       success: true,
@@ -68,6 +98,8 @@ router.get('/plans', checkAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching subscription plans (admin):', error);
     console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to fetch subscription plans',
