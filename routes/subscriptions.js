@@ -311,7 +311,8 @@ router.post('/subscribe', authUser, async (req, res) => {
         key: process.env.RAZORPAY_KEY_ID || config.publicKey,
         keyId: process.env.RAZORPAY_KEY_ID || config.publicKey,
         amount: amountInPaise, // In paise
-        currency: 'INR'
+        currency: 'INR',
+        subscription: subscription._id.toString() // Also include as 'subscription' for compatibility
       });
       
     } else if (gateway === 'stripe') {
