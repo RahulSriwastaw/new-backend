@@ -83,26 +83,36 @@ async function allocateCredits(userId, credits, subscriptionId) {
 // GET /api/subscriptions/plans - Get all active subscription plans (PUBLIC - no auth required)
 router.get('/plans', async (req, res) => {
   try {
+    console.log('Public /plans route hit - fetching active subscription plans');
     const plans = await SubscriptionPlan.find({ isActive: true })
       .sort({ displayOrder: 1 })
       .lean();
     
+    console.log(`Found ${plans.length} active subscription plans`);
+    
+    const formattedPlans = plans.map(plan => ({
+      id: plan._id.toString(),
+      _id: plan._id.toString(),
+      name: plan.name,
+      slug: plan.slug,
+      tagline: plan.tagline,
+      tag: plan.tag,
+      tagColor: plan.tagColor,
+      pricing: plan.pricing,
+      features: plan.features,
+      displayOrder: plan.displayOrder,
+      isActive: plan.isActive !== undefined ? plan.isActive : true
+    }));
+    
+    console.log('Returning plans:', formattedPlans.length);
+    
     res.json({
       success: true,
-      plans: plans.map(plan => ({
-        id: plan._id.toString(),
-        name: plan.name,
-        slug: plan.slug,
-        tagline: plan.tagline,
-        tag: plan.tag,
-        tagColor: plan.tagColor,
-        pricing: plan.pricing,
-        features: plan.features,
-        displayOrder: plan.displayOrder
-      }))
+      plans: formattedPlans
     });
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ success: false, error: 'Failed to fetch subscription plans' });
   }
 });
