@@ -385,6 +385,91 @@ router.post('/subscribe', authUser, async (req, res) => {
   }
 });
 
+// POST /api/subscriptions/verify-payment - Verify Razorpay payment for subscription
+router.post('/verify-payment', authUser, async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+    
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, subscriptionId } = req.body;
+    
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !subscriptionId) {
+      return res.status(400).json({ success: false, error: 'Missing payment verification data' });
+    }
+    
+    // Verify signature
+    const crypto = require('crypto');
+    const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
+      .select('+secretKey')
+      .sort({ isActive: -1, _id: -1 });
+    
+    if (!config || !config.isActive) {
+      return res.status(400).json({ success: false, error: 'Razorpay gateway is not available' });
+    }
+    
+    const secret = process.env.RAZORPAY_KEY_SECRET || config.secretKey;
+    const text = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const generatedSignature = crypto.createHmac('sha256', secret).update(text).digest('hex');
+    
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({ success: false, error: 'Invalid payment signature' });
+    }
+    
+    // Get subscription
+    const subscription = await UserSubscription.findById(subscriptionId);
+    if (!subscription) {
+      return res.status(404).json({ success: false, error: 'Subscription not found' });
+    }
+    
+    if (subscription.userId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+    
+    // Get plan
+    const plan = await SubscriptionPlan.findById(subscription.planId);
+    if (!plan) {
+      return res.status(404).json({ success: false, error: 'Plan not found' });
+    }
+    
+    // Update subscription status
+    subscription.status = 'active';
+    subscription.paymentId = razorpay_payment_id;
+    await subscription.save();
+    
+    // Allocate credits
+    await allocateCredits(userId, plan.features.creditsPerMonth, subscription._id);
+    
+    // Record payment
+    await SubscriptionPayment.create({
+      userId: userId,
+      subscriptionId: subscription._id,
+      planId: plan._id,
+      amount: plan.pricing[subscription.billingCycle].price,
+      billingCycle: subscription.billingCycle,
+      paymentGateway: 'razorpay',
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      status: 'success',
+      paidAt: new Date()
+    });
+    
+    res.json({
+      success: true,
+      message: 'Payment verified and subscription activated',
+      subscription: {
+        id: subscription._id.toString(),
+        planName: plan.name,
+        credits: plan.features.creditsPerMonth
+      }
+    });
+  } catch (error) {
+    console.error('Error verifying subscription payment:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to verify payment' });
+  }
+});
+
 // POST /api/subscriptions/cancel - Cancel subscription
 router.post('/cancel', authUser, async (req, res) => {
   try {
