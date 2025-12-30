@@ -271,31 +271,47 @@ router.post('/subscribe', authUser, async (req, res) => {
         key_secret: process.env.RAZORPAY_KEY_SECRET || config.secretKey
       });
       
-      // Create Razorpay subscription
-      const razorpaySubscription = await razorpay.subscriptions.create({
-        plan_id: `plan_${plan.slug}_${billingCycle}`, // You'll need to create plans in Razorpay dashboard
-        customer_notify: 1,
-        total_count: billingCycle === 'monthly' ? 12 : billingCycle === 'quarterly' ? 4 : 1, // 12 months, 4 quarters, or 1 year
-        start_at: Math.floor(startDate.getTime() / 1000),
+      // For Razorpay, we'll use order-based payment for subscriptions
+      // Razorpay subscriptions require pre-created plans, so we'll handle recurring manually
+      // Create a Razorpay order for the first payment
+      const amountInPaise = Math.round(finalAmount * 100);
+      
+      console.log('Creating Razorpay order for subscription:', {
+        amount: amountInPaise,
+        subscriptionId: subscription._id.toString(),
+        planName: plan.name,
+        billingCycle: billingCycle
+      });
+      
+      const order = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt: `sub_${subscription._id.toString().slice(-12)}_${Date.now()}`,
         notes: {
           userId: userId.toString(),
           subscriptionId: subscription._id.toString(),
-          planName: plan.name
+          planId: plan._id.toString(),
+          planName: plan.name,
+          billingCycle: billingCycle,
+          type: 'subscription'
         }
       });
       
-      // Update subscription with Razorpay subscription ID
-      subscription.subscriptionId = razorpaySubscription.id;
+      console.log('Razorpay order created:', order.id);
+      
+      // Update subscription with order ID (will be used for payment verification)
+      subscription.paymentId = order.id;
       await subscription.save();
       
       res.json({
         success: true,
         subscriptionId: subscription._id.toString(),
-        razorpaySubscriptionId: razorpaySubscription.id,
+        orderId: order.id,
+        id: order.id,
         key: process.env.RAZORPAY_KEY_ID || config.publicKey,
-        amount: Math.round(finalAmount * 100), // Amount in paise
-        currency: 'INR',
-        orderId: razorpaySubscription.id
+        keyId: process.env.RAZORPAY_KEY_ID || config.publicKey,
+        amount: amountInPaise, // In paise
+        currency: 'INR'
       });
       
     } else if (gateway === 'stripe') {
