@@ -5780,6 +5780,11 @@ const monetizationRoutes = require('./routes/monetization');
 app.use('/api/monetization', monetizationRoutes); // Public routes (popups/active, offers/active, etc.)
 app.use('/api/admin/monetization', authUser, monetizationRoutes); // Admin routes (require auth)
 
+// Subscription routes
+const subscriptionRoutes = require('./routes/subscriptions');
+app.use('/api/subscriptions', subscriptionRoutes); // Public routes (plans) and auth routes
+app.use('/api/admin/subscriptions', authUser, subscriptionRoutes); // Admin routes (require auth)
+
 // Import and mount Top Banner routes
 const topBannerRoutes = require('./routes/topBanners');
 app.use('/api/banners/top', topBannerRoutes); // Public routes (active banner, tracking)

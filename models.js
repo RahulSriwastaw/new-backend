@@ -416,6 +416,103 @@ const generationRulesConfigSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// 23. Subscription Plan Schema
+const subscriptionPlanSchema = new mongoose.Schema({
+  name: { type: String, required: true }, // "Standard", "Ultimate", "Creator"
+  slug: { type: String, required: true, unique: true }, // "standard", "ultimate", "creator"
+  tagline: { type: String, required: true },
+  tag: { type: String }, // "MOST POPULAR", "SPECIAL OFFER", null
+  tagColor: { type: String }, // Background color for tag
+  
+  // Pricing for different billing cycles
+  pricing: {
+    monthly: {
+      price: { type: Number, required: true },
+      originalPrice: { type: Number }, // For strikethrough
+      discount: { type: Number, default: 0 } // Percentage discount
+    },
+    quarterly: {
+      price: { type: Number, required: true },
+      originalPrice: { type: Number },
+      discount: { type: Number, default: 0 }
+    },
+    yearly: {
+      price: { type: Number, required: true },
+      originalPrice: { type: Number },
+      discount: { type: Number, default: 0 }
+    }
+  },
+  
+  // Image Generation Features (based on image requirements)
+  features: {
+    creditsPerMonth: { type: Number, required: true }, // e.g., 8000, 16000, 100000
+    imageGenerationsPerMonth: { type: Number, required: true }, // Approximate: ~1.6k, ~3.2k, ~20k
+    concurrentImageGenerations: { type: Number, default: 1 }, // 8, 12, 16
+    concurrentVideoGenerations: { type: Number, default: 0 }, // 3, 4, 5 (for future)
+    allStylesAndModels: { type: Boolean, default: true },
+    commercialTerms: { type: String, default: 'General Commercial Terms' },
+    imageVisibility: { type: String, enum: ['Private', 'Public'], default: 'Private' },
+    prioritySupport: { type: Boolean, default: false },
+    queuePriority: { type: String, enum: ['Normal', 'High', 'Highest'], default: 'Normal' },
+    unlimitedRealtimeGenerations: { type: Boolean, default: false } // Only for Creator plan
+  },
+  
+  // Display order
+  displayOrder: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+// 24. User Subscription Schema
+const userSubscriptionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan', required: true },
+  planName: { type: String, required: true },
+  billingCycle: { type: String, enum: ['monthly', 'quarterly', 'yearly'], required: true },
+  status: { type: String, enum: ['active', 'cancelled', 'expired', 'pending'], default: 'pending' },
+  
+  // Payment details
+  paymentGateway: { type: String, enum: ['razorpay', 'stripe'], default: 'razorpay' },
+  subscriptionId: { type: String }, // Razorpay/Stripe subscription ID
+  paymentId: { type: String }, // Last payment ID
+  
+  // Dates
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  nextBillingDate: { type: Date },
+  cancelledAt: { type: Date },
+  
+  // Credits allocation
+  creditsAllocated: { type: Number, default: 0 },
+  creditsUsed: { type: Number, default: 0 },
+  lastCreditsAllocation: { type: Date },
+  
+  // Auto-renewal
+  autoRenew: { type: Boolean, default: true },
+  
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+userSubscriptionSchema.index({ userId: 1, status: 1 });
+userSubscriptionSchema.index({ nextBillingDate: 1 });
+
+// 25. Subscription Payment History Schema
+const subscriptionPaymentSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  subscriptionId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserSubscription', required: true },
+  planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan', required: true },
+  amount: { type: Number, required: true },
+  billingCycle: { type: String, required: true },
+  paymentGateway: { type: String, required: true },
+  paymentId: { type: String, required: true }, // Razorpay/Stripe payment ID
+  orderId: { type: String },
+  status: { type: String, enum: ['success', 'failed', 'pending'], default: 'pending' },
+  paidAt: { type: Date },
+  createdAt: { type: Date, default: Date.now }
+});
+subscriptionPaymentSchema.index({ userId: 1, createdAt: -1 });
+
 module.exports = {
   User: mongoose.model('User', userSchema),
   CreatorApplication: mongoose.model('CreatorApplication', creatorAppSchema),
@@ -454,5 +551,10 @@ module.exports = {
   Popup: require('./models-monetization').Popup,
   Offer: require('./models-monetization').Offer,
   PromoCode: require('./models-monetization').PromoCode,
-  AdLog: require('./models-monetization').AdLog
+  AdLog: require('./models-monetization').AdLog,
+  
+  // Subscription Models
+  SubscriptionPlan: mongoose.model('SubscriptionPlan', subscriptionPlanSchema),
+  UserSubscription: mongoose.model('UserSubscription', userSubscriptionSchema),
+  SubscriptionPayment: mongoose.model('SubscriptionPayment', subscriptionPaymentSchema)
 };
