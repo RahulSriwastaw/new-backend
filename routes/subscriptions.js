@@ -581,7 +581,7 @@ router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async 
 // ============================================
 
 // GET /api/admin/subscriptions/plans - Get all subscription plans (admin)
-router.get('/admin/subscriptions/plans', authUser, async (req, res) => {
+router.get('/plans', authUser, async (req, res) => {
   try {
     // Check admin role
     const userId = req.user?.id || req.user?.userId || req.user?._id;
@@ -616,7 +616,7 @@ router.get('/admin/subscriptions/plans', authUser, async (req, res) => {
 });
 
 // POST /api/admin/subscriptions/plans - Create subscription plan
-router.post('/admin/subscriptions/plans', authUser, async (req, res) => {
+router.post('/plans', authUser, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const user = await User.findById(userId);
@@ -633,7 +633,7 @@ router.post('/admin/subscriptions/plans', authUser, async (req, res) => {
 });
 
 // PUT /api/admin/subscriptions/plans/:id - Update subscription plan
-router.put('/admin/subscriptions/plans/:id', authUser, async (req, res) => {
+router.put('/plans/:id', authUser, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const user = await User.findById(userId);
@@ -654,7 +654,7 @@ router.put('/admin/subscriptions/plans/:id', authUser, async (req, res) => {
 });
 
 // DELETE /api/admin/subscriptions/plans/:id - Delete subscription plan
-router.delete('/admin/subscriptions/plans/:id', authUser, async (req, res) => {
+router.delete('/plans/:id', authUser, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const user = await User.findById(userId);
@@ -671,7 +671,7 @@ router.delete('/admin/subscriptions/plans/:id', authUser, async (req, res) => {
 });
 
 // GET /api/admin/subscriptions - Get all user subscriptions
-router.get('/admin/subscriptions', authUser, async (req, res) => {
+router.get('/', authUser, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const user = await User.findById(userId);
@@ -717,7 +717,7 @@ router.get('/admin/subscriptions', authUser, async (req, res) => {
 });
 
 // POST /api/admin/subscriptions/:id/cancel - Cancel user subscription (admin)
-router.post('/admin/subscriptions/:id/cancel', authUser, async (req, res) => {
+router.post('/:id/cancel', authUser, async (req, res) => {
   try {
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     const user = await User.findById(userId);
