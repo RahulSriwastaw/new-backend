@@ -52,12 +52,26 @@ router.get('/test', (req, res) => {
       UserSubscription: !!UserSubscription,
       User: !!User,
       PaymentGateway: !!PaymentGateway
-    }
+    },
+    message: 'Admin subscription routes are working'
   });
+});
+
+// Health check route (before auth)
+router.get('/health', (req, res) => {
+  res.json({ success: true, message: 'Admin subscription routes are accessible' });
 });
 
 // All admin routes require auth
 router.use(authUser);
+
+// Log route registration
+console.log('Admin subscription routes registered:', {
+  '/test': 'GET (no auth)',
+  '/health': 'GET (no auth)',
+  '/plans': 'GET (auth + admin)',
+  '/': 'GET (auth + admin)'
+});
 
 // Helper to check admin role
 const checkAdmin = async (req, res, next) => {
@@ -145,6 +159,8 @@ const checkAdmin = async (req, res, next) => {
 // GET /api/admin/subscriptions/plans - Get all subscription plans (admin)
 router.get('/plans', checkAdmin, async (req, res) => {
   try {
+    console.log('GET /plans route hit');
+    
     // Check if model exists
     if (!SubscriptionPlan) {
       console.error('SubscriptionPlan model is not defined');

@@ -5786,6 +5786,11 @@ const subscriptionAdminRoutes = require('./routes/subscriptions-admin');
 app.use('/api/subscriptions', subscriptionRoutes); // Public routes (plans) and auth routes
 app.use('/api/admin/subscriptions', subscriptionAdminRoutes); // Admin routes (require auth + admin check)
 
+// Log subscription routes
+console.log('Subscription routes mounted:');
+console.log('  - /api/subscriptions (public routes)');
+console.log('  - /api/admin/subscriptions (admin routes)');
+
 // Import and mount Top Banner routes
 const topBannerRoutes = require('./routes/topBanners');
 app.use('/api/banners/top', topBannerRoutes); // Public routes (active banner, tracking)
