@@ -176,13 +176,19 @@ router.post('/subscribe', authUser, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Plan ID is required' });
     }
     
-    // Check if user already has active subscription
-    const existingSubscription = await UserSubscription.findOne({ userId, status: 'active' });
+    // Check if user already has any subscription (due to unique userId constraint)
+    const existingSubscription = await UserSubscription.findOne({ userId });
     if (existingSubscription) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'You already have an active subscription. Please cancel it first.' 
-      });
+      // If active, require cancellation first
+      if (existingSubscription.status === 'active') {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'You already have an active subscription. Please cancel it first.' 
+        });
+      }
+      // If pending, cancelled, or expired, delete the old one and create a new one
+      console.log(`Deleting existing ${existingSubscription.status} subscription for user ${userId} to create new one`);
+      await UserSubscription.findByIdAndDelete(existingSubscription._id);
     }
     
     // Get plan
