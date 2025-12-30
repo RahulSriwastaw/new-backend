@@ -34,6 +34,19 @@ const authUser = async (req, res, next) => {
   }
 };
 
+// Test route to check model availability (before auth)
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    models: {
+      SubscriptionPlan: !!SubscriptionPlan,
+      UserSubscription: !!UserSubscription,
+      User: !!User,
+      PaymentGateway: !!PaymentGateway
+    }
+  });
+});
+
 // All admin routes require auth
 router.use(authUser);
 
