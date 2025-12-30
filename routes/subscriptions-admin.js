@@ -40,6 +40,12 @@ const checkAdmin = async (req, res, next) => {
 // GET /api/admin/subscriptions/plans - Get all subscription plans (admin)
 router.get('/plans', checkAdmin, async (req, res) => {
   try {
+    // Check if model exists
+    if (!SubscriptionPlan) {
+      console.error('SubscriptionPlan model is not defined');
+      return res.status(500).json({ success: false, error: 'SubscriptionPlan model not found' });
+    }
+    
     const plans = await SubscriptionPlan.find().sort({ displayOrder: 1 }).lean();
     
     res.json({
@@ -61,7 +67,12 @@ router.get('/plans', checkAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching subscription plans (admin):', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch subscription plans' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to fetch subscription plans',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

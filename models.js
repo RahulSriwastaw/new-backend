@@ -554,7 +554,7 @@ module.exports = {
   AdLog: require('./models-monetization').AdLog,
   
   // Subscription Models
-  SubscriptionPlan: mongoose.model('SubscriptionPlan', subscriptionPlanSchema),
-  UserSubscription: mongoose.model('UserSubscription', userSubscriptionSchema),
-  SubscriptionPayment: mongoose.model('SubscriptionPayment', subscriptionPaymentSchema)
+  SubscriptionPlan: mongoose.models.SubscriptionPlan || mongoose.model('SubscriptionPlan', subscriptionPlanSchema),
+  UserSubscription: mongoose.models.UserSubscription || mongoose.model('UserSubscription', userSubscriptionSchema),
+  SubscriptionPayment: mongoose.models.SubscriptionPayment || mongoose.model('SubscriptionPayment', subscriptionPaymentSchema)
 };
