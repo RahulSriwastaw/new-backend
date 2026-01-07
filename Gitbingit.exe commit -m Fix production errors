@@ -1,0 +1,5 @@
+[33m6f400d9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: Enhanced Gemini image extraction with multi-format support
+[33m4695524[m fix: Add safety settings and logging to Gemini provider
+[33ma30daea[m fix: Remove Gemini I2I blocking logic from server.full.js
+[33mcca50e6[m feat: Add Gemini I2I support + improved error handling
+[33m2798a31[m fix: improved Gemini API error handling to prevent toString() errors
