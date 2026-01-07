@@ -111,8 +111,17 @@ const checkAdmin = async (req, res, next) => {
         }
       }
     } else if (mongoose.Types.ObjectId.isValid(userId)) {
-      // Valid ObjectId, use findById
+      // Valid ObjectId, try User first, then Admin
       user = await User.findById(userId);
+
+      if (!user) {
+        // Check Admin collection if not found in User collection
+        const { Admin } = require('../models');
+        if (Admin) {
+          user = await Admin.findById(userId);
+          if (user) console.log('User found in Admin collection');
+        }
+      }
     } else {
       // Not a valid ObjectId, try to find by email or other identifier
       console.log('Invalid ObjectId format, trying alternative lookup for:', userId);
@@ -120,6 +129,10 @@ const checkAdmin = async (req, res, next) => {
       // Try to find by email if userId looks like an email
       if (userId.includes('@')) {
         user = await User.findOne({ email: userId });
+        if (!user) {
+          const { Admin } = require('../models');
+          if (Admin) user = await Admin.findOne({ email: userId });
+        }
       } else {
         // Try to find by username or other field
         user = await User.findOne({
