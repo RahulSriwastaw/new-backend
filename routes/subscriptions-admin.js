@@ -9,14 +9,14 @@ try {
   UserSubscription = models.UserSubscription;
   User = models.User;
   PaymentGateway = models.PaymentGateway;
-  
+
   console.log('Models loaded:', {
     SubscriptionPlan: !!SubscriptionPlan,
     UserSubscription: !!UserSubscription,
     User: !!User,
     PaymentGateway: !!PaymentGateway
   });
-  
+
   if (!SubscriptionPlan || !UserSubscription || !User) {
     console.error('Required models not found in models.js');
     console.error('Available models:', Object.keys(models));
@@ -33,7 +33,7 @@ const authUser = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ success: false, error: 'Authentication required' });
     }
-    
+
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'RupantarAI_Secure_Secret_2025');
     req.user = decoded.user || decoded;
@@ -80,16 +80,16 @@ const checkAdmin = async (req, res, next) => {
       console.error('User model is not defined');
       return res.status(500).json({ success: false, error: 'User model not found' });
     }
-    
+
     const userId = req.user?.id || req.user?.userId || req.user?._id;
     if (!userId) {
       return res.status(401).json({ success: false, error: 'User ID not found in token' });
     }
-    
+
     // Validate ObjectId format
     const mongoose = require('mongoose');
     let user;
-    
+
     // Special handling for admin environment identifiers
     if (userId === 'super_admin_env' || userId === 'admin' || userId === 'super_admin' || userId.includes('_env')) {
       console.log('Special admin identifier detected:', userId);
@@ -99,7 +99,7 @@ const checkAdmin = async (req, res, next) => {
         console.log('Using fallback admin user:', user.email, user._id);
       } else {
         // If no admin user found, try to find any user with admin-like role
-        user = await User.findOne({ 
+        user = await User.findOne({
           $or: [
             { role: 'admin' },
             { role: 'super_admin' },
@@ -116,13 +116,13 @@ const checkAdmin = async (req, res, next) => {
     } else {
       // Not a valid ObjectId, try to find by email or other identifier
       console.log('Invalid ObjectId format, trying alternative lookup for:', userId);
-      
+
       // Try to find by email if userId looks like an email
       if (userId.includes('@')) {
         user = await User.findOne({ email: userId });
       } else {
         // Try to find by username or other field
-        user = await User.findOne({ 
+        user = await User.findOne({
           $or: [
             { username: userId },
             { email: userId },
@@ -131,11 +131,11 @@ const checkAdmin = async (req, res, next) => {
         });
       }
     }
-    
+
     if (!user) {
       console.error('User not found for ID:', userId);
       console.error('Attempted lookups: ObjectId, email, username, name, admin fallback');
-      
+
       // For special admin identifiers, if no admin user exists, allow access (for initial setup)
       if (userId === 'super_admin_env' || userId === 'admin' || userId === 'super_admin' || userId.includes('_env')) {
         console.log('No admin user found in database, but special identifier detected. Allowing access for initial setup.');
@@ -143,16 +143,16 @@ const checkAdmin = async (req, res, next) => {
         req.adminBypass = true;
         return next();
       }
-      
-      return res.status(404).json({ success: false, error: 'User not found. Please ensure you are logged in with a valid admin account.' });
+
+      return res.status(401).json({ success: false, error: 'User not found. Session invalid, please login again.' });
     }
-    
+
     // Check if user has admin role
     if (user.role !== 'admin' && user.role !== 'super_admin') {
       console.error('User does not have admin role:', user.email, user.role);
       return res.status(403).json({ success: false, error: 'Admin access required. Your role: ' + user.role });
     }
-    
+
     next();
   } catch (error) {
     console.error('Error in checkAdmin:', error);
@@ -169,17 +169,17 @@ const checkAdmin = async (req, res, next) => {
 router.get('/plans', checkAdmin, async (req, res) => {
   try {
     console.log('GET /plans route hit');
-    
+
     // Check if model exists
     if (!SubscriptionPlan) {
       console.error('SubscriptionPlan model is not defined');
       return res.status(500).json({ success: false, error: 'SubscriptionPlan model not found' });
     }
-    
+
     console.log('Fetching subscription plans...');
     const plans = await SubscriptionPlan.find().sort({ displayOrder: 1 }).lean();
     console.log(`Found ${plans.length} subscription plans`);
-    
+
     res.json({
       success: true,
       plans: plans.map(plan => ({
@@ -202,8 +202,8 @@ router.get('/plans', checkAdmin, async (req, res) => {
     console.error('Error stack:', error.stack);
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: error.message || 'Failed to fetch subscription plans',
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -252,7 +252,7 @@ router.get('/', checkAdmin, async (req, res) => {
   try {
     const { status } = req.query;
     const query = status && status !== 'all' ? { status } : {};
-    
+
     const subscriptions = await UserSubscription.find(query)
       .populate('userId', 'name email')
       .populate('planId')
@@ -302,13 +302,13 @@ router.post('/:id/cancel', checkAdmin, async (req, res) => {
         const config = await PaymentGateway.findOne({ provider: { $regex: /^razorpay$/i } })
           .select('+secretKey')
           .sort({ isActive: -1, _id: -1 });
-        
+
         if (config && config.isActive) {
           const razorpay = new Razorpay({
             key_id: process.env.RAZORPAY_KEY_ID || config.publicKey,
             key_secret: process.env.RAZORPAY_KEY_SECRET || config.secretKey
           });
-          
+
           await razorpay.subscriptions.cancel(subscription.subscriptionId);
         }
       } catch (razorpayError) {
